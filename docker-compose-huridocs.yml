@@ -7,7 +7,6 @@ services:
       - "127.0.0.1:8888:8888"
     volumes:
       - .:/home/jovyan/alhazen
-      - ./nbs/cookbook:/home/jovyan/work
       - ~/.cache/huggingface:/home/jovyan/.cache/huggingface
       - $LOCAL_FILE_PATH:/home/jovyan/files
     environment:

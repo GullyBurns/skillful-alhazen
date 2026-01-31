@@ -3,29 +3,27 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "alzhazen"
+name = "skillful-alhazen"
 dynamic = ["version"]
 description = "A generative AI for scientific knowledge."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.11"
 authors = [
     { name = "GullyBurns", email = "gully.burns@chanzuckerberg.com" },
 ]
 keywords = [
-    "jupyter",
-    "nbdev",
-    "notebook",
-    "python",
+    "ai",
+    "scientific-knowledge",
+    "langchain",
+    "agents",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Natural Language :: English",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
     "altair==5.3.0",
@@ -43,7 +41,6 @@ dependencies = [
     "linkml==1.6.1",
     "lxml==4.9.4",
     "marimo==0.6.26",
-    "nbdev==2.3.12",
     "numpy==1.26.0",
     "nxml-2-txt@git+https://github.com/GullyBurns/nxml2txt",
     "owlready2==0.45",
@@ -66,15 +63,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = []
+dev = [
+    "pytest",
+    "pytest-cov",
+]
 
 [project.scripts]
 
-[project.entry-points.nbdev]
-alhazen = "alhazen._modidx:d"
-
 [project.urls]
-Homepage = "https://github.com/chanzuckerberg/alhazen"
+Homepage = "https://github.com/GullyBurns/skillful-alhazen"
 
 [template.licenses]
 headers = true
@@ -83,13 +80,17 @@ default = [
 ]
 
 [tool.hatch.version]
-path = "alhazen/__init__.py"
+path = "src/skillful_alhazen/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-include = ["/alhazen",]
+include = ["/src/skillful_alhazen"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["alhazen"]
+packages = ["src/skillful_alhazen"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
