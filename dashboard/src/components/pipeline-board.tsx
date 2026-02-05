@@ -15,6 +15,7 @@ import { MoreVertical, ExternalLink, MapPin, Building2, DollarSign, Eye } from '
 interface Position {
   id: string;
   title: string;
+  short_name: string | null;
   company: string;
   url: string;
   location: string;
@@ -72,8 +73,8 @@ function PositionCard({
                   title={`${position.priority} priority`}
                 />
               )}
-              <h4 className="font-medium text-sm line-clamp-[7] group-hover:text-primary transition-colors">
-                {position.title}
+              <h4 className="font-medium text-sm group-hover:text-primary transition-colors" title={position.title}>
+                {position.short_name || position.title}
               </h4>
             </div>
 

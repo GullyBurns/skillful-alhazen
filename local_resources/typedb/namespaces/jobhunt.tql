@@ -19,6 +19,7 @@ resource-url sub attribute, value string;
 linkedin-url sub attribute, value string;
 
 # Position attributes
+short-name sub attribute, value string;     # compact identifier for UI (e.g., "anthropic", "langchain")
 salary-range sub attribute, value string;
 location sub attribute, value string;
 remote-policy sub attribute, value string;  # remote/hybrid/onsite
@@ -87,6 +88,7 @@ jobhunt-company sub research-item,
 # JOBHUNT-POSITION - A specific role/job posting
 jobhunt-position sub research-item,
     owns job-url,
+    owns short-name,
     owns salary-range,
     owns location,
     owns remote-policy,

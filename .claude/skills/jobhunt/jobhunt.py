@@ -494,6 +494,51 @@ def cmd_update_status(args):
     )
 
 
+def cmd_set_short_name(args):
+    """Set short display name for a position."""
+    with get_driver() as driver:
+        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
+            # Check if position exists and if it already has a short-name
+            with session.transaction(TransactionType.READ) as tx:
+                check_query = f'''match
+                    $p isa jobhunt-position, has id "{args.position}";
+                fetch $p: short-name;'''
+                existing = list(tx.query.fetch(check_query))
+
+                if not existing:
+                    print(json.dumps({"success": False, "error": "Position not found"}))
+                    return
+
+                has_existing = bool(get_attr(existing[0]["p"], "short-name"))
+
+            if has_existing:
+                # Delete old short-name and add new one
+                with session.transaction(TransactionType.WRITE) as tx:
+                    delete_query = f'''match
+                        $p isa jobhunt-position, has id "{args.position}", has short-name $sn;
+                    delete $p has $sn;'''
+                    tx.query.delete(delete_query)
+                    tx.commit()
+
+            # Add new short-name
+            with session.transaction(TransactionType.WRITE) as tx:
+                insert_query = f'''match
+                    $p isa jobhunt-position, has id "{args.position}";
+                insert $p has short-name "{escape_string(args.name)}";'''
+                tx.query.insert(insert_query)
+                tx.commit()
+
+    print(
+        json.dumps(
+            {
+                "success": True,
+                "position_id": args.position,
+                "short_name": args.name,
+            }
+        )
+    )
+
+
 def cmd_add_note(args):
     """Create a note about any entity."""
     note_id = args.id or generate_id("note")
@@ -674,7 +719,7 @@ def cmd_list_pipeline(args):
                     query += f'\n                    $p has priority-level "{args.priority}";'
 
                 query += """
-                fetch $p: id, name, job-url, location, remote-policy, salary-range, priority-level;
+                fetch $p: id, name, short-name, job-url, location, remote-policy, salary-range, priority-level;
                     $n: application-status;"""
 
                 results = list(tx.query.fetch(query))
@@ -714,6 +759,7 @@ def cmd_list_pipeline(args):
         pos = {
             "id": get_attr(r["p"], "id"),
             "title": get_attr(r["p"], "name"),
+            "short_name": get_attr(r["p"], "short-name"),
             "url": get_attr(r["p"], "job-url"),
             "location": get_attr(r["p"], "location"),
             "remote_policy": get_attr(r["p"], "remote-policy"),
@@ -1350,6 +1396,11 @@ def main():
     )
     p.add_argument("--date", help="Date of status change (YYYY-MM-DD)")
 
+    # set-short-name
+    p = subparsers.add_parser("set-short-name", help="Set short display name for a position")
+    p.add_argument("--position", required=True, help="Position ID")
+    p.add_argument("--name", required=True, help="Short name (e.g., 'anthropic', 'langchain')")
+
     # add-note
     p = subparsers.add_parser("add-note", help="Create a note")
     p.add_argument("--about", required=True, help="Entity ID this note is about")
@@ -1495,6 +1546,7 @@ def main():
         "show-artifact": cmd_show_artifact,
         # Application tracking
         "update-status": cmd_update_status,
+        "set-short-name": cmd_set_short_name,
         "add-note": cmd_add_note,
         "add-resource": cmd_add_resource,
         "link-resource": cmd_link_resource,
