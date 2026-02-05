@@ -65,7 +65,7 @@ import json
 import os
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 try:
@@ -131,7 +131,7 @@ def get_attr(entity: dict, attr_name: str, default=None):
 
 def get_timestamp() -> str:
     """Get current timestamp for TypeDB."""
-    return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def parse_date(date_str: str) -> str:
@@ -447,7 +447,7 @@ def cmd_update_status(args):
 
             if existing:
                 # Update existing note - delete old and create new with updated status
-                old_note_id = existing[0]["n"]["id"]["value"]
+                old_note_id = existing[0]["n"]["id"][0]["value"]
 
                 # Delete old note
                 with session.transaction(TransactionType.WRITE) as tx:
@@ -787,7 +787,7 @@ def cmd_show_position(args):
         "notes": [n["n"] for n in notes_result],
         "requirements": [r["r"] for r in req_result],
         "job_description": artifact_result[0]["a"] if artifact_result else None,
-        "tags": [t["t"]["name"]["value"] for t in tags_result],
+        "tags": [t["t"]["name"][0]["value"] for t in tags_result],
     }
 
     print(json.dumps(output, indent=2, default=str))
