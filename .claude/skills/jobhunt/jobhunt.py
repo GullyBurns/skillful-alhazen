@@ -912,12 +912,12 @@ def cmd_learning_plan(args):
     resources = []
     for r in results:
         res = {
-            "id": r["res"].get("id", {}).get("value"),
-            "name": r["res"].get("name", {}).get("value"),
-            "type": r["res"].get("resource-type", {}).get("value"),
-            "url": r["res"].get("resource-url", {}).get("value"),
-            "hours": r["res"].get("estimated-hours", {}).get("value"),
-            "status": r["res"].get("completion-status", {}).get("value"),
+            "id": get_attr(r["res"], "id"),
+            "name": get_attr(r["res"], "name"),
+            "type": get_attr(r["res"], "resource-type"),
+            "url": get_attr(r["res"], "resource-url"),
+            "hours": get_attr(r["res"], "estimated-hours"),
+            "status": get_attr(r["res"], "completion-status"),
         }
         resources.append(res)
 
