@@ -8,13 +8,60 @@
 
 ## What is Alhazen?
 
-Alhazen is a **curation system** that helps researchers make sense of information—not just store it. It combines:
+Alhazen is a **curation system** that helps researchers make sense of information—not just store it. You interact with Claude through natural language, and Claude handles all the complexity of storing, querying, and reasoning over your knowledge graph.
 
-- **TypeDB** as an ontological knowledge graph for structured reasoning
-- **Claude Code** as the agentic architecture for reading, extracting, and synthesizing
-- **Skills** for domain-specific knowledge workflows (literature review, job hunting, etc.)
+The system combines:
+- **Claude Code** as the agentic interface—you talk to Claude, Claude does the work
+- **TypeDB** as the knowledge graph backend (you never touch it directly)
+- **Skills** for domain-specific workflows (literature review, job hunting, etc.)
 
 The system embodies Alhazen's philosophy: be an enemy of all you read. Don't passively collect—actively interrogate, extract meaning, and build understanding.
+
+## Quick Start
+
+### Prerequisites
+
+1. [Claude Code](https://claude.ai/code) installed and configured
+2. [Docker](https://www.docker.com/) for running TypeDB
+3. [uv](https://docs.astral.sh/uv/) for Python dependency management
+
+### Setup
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/gullyburns/skillful-alhazen
+cd skillful-alhazen
+
+# 2. Install dependencies
+curl -LsSf https://astral.sh/uv/install.sh | sh  # if needed
+uv sync --all-extras
+
+# 3. Start TypeDB
+docker compose -f docker-compose-typedb.yml up -d
+```
+
+### Using Alhazen
+
+Open Claude Code in this directory and start working. Claude will initialize the database if needed.
+
+**Example conversations:**
+
+```
+You: I found an interesting job posting at https://example.com/senior-ml-engineer
+Claude: [Uses /jobhunt to ingest and analyze the posting, extracts requirements,
+        compares to your profile, identifies skill gaps]
+
+You: Search for papers about CRISPR delivery mechanisms
+Claude: [Uses /epmc-search to find papers, shows results, offers to add to a collection]
+
+You: Remember that the Smith et al. paper claims lipid nanoparticles are most effective
+Claude: [Uses /typedb-notebook to store this finding with provenance]
+
+You: What skill gaps do I have across my top job prospects?
+Claude: [Queries the knowledge graph, synthesizes across positions, recommends learning priorities]
+```
+
+Claude handles all TypeDB operations behind the scenes. You just have a conversation.
 
 ## History & Origins
 
@@ -65,21 +112,25 @@ The system exists to help you **make sense** of material, not just store it. Eve
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Claude Code as Agentic Architecture
+### 2. Claude Code as the Interface
 
-Claude Code is the best available system for agentic data and code manipulation. Rather than building custom agent frameworks, we leverage Claude Code's:
+You interact through natural conversation. Claude:
+- Understands your intent
+- Chooses the right skill for the task
+- Handles all database operations
+- Synthesizes and reports back
 
-- **Tool use** for interacting with TypeDB, APIs, and files
-- **Skills** for domain-specific knowledge and workflows
-- **Conversation context** for iterative sensemaking
+You never write queries, call APIs, or manage data directly.
 
-### 3. Clear Separation: Scripts Ingest, Claude Thinks
+### 3. Clear Separation: Scripts Handle I/O, Claude Thinks
 
-**Scripts handle:**
+Behind the scenes, skills have two components:
+
+**Python scripts handle:**
 - Fetching from APIs (pagination, rate limits, bulk operations)
 - Storing raw artifacts with provenance
 - TypeDB transactions
-- Querying and returning data
+- Returning structured data
 
 **Claude handles:**
 - Reading and comprehending content
@@ -97,7 +148,7 @@ TypeDB provides a logic-driven knowledge graph where:
 - **Queries are logical** (pattern matching, inference rules)
 - **Provenance is preserved** (artifacts → fragments → notes chain)
 
-The schema isn't just storage—it's the conceptual vocabulary for reasoning about a domain.
+The schema isn't just storage—it's the conceptual vocabulary for reasoning about a domain. But you don't need to know TypeDB exists. Claude handles it.
 
 ### 5. Embrace the Bitter Lesson
 
@@ -138,41 +189,48 @@ During this confinement, Ibn al-Haytham produced his greatest works, including t
 - [ibnalhaytham.com](https://www.ibnalhaytham.com/)
 - [Britannica: Ibn al-Haytham](https://www.britannica.com/biography/Ibn-al-Haytham)
 
-## Quick Start
+## Available Skills
+
+### `/jobhunt` - Job Application Tracking
+
+Track job applications through a pipeline with sensemaking:
+- "Ingest this job posting: [URL]"
+- "What are my skill gaps for this position?"
+- "Show my application pipeline"
+- "What should I learn next?"
+
+### `/epmc-search` - Europe PMC Literature Search
+
+Search scientific literature and build reading lists:
+- "Search for papers about [topic]"
+- "How many papers match [query]?"
+- "Add these to my [collection name] collection"
+
+### `/typedb-notebook` - General Knowledge Operations
+
+Core operations for the knowledge graph:
+- "Remember that [finding] from [source]"
+- "What do I know about [topic]?"
+- "Organize my notes on [subject]"
+
+### `/domain-modeling` - Meta-Skill
+
+Design new domain skills following the curation pattern. Use this when you want to track a new type of information systematically.
+
+## Dashboard
+
+An interactive Next.js dashboard visualizes your knowledge graph:
 
 ```bash
-# 1. Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Clone and install dependencies
-git clone https://github.com/gullyburns/skillful-alhazen
-cd skillful-alhazen
-uv sync --all-extras
-
-# 3. Start TypeDB
-docker compose -f docker-compose-typedb.yml up -d
-
-# 4. Initialize database with schemas
-docker exec -i alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << 'EOF'
-database create alhazen_notebook
-transaction alhazen_notebook schema write
-source /schema/alhazen_notebook.tql
-commit
-transaction alhazen_notebook schema write
-source /schema/namespaces/scilit.tql
-commit
-transaction alhazen_notebook schema write
-source /schema/namespaces/jobhunt.tql
-commit
-EOF
-
-# 5. Use the skills (within Claude Code)
-/typedb-notebook remember "key finding from paper X"
-/jobhunt ingest-job --url "https://example.com/job"
-/epmc-search count --query "CRISPR gene editing"
+cd dashboard && npm install && npm run dev
 ```
 
-## Architecture Overview
+Features:
+- Pipeline Kanban for job applications
+- Skills matrix showing gaps across positions
+- Learning plan with progress tracking
+
+## Architecture (For Contributors)
 
 ### TypeDB Schema
 
@@ -184,101 +242,40 @@ The core schema (`local_resources/typedb/alhazen_notebook.tql`) defines five ent
 - **Fragment** - Extracted portion of an Artifact
 - **Note** - Claude's structured annotation about any entity
 
-Domain-specific extensions add specialized types:
-- `namespaces/scilit.tql` - Scientific literature (papers, authors, citations)
-- `namespaces/jobhunt.tql` - Job hunting (companies, positions, skills)
+Domain-specific extensions:
+- `namespaces/scilit.tql` - Scientific literature
+- `namespaces/jobhunt.tql` - Job hunting
 
-### Skills System
-
-Each skill provides domain-specific curation capabilities:
+### Skills Structure
 
 ```
 .claude/skills/
 ├── typedb-notebook/    # Core knowledge operations
-├── epmc-search/        # Europe PMC literature search
-├── jobhunt/            # Job application tracking
-└── domain-modeling/    # Meta-skill for creating new domains
+│   ├── SKILL.md        # Instructions for Claude
+│   └── *.py            # TypeDB transaction scripts
+├── epmc-search/        # Literature search
+├── jobhunt/            # Job tracking
+└── domain-modeling/    # Meta-skill for new domains
 ```
 
-Skills include:
-- `SKILL.md` - Instructions for Claude on how to use the skill
-- Python script - Handles TypeDB transactions and API calls
-
-### Dashboard
-
-Interactive Next.js dashboard for visualizing the knowledge graph:
+### Development Setup
 
 ```bash
-cd dashboard && npm install && npm run dev
-```
-
-## Current Skills
-
-### `/jobhunt` - Job Application Tracking
-
-Track job applications through a pipeline with sensemaking:
-- Ingest job postings from URLs
-- Extract requirements and responsibilities
-- Compare against your skill profile
-- Identify gaps and create learning plans
-
-### `/epmc-search` - Europe PMC Literature Search
-
-Search scientific literature and build reading lists:
-- Search by query terms
-- Count results before bulk ingestion
-- Store papers in collections
-
-### `/typedb-notebook` - General Knowledge Operations
-
-Core operations for the knowledge graph:
-- Remember facts and findings
-- Recall by concept or keyword
-- Organize into collections
-
-### `/domain-modeling` - Meta-Skill
-
-Design new domain skills following the curation pattern. Use this when you want to track a new type of information systematically.
-
-## Development
-
-### Environment Setup
-
-```bash
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
 # Install dependencies
 uv sync --all-extras
 
 # Start TypeDB
 docker compose -f docker-compose-typedb.yml up -d
-```
 
-### Running Tests
-
-```bash
+# Run tests
 uv run pytest tests/ -v
-```
-
-### CLI Usage
-
-```bash
-# TypeDB notebook operations
-uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "Test"
-
-# Literature search
-uv run python .claude/skills/epmc-search/epmc_search.py count --query "CRISPR"
-
-# Job hunting
-uv run python .claude/skills/jobhunt/jobhunt.py list-pipeline
 ```
 
 ### TypeDB Version
 
 Currently using TypeDB 2.x (2.25.0 server, 2.29.x driver). Migration to TypeDB 3.0 planned when Python drivers stabilize.
 
-Reference documentation: `local_resources/typedb/typedb-2x-documentation.md`
+Reference: `local_resources/typedb/typedb-2x-documentation.md`
 
 ## Caution & Caveats
 
