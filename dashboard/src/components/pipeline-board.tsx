@@ -72,7 +72,7 @@ function PositionCard({
                   title={`${position.priority} priority`}
                 />
               )}
-              <h4 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+              <h4 className="font-medium text-sm line-clamp-[7] group-hover:text-primary transition-colors">
                 {position.title}
               </h4>
             </div>
