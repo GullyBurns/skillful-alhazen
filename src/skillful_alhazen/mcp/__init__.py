@@ -10,6 +10,7 @@ Or for TypeDB only: pip install skillful-alhazen[typedb]
 
 try:
     from .typedb_client import TypeDBClient
+
     __all__ = ["TypeDBClient"]
 except ImportError:
     # typedb-driver not installed

@@ -37,20 +37,23 @@ import sys
 import uuid
 from datetime import datetime
 from time import sleep
-from typing import Any, Optional
 
 import requests
 from tqdm import tqdm
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 try:
-    from typedb.driver import TypeDB, SessionType, TransactionType
+    from typedb.driver import SessionType, TransactionType, TypeDB
+
     TYPEDB_AVAILABLE = True
 except ImportError:
     TYPEDB_AVAILABLE = False
-    print("Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=2.25.0,<3.0.0'", file=sys.stderr)
+    print(
+        "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=2.25.0,<3.0.0'",
+        file=sys.stderr,
+    )
 
 
 # Configuration
@@ -78,7 +81,7 @@ def escape_string(s: str) -> str:
     """Escape special characters for TypeQL."""
     if s is None:
         return ""
-    return s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '')
+    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
 
 
 def get_timestamp() -> str:
@@ -95,30 +98,46 @@ def map_publication_type(pub_types: list[str]) -> tuple[str, str]:
     """
     pub_types_lower = [t.lower() for t in pub_types]
 
-    if 'patent' in pub_types_lower:
+    if "patent" in pub_types_lower:
         return None, None  # Skip patents
-    elif 'clinical trial' in pub_types_lower:
-        return 'scilit-paper', 'ClinicalTrial'
-    elif any(t in pub_types_lower for t in ['review', 'systematic review', 'systematic-review', 'meta-analysis', 'review-article']):
-        return 'scilit-review', 'ScientificReviewArticle'
-    elif 'preprint' in pub_types_lower:
-        return 'scilit-preprint', 'ScientificPrimaryResearchPreprint'
-    elif any(t in pub_types_lower for t in ['journal article', 'research-article']):
-        return 'scilit-paper', 'ScientificPrimaryResearchArticle'
-    elif any(t in pub_types_lower for t in ['case-report', 'case reports']):
-        return 'scilit-paper', 'ClinicalCaseReport'
-    elif 'practice guideline' in pub_types_lower:
-        return 'scilit-paper', 'ClinicalGuidelines'
-    elif any(t in pub_types_lower for t in ['letter', 'comment', 'editorial']):
-        return 'scilit-paper', 'ScientificComment'
-    elif any(t in pub_types_lower for t in ['published erratum', 'correction', 'retraction of publication']):
-        return 'scilit-paper', 'ScientificErrata'
+    elif "clinical trial" in pub_types_lower:
+        return "scilit-paper", "ClinicalTrial"
+    elif any(
+        t in pub_types_lower
+        for t in [
+            "review",
+            "systematic review",
+            "systematic-review",
+            "meta-analysis",
+            "review-article",
+        ]
+    ):
+        return "scilit-review", "ScientificReviewArticle"
+    elif "preprint" in pub_types_lower:
+        return "scilit-preprint", "ScientificPrimaryResearchPreprint"
+    elif any(t in pub_types_lower for t in ["journal article", "research-article"]):
+        return "scilit-paper", "ScientificPrimaryResearchArticle"
+    elif any(t in pub_types_lower for t in ["case-report", "case reports"]):
+        return "scilit-paper", "ClinicalCaseReport"
+    elif "practice guideline" in pub_types_lower:
+        return "scilit-paper", "ClinicalGuidelines"
+    elif any(t in pub_types_lower for t in ["letter", "comment", "editorial"]):
+        return "scilit-paper", "ScientificComment"
+    elif any(
+        t in pub_types_lower
+        for t in ["published erratum", "correction", "retraction of publication"]
+    ):
+        return "scilit-paper", "ScientificErrata"
     else:
         return None, None  # Skip unknown types
 
 
-def run_epmc_query(query: str, page_size: int = DEFAULT_PAGE_SIZE,
-                   max_results: Optional[int] = None, timeout: int = REQUEST_TIMEOUT) -> tuple[int, list[dict]]:
+def run_epmc_query(
+    query: str,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    max_results: int | None = None,
+    timeout: int = REQUEST_TIMEOUT,
+) -> tuple[int, list[dict]]:
     """
     Execute a search query against Europe PMC API.
 
@@ -132,11 +151,11 @@ def run_epmc_query(query: str, page_size: int = DEFAULT_PAGE_SIZE,
         Tuple of (total_count, list of publication records)
     """
     params = {
-        'format': 'JSON',
-        'pageSize': page_size,
-        'synonym': 'TRUE',
-        'resultType': 'core',
-        'query': query
+        "format": "JSON",
+        "pageSize": page_size,
+        "synonym": "TRUE",
+        "resultType": "core",
+        "query": query,
     }
 
     # Initial request to get count
@@ -144,7 +163,7 @@ def run_epmc_query(query: str, page_size: int = DEFAULT_PAGE_SIZE,
     response.raise_for_status()
     data = response.json()
 
-    total_count = data['hitCount']
+    total_count = data["hitCount"]
     print(f"Found {total_count} results for query: {query}", file=sys.stderr)
 
     if total_count == 0:
@@ -154,19 +173,19 @@ def run_epmc_query(query: str, page_size: int = DEFAULT_PAGE_SIZE,
     fetch_count = min(total_count, max_results) if max_results else total_count
 
     publications = []
-    cursor_mark = '*'
+    cursor_mark = "*"
 
-    for i in tqdm(range(0, fetch_count, page_size), desc="Fetching", file=sys.stderr):
-        params['cursorMark'] = cursor_mark
+    for _i in tqdm(range(0, fetch_count, page_size), desc="Fetching", file=sys.stderr):
+        params["cursorMark"] = cursor_mark
 
         response = requests.get(EPMC_API_URL, params=params, timeout=timeout)
         response.raise_for_status()
         data = response.json()
 
-        if data.get('nextCursorMark'):
-            cursor_mark = data['nextCursorMark']
+        if data.get("nextCursorMark"):
+            cursor_mark = data["nextCursorMark"]
 
-        for record in data.get('resultList', {}).get('result', []):
+        for record in data.get("resultList", {}).get("result", []):
             if len(publications) >= fetch_count:
                 break
             publications.append(record)
@@ -177,7 +196,7 @@ def run_epmc_query(query: str, page_size: int = DEFAULT_PAGE_SIZE,
     return total_count, publications
 
 
-def parse_epmc_record(record: dict) -> Optional[dict]:
+def parse_epmc_record(record: dict) -> dict | None:
     """
     Parse an EPMC record into a structured format for TypeDB.
 
@@ -188,60 +207,60 @@ def parse_epmc_record(record: dict) -> Optional[dict]:
         Parsed record dict or None if should be skipped
     """
     # Get publication types
-    pub_types = record.get('pubTypeList', {}).get('pubType', [])
+    pub_types = record.get("pubTypeList", {}).get("pubType", [])
     typedb_type, pub_type_label = map_publication_type(pub_types)
 
     if typedb_type is None:
         return None
 
     # Must have DOI
-    doi = record.get('doi')
+    doi = record.get("doi")
     if not doi:
         return None
 
     # Parse date
-    date_format = '%Y-%m-%d'
+    date_format = "%Y-%m-%d"
     pub_date = None
-    if record.get('firstPublicationDate'):
+    if record.get("firstPublicationDate"):
         try:
-            pub_date = datetime.strptime(record['firstPublicationDate'], date_format)
+            pub_date = datetime.strptime(record["firstPublicationDate"], date_format)
         except ValueError:
             pass
-    elif record.get('dateOfCreation'):
+    elif record.get("dateOfCreation"):
         try:
-            pub_date = datetime.strptime(record['dateOfCreation'], date_format)
+            pub_date = datetime.strptime(record["dateOfCreation"], date_format)
         except ValueError:
             pass
 
     # Build author string for content field
-    author_string = record.get('authorString', '')
-    title = record.get('title', '')
-    year = pub_date.year if pub_date else ''
+    author_string = record.get("authorString", "")
+    title = record.get("title", "")
+    year = pub_date.year if pub_date else ""
     content = f"{author_string} ({year}) {title}" if author_string and year else title
 
     return {
-        'doi': doi,
-        'pmid': record.get('pmid'),
-        'pmcid': record.get('pmcid'),
-        'epmc_id': record.get('id'),
-        'source': record.get('source'),
-        'title': title,
-        'abstract': record.get('abstractText', ''),
-        'publication_date': pub_date,
-        'publication_year': pub_date.year if pub_date else None,
-        'journal_name': record.get('journalTitle'),
-        'journal_volume': record.get('journalVolume'),
-        'journal_issue': record.get('issue'),
-        'page_range': record.get('pageInfo'),
-        'typedb_type': typedb_type,
-        'pub_type_label': pub_type_label,
-        'content': content,
-        'keywords': record.get('keywordList', {}).get('keyword', []),
-        'pub_types': pub_types
+        "doi": doi,
+        "pmid": record.get("pmid"),
+        "pmcid": record.get("pmcid"),
+        "epmc_id": record.get("id"),
+        "source": record.get("source"),
+        "title": title,
+        "abstract": record.get("abstractText", ""),
+        "publication_date": pub_date,
+        "publication_year": pub_date.year if pub_date else None,
+        "journal_name": record.get("journalTitle"),
+        "journal_volume": record.get("journalVolume"),
+        "journal_issue": record.get("issue"),
+        "page_range": record.get("pageInfo"),
+        "typedb_type": typedb_type,
+        "pub_type_label": pub_type_label,
+        "content": content,
+        "keywords": record.get("keywordList", {}).get("keyword", []),
+        "pub_types": pub_types,
     }
 
 
-def insert_paper_to_typedb(driver, paper: dict, collection_id: Optional[str] = None) -> str:
+def insert_paper_to_typedb(driver, paper: dict, collection_id: str | None = None) -> str:
     """
     Insert a parsed paper record into TypeDB.
 
@@ -263,30 +282,30 @@ def insert_paper_to_typedb(driver, paper: dict, collection_id: Optional[str] = N
         has doi "{paper["doi"]}",
         has created-at {timestamp}'''
 
-    if paper.get('pmid'):
+    if paper.get("pmid"):
         query += f', has pmid "{paper["pmid"]}"'
-    if paper.get('pmcid'):
+    if paper.get("pmcid"):
         query += f', has pmcid "{paper["pmcid"]}"'
-    if paper.get('abstract'):
+    if paper.get("abstract"):
         query += f', has abstract-text "{escape_string(paper["abstract"])}"'
-    if paper.get('publication_year'):
-        query += f', has publication-year {paper["publication_year"]}'
-    if paper.get('journal_name'):
+    if paper.get("publication_year"):
+        query += f", has publication-year {paper['publication_year']}"
+    if paper.get("journal_name"):
         query += f', has journal-name "{escape_string(paper["journal_name"])}"'
-    if paper.get('journal_volume'):
+    if paper.get("journal_volume"):
         query += f', has journal-volume "{escape_string(paper["journal_volume"])}"'
-    if paper.get('journal_issue'):
+    if paper.get("journal_issue"):
         query += f', has journal-issue "{escape_string(paper["journal_issue"])}"'
-    if paper.get('page_range'):
+    if paper.get("page_range"):
         query += f', has page-range "{escape_string(paper["page_range"])}"'
-    if paper.get('content'):
+    if paper.get("content"):
         query += f', has content "{escape_string(paper["content"])}"'
 
     # Add keywords
-    for kw in paper.get('keywords', []):
+    for kw in paper.get("keywords", []):
         query += f', has keyword "{escape_string(kw)}"'
 
-    query += ';'
+    query += ";"
 
     with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
         # Check if paper already exists
@@ -324,7 +343,7 @@ def insert_paper_to_typedb(driver, paper: dict, collection_id: Optional[str] = N
             tx.commit()
 
         # Create title fragment
-        if paper.get('title'):
+        if paper.get("title"):
             title_frag_id = generate_id("fragment")
             title_frag_query = f'''insert $f isa scilit-section,
                 has id "{title_frag_id}",
@@ -347,9 +366,9 @@ def insert_paper_to_typedb(driver, paper: dict, collection_id: Optional[str] = N
                 tx.commit()
 
         # Create abstract fragment
-        if paper.get('abstract'):
+        if paper.get("abstract"):
             abs_frag_id = generate_id("fragment")
-            title_len = len(paper.get('title', '')) + 1
+            title_len = len(paper.get("title", "")) + 1
             abs_frag_query = f'''insert $f isa scilit-section,
                 has id "{abs_frag_id}",
                 has content "{escape_string(paper["abstract"])}",
@@ -382,9 +401,9 @@ def insert_paper_to_typedb(driver, paper: dict, collection_id: Optional[str] = N
                 tx.commit()
 
         # Tag with publication type
-        if paper.get('pub_type_label'):
+        if paper.get("pub_type_label"):
             tag_id = generate_id("tag")
-            tag_name = paper['pub_type_label']
+            tag_name = paper["pub_type_label"]
 
             # Check if tag exists
             with session.transaction(TransactionType.READ) as tx:
@@ -411,18 +430,20 @@ def cmd_search(args):
     """Execute search and store results."""
     # Run the EPMC query
     total_count, publications = run_epmc_query(
-        args.query,
-        page_size=args.page_size,
-        max_results=args.max_results
+        args.query, page_size=args.page_size, max_results=args.max_results
     )
 
     if not publications:
-        print(json.dumps({
-            "success": True,
-            "total_count": total_count,
-            "stored_count": 0,
-            "message": "No results found"
-        }))
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "total_count": total_count,
+                    "stored_count": 0,
+                    "message": "No results found",
+                }
+            )
+        )
         return
 
     # Create collection
@@ -461,35 +482,32 @@ def cmd_search(args):
             else:
                 skipped_count += 1
 
-    print(json.dumps({
-        "success": True,
-        "collection_id": collection_id,
-        "collection_name": collection_name,
-        "query": args.query,
-        "total_count": total_count,
-        "fetched_count": len(publications),
-        "stored_count": stored_count,
-        "skipped_count": skipped_count
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "success": True,
+                "collection_id": collection_id,
+                "collection_name": collection_name,
+                "query": args.query,
+                "total_count": total_count,
+                "fetched_count": len(publications),
+                "stored_count": stored_count,
+                "skipped_count": skipped_count,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_count(args):
     """Count results for a query without storing."""
-    params = {
-        'format': 'JSON',
-        'pageSize': 1,
-        'query': args.query
-    }
+    params = {"format": "JSON", "pageSize": 1, "query": args.query}
 
     response = requests.get(EPMC_API_URL, params=params, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     data = response.json()
 
-    print(json.dumps({
-        "success": True,
-        "query": args.query,
-        "count": data['hitCount']
-    }))
+    print(json.dumps({"success": True, "query": args.query, "count": data["hitCount"]}))
 
 
 def cmd_fetch_paper(args):
@@ -497,7 +515,7 @@ def cmd_fetch_paper(args):
     if args.doi:
         query = f'DOI:"{args.doi}"'
     elif args.pmid:
-        query = f'EXT_ID:{args.pmid}'
+        query = f"EXT_ID:{args.pmid}"
     else:
         print(json.dumps({"success": False, "error": "Must provide --doi or --pmid"}))
         return
@@ -505,30 +523,29 @@ def cmd_fetch_paper(args):
     _, publications = run_epmc_query(query, page_size=10, max_results=1)
 
     if not publications:
-        print(json.dumps({
-            "success": False,
-            "error": "Paper not found"
-        }))
+        print(json.dumps({"success": False, "error": "Paper not found"}))
         return
 
     paper = parse_epmc_record(publications[0])
     if not paper:
-        print(json.dumps({
-            "success": False,
-            "error": "Paper type not supported"
-        }))
+        print(json.dumps({"success": False, "error": "Paper type not supported"}))
         return
 
     with get_driver() as driver:
         paper_id = insert_paper_to_typedb(driver, paper, args.collection)
 
-    print(json.dumps({
-        "success": True,
-        "paper_id": paper_id,
-        "doi": paper['doi'],
-        "title": paper['title'],
-        "type": paper['pub_type_label']
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "success": True,
+                "paper_id": paper_id,
+                "doi": paper["doi"],
+                "title": paper["title"],
+                "type": paper["pub_type_label"],
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_list_collections(args):
@@ -536,15 +553,11 @@ def cmd_list_collections(args):
     with get_driver() as driver:
         with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
             with session.transaction(TransactionType.READ) as tx:
-                query = '''match $c isa collection, has logical-query $q;
-                    fetch $c: id, name, description, logical-query;'''
+                query = """match $c isa collection, has logical-query $q;
+                    fetch $c: id, name, description, logical-query;"""
                 results = list(tx.query.fetch(query))
 
-    print(json.dumps({
-        "success": True,
-        "collections": results,
-        "count": len(results)
-    }, indent=2))
+    print(json.dumps({"success": True, "collections": results, "count": len(results)}, indent=2))
 
 
 def main():
@@ -576,7 +589,7 @@ def main():
 
     args = parser.parse_args()
 
-    if not TYPEDB_AVAILABLE and args.command not in ['count', None]:
+    if not TYPEDB_AVAILABLE and args.command not in ["count", None]:
         print(json.dumps({"success": False, "error": "typedb-driver not installed"}))
         sys.exit(1)
 

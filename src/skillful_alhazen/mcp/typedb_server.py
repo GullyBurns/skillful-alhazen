@@ -15,12 +15,10 @@ Environment Variables:
 
 import json
 import os
-from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 
 from .typedb_client import TypeDBClient
-
 
 # Configuration from environment
 TYPEDB_HOST = os.getenv("TYPEDB_HOST", "localhost")
@@ -33,22 +31,17 @@ mcp = FastMCP("alhazen-typedb")
 
 def get_client() -> TypeDBClient:
     """Get a configured TypeDB client."""
-    return TypeDBClient(
-        host=TYPEDB_HOST,
-        port=TYPEDB_PORT,
-        database=TYPEDB_DATABASE
-    )
+    return TypeDBClient(host=TYPEDB_HOST, port=TYPEDB_PORT, database=TYPEDB_DATABASE)
 
 
 # -----------------------------------------------------------------------------
 # Tool Implementations
 # -----------------------------------------------------------------------------
 
+
 @mcp.tool()
 def insert_collection(
-    name: str,
-    description: Optional[str] = None,
-    logical_query: Optional[str] = None
+    name: str, description: str | None = None, logical_query: str | None = None
 ) -> str:
     """
     Create a new collection to organize research items.
@@ -65,15 +58,15 @@ def insert_collection(
     try:
         with get_client() as client:
             collection_id = client.insert_collection(
-                name=name,
-                description=description,
-                logical_query=logical_query
+                name=name, description=description, logical_query=logical_query
             )
-            return json.dumps({
-                "success": True,
-                "collection_id": collection_id,
-                "message": f"Created collection '{name}'"
-            })
+            return json.dumps(
+                {
+                    "success": True,
+                    "collection_id": collection_id,
+                    "message": f"Created collection '{name}'",
+                }
+            )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -82,9 +75,9 @@ def insert_collection(
 def insert_thing(
     name: str,
     thing_type: str = "research-item",
-    collection_id: Optional[str] = None,
-    abstract: Optional[str] = None,
-    source_uri: Optional[str] = None
+    collection_id: str | None = None,
+    abstract: str | None = None,
+    source_uri: str | None = None,
 ) -> str:
     """
     Add a new research item (paper, dataset, etc.) to the knowledge graph.
@@ -107,13 +100,11 @@ def insert_thing(
                 thing_type=thing_type,
                 collection_id=collection_id,
                 abstract=abstract,
-                source_uri=source_uri
+                source_uri=source_uri,
             )
-            return json.dumps({
-                "success": True,
-                "thing_id": thing_id,
-                "message": f"Created thing '{name}'"
-            })
+            return json.dumps(
+                {"success": True, "thing_id": thing_id, "message": f"Created thing '{name}'"}
+            )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -121,10 +112,10 @@ def insert_thing(
 @mcp.tool()
 def insert_artifact(
     thing_id: str,
-    content: Optional[str] = None,
-    format: Optional[str] = None,
-    source_uri: Optional[str] = None,
-    artifact_type: str = "artifact"
+    content: str | None = None,
+    format: str | None = None,
+    source_uri: str | None = None,
+    artifact_type: str = "artifact",
 ) -> str:
     """
     Add a specific representation (PDF, XML, citation record) of a Thing.
@@ -146,13 +137,11 @@ def insert_artifact(
                 content=content,
                 format=format,
                 source_uri=source_uri,
-                artifact_type=artifact_type
+                artifact_type=artifact_type,
             )
-            return json.dumps({
-                "success": True,
-                "artifact_id": artifact_id,
-                "message": "Created artifact"
-            })
+            return json.dumps(
+                {"success": True, "artifact_id": artifact_id, "message": "Created artifact"}
+            )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -161,10 +150,10 @@ def insert_artifact(
 def insert_fragment(
     artifact_id: str,
     content: str,
-    offset: Optional[int] = None,
-    length: Optional[int] = None,
-    section_type: Optional[str] = None,
-    fragment_type: str = "fragment"
+    offset: int | None = None,
+    length: int | None = None,
+    section_type: str | None = None,
+    fragment_type: str = "fragment",
 ) -> str:
     """
     Extract and store a fragment (section, paragraph, figure) from an artifact.
@@ -188,13 +177,11 @@ def insert_fragment(
                 offset=offset,
                 length=length,
                 section_type=section_type,
-                fragment_type=fragment_type
+                fragment_type=fragment_type,
             )
-            return json.dumps({
-                "success": True,
-                "fragment_id": fragment_id,
-                "message": "Created fragment"
-            })
+            return json.dumps(
+                {"success": True, "fragment_id": fragment_id, "message": "Created fragment"}
+            )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -203,10 +190,10 @@ def insert_fragment(
 def insert_note(
     subject_ids: list[str],
     content: str,
-    note_type: Optional[str] = None,
-    confidence: Optional[float] = None,
-    tags: Optional[list[str]] = None,
-    note_class: str = "note"
+    note_type: str | None = None,
+    confidence: float | None = None,
+    tags: list[str] | None = None,
+    note_class: str = "note",
 ) -> str:
     """
     Store a note about one or more entities.
@@ -232,13 +219,9 @@ def insert_note(
                 note_type=note_type,
                 confidence=confidence,
                 tags=tags,
-                note_class=note_class
+                note_class=note_class,
             )
-            return json.dumps({
-                "success": True,
-                "note_id": note_id,
-                "message": "Created note"
-            })
+            return json.dumps({"success": True, "note_id": note_id, "message": "Created note"})
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -261,12 +244,15 @@ def query_collection(collection_id: str) -> str:
                 return json.dumps({"success": False, "error": "Collection not found"})
 
             members = client.get_collection_members(collection_id)
-            return json.dumps({
-                "success": True,
-                "collection": collection,
-                "members": members,
-                "member_count": len(members)
-            }, indent=2)
+            return json.dumps(
+                {
+                    "success": True,
+                    "collection": collection,
+                    "members": members,
+                    "member_count": len(members),
+                },
+                indent=2,
+            )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -290,12 +276,9 @@ def query_thing(thing_id: str) -> str:
 
             artifacts = client.get_thing_artifacts(thing_id)
             notes = client.query_notes_about(thing_id)
-            return json.dumps({
-                "success": True,
-                "thing": thing,
-                "artifacts": artifacts,
-                "notes": notes
-            }, indent=2)
+            return json.dumps(
+                {"success": True, "thing": thing, "artifacts": artifacts, "notes": notes}, indent=2
+            )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -315,18 +298,21 @@ def query_notes_about(subject_id: str) -> str:
     try:
         with get_client() as client:
             notes = client.query_notes_about(subject_id)
-            return json.dumps({
-                "success": True,
-                "subject_id": subject_id,
-                "notes": notes,
-                "note_count": len(notes)
-            }, indent=2)
+            return json.dumps(
+                {
+                    "success": True,
+                    "subject_id": subject_id,
+                    "notes": notes,
+                    "note_count": len(notes),
+                },
+                indent=2,
+            )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
 
 @mcp.tool()
-def search_by_tag(tag_name: str, entity_type: Optional[str] = None) -> str:
+def search_by_tag(tag_name: str, entity_type: str | None = None) -> str:
     """
     Find all entities with a given tag.
 
@@ -339,16 +325,11 @@ def search_by_tag(tag_name: str, entity_type: Optional[str] = None) -> str:
     """
     try:
         with get_client() as client:
-            entities = client.search_by_tag(
-                tag_name=tag_name,
-                entity_type=entity_type
+            entities = client.search_by_tag(tag_name=tag_name, entity_type=entity_type)
+            return json.dumps(
+                {"success": True, "tag": tag_name, "entities": entities, "count": len(entities)},
+                indent=2,
             )
-            return json.dumps({
-                "success": True,
-                "tag": tag_name,
-                "entities": entities,
-                "count": len(entities)
-            }, indent=2)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -367,14 +348,8 @@ def tag_entity(entity_id: str, tag_name: str) -> str:
     """
     try:
         with get_client() as client:
-            client.tag_entity(
-                entity_id=entity_id,
-                tag_name=tag_name
-            )
-            return json.dumps({
-                "success": True,
-                "message": f"Tagged entity with '{tag_name}'"
-            })
+            client.tag_entity(entity_id=entity_id, tag_name=tag_name)
+            return json.dumps({"success": True, "message": f"Tagged entity with '{tag_name}'"})
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
@@ -393,11 +368,9 @@ def traverse_provenance(entity_id: str) -> str:
     try:
         with get_client() as client:
             provenance = client.traverse_provenance(entity_id)
-            return json.dumps({
-                "success": True,
-                "entity_id": entity_id,
-                "provenance_chain": provenance
-            }, indent=2)
+            return json.dumps(
+                {"success": True, "entity_id": entity_id, "provenance_chain": provenance}, indent=2
+            )
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)})
 
