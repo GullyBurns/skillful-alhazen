@@ -62,55 +62,27 @@ function PositionCard({
   onStatusChange: (positionId: string, newStatus: string) => void;
 }) {
   return (
-    <Card className="mb-3 hover:shadow-md transition-shadow group">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
+    <Card className="mb-1.5 hover:shadow-sm transition-shadow group">
+      <CardContent className="p-2">
+        <div className="flex items-center justify-between gap-1">
           <Link href={`/position/${position.id}`} className="flex-1 min-w-0 cursor-pointer">
-            <div className="flex items-center gap-2 mb-1">
-              {position.priority && (
+            <div className="flex items-center gap-1.5">
+              {position.priority === 'high' && (
                 <div
-                  className={`w-2 h-2 rounded-full ${PRIORITY_COLORS[position.priority] || 'bg-gray-400'}`}
+                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_COLORS[position.priority]}`}
                   title={`${position.priority} priority`}
                 />
               )}
-              <h4 className="font-medium text-sm group-hover:text-primary transition-colors" title={position.title}>
+              <span className="text-xs font-medium group-hover:text-primary transition-colors truncate" title={position.title}>
                 {position.short_name || position.title}
-              </h4>
+              </span>
             </div>
-
-            {position.company && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                <Building2 className="w-3 h-3" />
-                <span>{position.company}</span>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              {position.location && (
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  <span>{position.location}</span>
-                </div>
-              )}
-              {position.salary && (
-                <div className="flex items-center gap-1">
-                  <DollarSign className="w-3 h-3" />
-                  <span>{position.salary}</span>
-                </div>
-              )}
-            </div>
-
-            {position.remote_policy && (
-              <Badge variant="outline" className="mt-2 text-xs">
-                {position.remote_policy}
-              </Badge>
-            )}
           </Link>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-5 w-5 flex-shrink-0">
+                <MoreVertical className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
