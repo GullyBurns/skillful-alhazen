@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -9,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, ExternalLink, MapPin, Building2, DollarSign } from 'lucide-react';
+import { MoreVertical, ExternalLink, MapPin, Building2, DollarSign, Eye } from 'lucide-react';
 
 interface Position {
   id: string;
@@ -60,10 +61,10 @@ function PositionCard({
   onStatusChange: (positionId: string, newStatus: string) => void;
 }) {
   return (
-    <Card className="mb-3 hover:shadow-md transition-shadow">
+    <Card className="mb-3 hover:shadow-md transition-shadow group">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
+          <Link href={`/position/${position.id}`} className="flex-1 min-w-0 cursor-pointer">
             <div className="flex items-center gap-2 mb-1">
               {position.priority && (
                 <div
@@ -71,7 +72,9 @@ function PositionCard({
                   title={`${position.priority} priority`}
                 />
               )}
-              <h4 className="font-medium text-sm truncate">{position.title}</h4>
+              <h4 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                {position.title}
+              </h4>
             </div>
 
             {position.company && (
@@ -101,7 +104,7 @@ function PositionCard({
                 {position.remote_policy}
               </Badge>
             )}
-          </div>
+          </Link>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -110,6 +113,12 @@ function PositionCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/position/${position.id}`}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
               {position.url && (
                 <DropdownMenuItem asChild>
                   <a href={position.url} target="_blank" rel="noopener noreferrer">
