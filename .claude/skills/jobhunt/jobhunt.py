@@ -859,20 +859,20 @@ def cmd_show_gaps(args):
     # Aggregate skills
     skill_map = {}
     for r in results:
-        skill = r["r"].get("skill-name", {}).get("value")
+        skill = get_attr(r["r"], "skill-name")
         if not skill:
             continue
 
         if skill not in skill_map:
             skill_map[skill] = {
                 "skill": skill,
-                "level": r["r"].get("skill-level", {}).get("value"),
-                "your_level": r["r"].get("your-level", {}).get("value"),
+                "level": get_attr(r["r"], "skill-level"),
+                "your_level": get_attr(r["r"], "your-level"),
                 "positions": [],
             }
 
         skill_map[skill]["positions"].append(
-            {"id": r["p"].get("id", {}).get("value"), "title": r["p"].get("name", {}).get("value")}
+            {"id": get_attr(r["p"], "id"), "title": get_attr(r["p"], "name")}
         )
 
     # Filter to gaps (where your_level is not 'strong')
