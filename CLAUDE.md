@@ -1,12 +1,95 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-Skillful-Alhazen is an AI agent framework for scientific knowledge analysis, built on LangChain. It helps researchers build digital libraries from papers, webpages, and database records while providing AI-powered analysis and synthesis tools. Named after Ibn al-Haytham (965-1039 AD), an early pioneer of the scientific method.
+Skillful-Alhazen is a TypeDB-powered scientific knowledge notebook. It helps researchers build knowledge graphs from papers and notes using AI-powered analysis. Named after Ibn al-Haytham (965-1039 AD), an early pioneer of the scientific method.
 
 Forked from the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project.
+
+## Quick Start
+
+```bash
+# Start TypeDB
+docker compose -f docker-compose-typedb.yml up -d
+
+# Install with TypeDB support
+pip install -e ".[typedb]"
+
+# Use the skill
+/typedb-notebook remember "key finding from paper X"
+/typedb-notebook recall "paper X"
+```
+
+## Architecture
+
+### TypeDB Schema
+- `local_resources/typedb/alhazen_notebook.tql` - Core notebook schema
+- `local_resources/typedb/namespaces/scilit.tql` - Scientific literature extensions
+- `local_resources/typedb/agent-memory-typedb-schema.md` - Documentation
+
+### Alhazen's Notebook Model
+
+The data model uses five core entity types in TypeDB:
+- **Collection** - A named group of Things (papers, documents, etc.)
+- **Thing** - Any recorded item (typically a scientific publication)
+- **Artifact** - A specific representation of a Thing (e.g., PDF, JATS XML, citation record)
+- **Fragment** - A selected portion of an Artifact (section, paragraph, etc.)
+- **Note** - A structured annotation about any entity
+
+### MCP Server
+- `src/skillful_alhazen/mcp/typedb_client.py` - TypeDB client library
+- `src/skillful_alhazen/mcp/typedb_server.py` - FastMCP server
+
+### Skills
+
+Each skill includes a SKILL.md (documentation) and Python script:
+
+- **typedb-notebook** - Knowledge operations (remember, recall, organize)
+  - `.claude/skills/typedb-notebook/SKILL.md`
+  - `.claude/skills/typedb-notebook/typedb_notebook.py`
+
+- **epmc-search** - Europe PMC literature search
+  - `.claude/skills/epmc-search/SKILL.md`
+  - `.claude/skills/epmc-search/epmc_search.py`
+
+## Scripts and Token Efficiency
+
+**Philosophy:** Use scripts to minimize token usage. Scripts handle heavy lifting (pagination, bulk operations, API calls, TypeDB transactions) while Claude orchestrates at a higher level.
+
+**When to use scripts:**
+- Bulk operations (searching hundreds of papers)
+- Paginated API calls
+- Complex TypeDB transactions
+- Repetitive data transformations
+
+**When Claude can work directly:**
+- Single paper lookups
+- Simple queries
+- Orchestrating multiple script calls
+- Analyzing results returned by scripts
+
+**Writing new skills:** When integrating a new data source or API:
+1. Use WebFetch to read the API documentation
+2. Create a skill directory: `.claude/skills/<skill-name>/`
+3. Write a script following the pattern of existing scripts
+4. Create `SKILL.md` documenting the commands
+
+**Script conventions:**
+- Scripts output JSON to stdout for easy parsing
+- Progress/errors go to stderr
+- Use argparse with subcommands
+- Handle missing dependencies gracefully (check imports, warn user)
+- Include `--help` documentation
+
+Example: To add a new literature source like Semantic Scholar:
+```bash
+# 1. Read their API docs via WebFetch
+# 2. Create .claude/skills/semantic-scholar/
+# 3. Write semantic_scholar.py following epmc_search.py pattern
+# 4. Create SKILL.md documenting commands
+```
 
 ## Development Commands
 
@@ -14,105 +97,61 @@ Forked from the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project
 ```bash
 conda create -n alhazen python=3.11
 conda activate alhazen
-pip install -e .
+pip install -e ".[typedb,dev]"
 ```
 
-**Docker (preferred):**
+**Start TypeDB:**
 ```bash
-docker compose build
-docker compose up
+docker compose -f docker-compose-typedb.yml up -d
 ```
 
-**With Huridocs PDF extraction:**
+**Full stack with MCP server:**
 ```bash
-docker compose -f docker-compose-huridocs.yml up
+docker compose -f docker-compose-typedb-mcp.yml up -d
 ```
 
 **Running tests:**
 ```bash
-pytest
-pytest tests/test_specific.py -v  # single test file
+pytest tests/test_typedb_client.py -v
 ```
 
-**Running Marimo dashboards:**
+**CLI usage:**
 ```bash
-marimo run marimo/002_corpora_map.py
-marimo run marimo/001_chat.py
+python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "Test"
+python .claude/skills/epmc-search/epmc_search.py count --query "CRISPR"
 ```
-
-**Running the chat application:**
-```bash
-python -m alhazen.apps.chat --loc <path> --db_name <database_name>
-```
-
-## Architecture
-
-### Core Components
-
-- **Agent System** (`src/skillful_alhazen/agent.py`): `AlhazenAgent` class using LangChain's agent executor with custom JSON parsing fixes
-- **Database Layer** (`src/skillful_alhazen/utils/ceifns_db.py`, `src/skillful_alhazen/schema_sqla.py`): CEIFNS model (Collection-Expression-Item-Fragment-Note-Summary) using PostgreSQL with pgvector
-- **Toolkit System** (`src/skillful_alhazen/toolkit.py`): Manages tools including `AlhazenToolkit` and `MetadataExtractionToolkit`
-- **Core Module** (`src/skillful_alhazen/core.py`): Prompt templates, LLM factory functions, `OllamaRunner` for local models
-
-### Tools (`src/skillful_alhazen/tools/`)
-
-- `basic.py` - Core tool implementations
-- `metadata_extraction_tool.py` - Structured data extraction from papers
-- `paperqa_emulation_tool.py` - Paper Q&A functionality
-- `protocol_extraction_tool.py` - Experimental protocol extraction
-- `tiab_*.py` - Title/Abstract analysis tools (extraction, classification, mapping)
-
-### Utilities (`src/skillful_alhazen/utils/`)
-
-- `ceifns_db.py` - Database ORM for the CEIFNS document model
-- `searchEngineUtils.py` - Search and query tools
-- `jats_text_extractor.py` - XML/JATS article parsing
-- `pdf_research_article_text_extractor.py` - PDF processing
-- `web_robot.py` - Web scraping with Selenium/Splinter
-
-## Key Dependencies
-
-- **LLM Integration**: langchain, langchain-openai, langchain-groq, langchain-google-vertexai
-- **Database**: sqlalchemy, psycopg2-binary, pgvector
-- **Document Processing**: pymupdf, trafilatura, beautifulsoup4, lxml
-- **Ontologies**: owlready2, linkml
-- **Web Automation**: selenium, splinter
 
 ## Environment Variables
 
-**Required:**
-- `LOCAL_FILE_PATH` - Directory for storing full-text files
-
-**Optional (for LLM providers):**
-- `OPENAI_API_KEY`
-- `GROQ_API_KEY`
-- `DATABRICKS_API_KEY`
-- `VERTEXAI_PROJECT_NAME`
-- `NCBI_API_KEY`
-
-## Infrastructure Requirements
-
-- PostgreSQL 14 with pgvector extension
-- Optional: Huridocs Docker container for advanced PDF extraction
-- For local LLMs via Ollama: Apple Mac with 48GB+ memory recommended
+**TypeDB:**
+- `TYPEDB_HOST` - TypeDB server host (default: localhost)
+- `TYPEDB_PORT` - TypeDB server port (default: 1729)
+- `TYPEDB_DATABASE` - Database name (default: alhazen_notebook)
 
 ## Directory Structure
 
 ```
-src/skillful_alhazen/   # Main package (import as skillful_alhazen)
-├── agent.py            # Agent orchestration
-├── core.py             # Prompt templates, LLM configs
-├── toolkit.py          # Tool collection management
-├── schema_sqla.py      # SQLAlchemy ORM models
-├── schema_python.py    # Pydantic data models
-├── tools/              # Tool implementations
-└── utils/              # Utility modules
+src/skillful_alhazen/   # Main package
+├── __init__.py         # Package version
+├── mcp/                # MCP server and TypeDB client
+│   ├── typedb_client.py
+│   └── typedb_server.py
+└── utils/              # Utility modules (placeholder)
 
-scripts/                # Standalone scripts
 tests/                  # Test files
-marimo/                 # Interactive dashboards
 local_resources/
-├── prompts/            # YAML prompt templates
-└── linkml/             # LinkML schemas
-archive/                # Archived nbdev notebooks (historical reference)
+└── typedb/             # TypeDB schemas
+
+.claude/
+└── skills/             # Claude Code skills (each with SKILL.md + script)
+    ├── typedb-notebook/
+    │   ├── SKILL.md
+    │   └── typedb_notebook.py
+    └── epmc-search/
+        ├── SKILL.md
+        └── epmc_search.py
 ```
+
+## Team Conventions
+
+When Claude makes a mistake, add it to this section so it doesn't happen again.

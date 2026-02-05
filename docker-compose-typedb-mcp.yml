@@ -1,0 +1,90 @@
+# Docker Compose for full TypeDB + MCP Server stack
+# Usage: docker compose -f docker-compose-typedb-mcp.yml up -d
+#
+# This provides:
+# - TypeDB server for knowledge graph storage
+# - MCP server exposing TypeDB operations to Claude/agents
+#
+# After starting, configure your Claude Code or agent to connect to
+# the MCP server at localhost:3000
+
+services:
+  typedb:
+    image: vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: alhazen-typedb
+    ports:
+      - "1729:1729"
+    volumes:
+      - typedb-data:/opt/typedb-all-linux-x86_64/server/data
+      - ./local_resources/typedb:/schema:ro
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'database list' | /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - alhazen-network
+
+  typedb-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: alhazen-mcp
+    depends_on:
+      typedb:
+        condition: service_healthy
+    environment:
+      - TYPEDB_HOST=typedb
+      - TYPEDB_PORT=1729
+      - TYPEDB_DATABASE=alhazen
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - alhazen-network
+    command: python -m skillful_alhazen.mcp.typedb_server
+
+  # Schema loader - runs once to initialize the database
+  typedb-init:
+    image: vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: alhazen-typedb-init
+    depends_on:
+      typedb:
+        condition: service_healthy
+    volumes:
+      - ./local_resources/typedb:/schema:ro
+      - ./scripts:/scripts:ro
+    networks:
+      - alhazen-network
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Waiting for TypeDB to be ready..."
+        sleep 5
+
+        echo "Creating database if not exists..."
+        echo "database create alhazen" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729 2>/dev/null || true
+
+        echo "Loading main schema..."
+        echo "transaction alhazen schema write
+        source /schema/alhazen_notebook.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading scientific literature namespace..."
+        echo "transaction alhazen schema write
+        source /schema/namespaces/scilit.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Schema initialization complete!"
+
+volumes:
+  typedb-data:
+    driver: local
+
+networks:
+  alhazen-network:
+    driver: bridge

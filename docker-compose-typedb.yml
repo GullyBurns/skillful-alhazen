@@ -1,0 +1,24 @@
+# Docker Compose for TypeDB server (schema testing and development)
+# Usage: docker compose -f docker-compose-typedb.yml up -d
+
+services:
+  typedb:
+    image: vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: alhazen-typedb
+    ports:
+      - "1729:1729"
+    volumes:
+      - typedb-data:/opt/typedb-all-linux-x86_64/server/data
+      - ./local_resources/typedb:/schema:ro
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'database list' | /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  typedb-data:
+    driver: local

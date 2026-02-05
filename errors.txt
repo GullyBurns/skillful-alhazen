@@ -1,0 +1,687 @@
+
+[TQL03] TypeQL Error: There is a syntax error at line 25:
+attribute id, value string;
+          ^
+mismatched input 'id' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 26:
+attribute name, value string;
+          ^
+mismatched input 'name' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 27:
+attribute description, value string;
+          ^
+mismatched input 'description' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 28:
+attribute iri, value string;           # External identifier (URI/IRI)
+          ^
+mismatched input 'iri' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 32:
+attribute content, value string;        # The actual content/text
+          ^
+mismatched input 'content' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 33:
+attribute content-hash, value string;   # For deduplication
+          ^
+mismatched input 'content-hash' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 34:
+attribute format, value string;         # MIME type or format identifier
+          ^
+mismatched input 'format' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 35:
+attribute token-count, value long;      # For LLM context management
+          ^
+mismatched input 'token-count' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 38:
+attribute created-at, value datetime;
+          ^
+mismatched input 'created-at' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 39:
+attribute updated-at, value datetime;
+          ^
+mismatched input 'updated-at' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 40:
+attribute publication-date, value datetime;  # When a Thing was published
+          ^
+mismatched input 'publication-date' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 41:
+attribute valid-from, value datetime;   # Temporal validity start
+          ^
+mismatched input 'valid-from' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 42:
+attribute valid-until, value datetime;  # Temporal validity end
+          ^
+mismatched input 'valid-until' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 45:
+attribute provenance, value string;     # How this was created/obtained
+          ^
+mismatched input 'provenance' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 46:
+attribute source-uri, value string;     # Original source location
+          ^
+mismatched input 'source-uri' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 47:
+attribute confidence, value double;     # Epistemic confidence (0.0-1.0)
+          ^
+mismatched input 'confidence' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 48:
+attribute license, value string;        # License under which content is provided
+          ^
+mismatched input 'license' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 51:
+attribute offset, value long;           # Start position in parent
+          ^
+mismatched input 'offset' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 52:
+attribute length, value long;           # Length of fragment
+          ^
+mismatched input 'length' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 55:
+attribute logical-query, value string;  # Intensional definition
+          ^
+mismatched input 'logical-query' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 56:
+attribute is-extensional, value boolean; # Whether membership is enumerated
+          ^
+mismatched input 'is-extensional' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 59:
+attribute schema-org-uri, value string;    # e.g., "https://schema.org/Person"
+          ^
+mismatched input 'schema-org-uri' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 60:
+attribute wikidata-qid, value string;      # e.g., "Q5" for human
+          ^
+mismatched input 'wikidata-qid' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 61:
+attribute vocabulary-source, value string; # Which vocabulary this comes from
+          ^
+mismatched input 'vocabulary-source' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 64:
+attribute agent-id, value string;          # ID of agent that performed operation
+          ^
+mismatched input 'agent-id' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 65:
+attribute agent-type, value string;        # Type: "human", "llm", "automated"
+          ^
+mismatched input 'agent-type' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 66:
+attribute model-name, value string;        # LLM model name if applicable
+          ^
+mismatched input 'model-name' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 67:
+attribute operation-type, value string;    # Type of operation performed
+          ^
+mismatched input 'operation-type' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 68:
+attribute operation-timestamp, value datetime;
+          ^
+mismatched input 'operation-timestamp' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 69:
+attribute operation-parameters, value string; # JSON-encoded parameters
+          ^
+mismatched input 'operation-parameters' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 77:
+entity information-content-entity,
+       ^
+mismatched input 'information-content-entity' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 106:
+entity collection,
+       ^
+mismatched input 'collection' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 118:
+entity thing,
+       ^
+mismatched input 'thing' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 120:
+    owns abstract,
+         ^
+mismatched input 'abstract' expecting {'get', 'thing', 'entity', 'attribute', 'relation', 'role', 'rule', 'offset', 'limit', 'sort', 'value', 'contains', EXPR_FUNC_NAME, 'group', 'count', 'max', 'min', 'mean', 'median', 'std', 'sum', VAR_CONCEPT_, LABEL_}
+
+[TQL03] TypeQL Error: There is a syntax error at line 131:
+entity artifact,
+       ^
+mismatched input 'artifact' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 140:
+entity fragment,
+       ^
+mismatched input 'fragment' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 152:
+entity note,
+       ^
+mismatched input 'note' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 162:
+entity user-question,
+       ^
+mismatched input 'user-question' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 168:
+entity information-resource,
+       ^
+mismatched input 'information-resource' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 178:
+entity agent,
+       ^
+mismatched input 'agent' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 191:
+entity author,
+       ^
+mismatched input 'author' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 198:
+entity organization,
+       ^
+mismatched input 'organization' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 211:
+entity vocabulary,
+       ^
+mismatched input 'vocabulary' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 220:
+entity vocabulary-type,
+       ^
+mismatched input 'vocabulary-type' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 233:
+entity vocabulary-property,
+       ^
+mismatched input 'vocabulary-property' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 246:
+entity tag,
+       ^
+mismatched input 'tag' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 259:
+relation aboutness,
+         ^
+mismatched input 'aboutness' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 265:
+relation representation,
+         ^
+mismatched input 'representation' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 271:
+relation collection-membership,
+         ^
+mismatched input 'collection-membership' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 279:
+relation collection-nesting,
+         ^
+mismatched input 'collection-nesting' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 285:
+relation fragmentation,
+         ^
+mismatched input 'fragmentation' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 291:
+relation authorship,
+         ^
+mismatched input 'authorship' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 300:
+relation affiliation,
+         ^
+mismatched input 'affiliation' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 308:
+relation citation-reference,
+         ^
+mismatched input 'citation-reference' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 316:
+relation quotation,
+         ^
+mismatched input 'quotation' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 322:
+relation derivation,
+         ^
+mismatched input 'derivation' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 330:
+relation note-threading,
+         ^
+mismatched input 'note-threading' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 337:
+relation provenance-record,
+         ^
+mismatched input 'provenance-record' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 355:
+relation classification,
+         ^
+mismatched input 'classification' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 364:
+relation vocabulary-membership,
+         ^
+mismatched input 'vocabulary-membership' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 369:
+entity vocabulary,
+       ^
+mismatched input 'vocabulary' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 374:
+relation type-hierarchy,
+         ^
+mismatched input 'type-hierarchy' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 380:
+relation domain-range,
+         ^
+mismatched input 'domain-range' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 387:
+relation tagging,
+         ^
+mismatched input 'tagging' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 396:
+relation property-assertion,
+         ^
+mismatched input 'property-assertion' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 403:
+attribute value-string, value string;
+          ^
+mismatched input 'value-string' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 406:
+entity information-content-entity,
+       ^
+mismatched input 'information-content-entity' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 415:
+relation semantic-triple,
+         ^
+mismatched input 'semantic-triple' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 424:
+entity information-content-entity,
+       ^
+mismatched input 'information-content-entity' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 428:
+entity vocabulary-property,
+       ^
+mismatched input 'vocabulary-property' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 433:
+relation evidence-chain,
+         ^
+mismatched input 'evidence-chain' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 439:
+attribute evidence-type-attr, value string;
+          ^
+mismatched input 'evidence-type-attr' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 441:
+entity note,
+       ^
+mismatched input 'note' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+> alhazen::schema::write> alhazen::schema::write> Transaction changes committed
+> Loading scientific literature namespace...
+Feb 02, 2026 7:21:58 AM org.jline.utils.Log logr
+WARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)
+
+Welcome to TypeDB Console. You are now in TypeDB Wonderland!
+Copyright (C) 2022 Vaticle
+
+[TQL03] TypeQL Error: There is a syntax error at line 18:
+attribute doi, value string;           # Digital Object Identifier
+          ^
+mismatched input 'doi' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 19:
+attribute pmid, value string;          # PubMed ID
+          ^
+mismatched input 'pmid' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 20:
+attribute pmcid, value string;         # PubMed Central ID
+          ^
+mismatched input 'pmcid' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 21:
+attribute arxiv-id, value string;      # arXiv identifier
+          ^
+mismatched input 'arxiv-id' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 22:
+attribute issn, value string;          # Journal ISSN
+          ^
+mismatched input 'issn' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 23:
+attribute isbn, value string;          # Book ISBN
+          ^
+mismatched input 'isbn' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 26:
+attribute journal-name, value string;
+          ^
+mismatched input 'journal-name' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 27:
+attribute journal-volume, value string;
+          ^
+mismatched input 'journal-volume' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 28:
+attribute journal-issue, value string;
+          ^
+mismatched input 'journal-issue' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 29:
+attribute page-range, value string;
+          ^
+mismatched input 'page-range' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 30:
+attribute publication-year, value long;
+          ^
+mismatched input 'publication-year' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 31:
+attribute keyword, value string;       # Author keywords
+          ^
+mismatched input 'keyword' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 34:
+attribute section-type, value string;  # abstract, introduction, methods, results, discussion, etc.
+          ^
+mismatched input 'section-type' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 35:
+attribute section-number, value string; # e.g., "2.1", "3.2.1"
+          ^
+mismatched input 'section-number' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 36:
+attribute heading-level, value long;   # 1, 2, 3, etc.
+          ^
+mismatched input 'heading-level' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 39:
+attribute figure-number, value string;
+          ^
+mismatched input 'figure-number' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 40:
+attribute table-number, value string;
+          ^
+mismatched input 'table-number' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 41:
+attribute caption, value string;
+          ^
+mismatched input 'caption' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 44:
+attribute note-type, value string;     # extraction, classification, summary, synthesis, etc.
+          ^
+mismatched input 'note-type' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 45:
+attribute extraction-method, value string;
+          ^
+mismatched input 'extraction-method' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 46:
+attribute extraction-model, value string;
+          ^
+mismatched input 'extraction-model' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 49:
+attribute dataset-url, value string;
+          ^
+mismatched input 'dataset-url' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 50:
+attribute dataset-format, value string;
+          ^
+mismatched input 'dataset-format' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 51:
+attribute dataset-size, value string;
+          ^
+mismatched input 'dataset-size' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 59:
+entity scilit-paper,
+       ^
+mismatched input 'scilit-paper' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 74:
+entity scilit-dataset,
+       ^
+mismatched input 'scilit-dataset' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 83:
+entity scilit-preprint,
+       ^
+mismatched input 'scilit-preprint' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 90:
+entity scilit-review,
+       ^
+mismatched input 'scilit-review' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 95:
+entity scilit-book,
+       ^
+mismatched input 'scilit-book' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 102:
+entity scilit-protocol,
+       ^
+mismatched input 'scilit-protocol' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 111:
+entity scilit-jats-fulltext,
+       ^
+mismatched input 'scilit-jats-fulltext' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 116:
+entity scilit-pdf-fulltext,
+       ^
+mismatched input 'scilit-pdf-fulltext' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 121:
+entity scilit-citation-record,
+       ^
+mismatched input 'scilit-citation-record' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 126:
+entity scilit-supplementary,
+       ^
+mismatched input 'scilit-supplementary' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 131:
+entity scilit-structured-data,
+       ^
+mismatched input 'scilit-structured-data' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 140:
+entity scilit-section,
+       ^
+mismatched input 'scilit-section' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 148:
+entity scilit-figure,
+       ^
+mismatched input 'scilit-figure' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 155:
+entity scilit-table,
+       ^
+mismatched input 'scilit-table' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 162:
+entity scilit-paragraph,
+       ^
+mismatched input 'scilit-paragraph' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 167:
+entity scilit-sentence,
+       ^
+mismatched input 'scilit-sentence' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 172:
+entity scilit-equation,
+       ^
+mismatched input 'scilit-equation' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 177:
+entity scilit-reference,
+       ^
+mismatched input 'scilit-reference' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 186:
+entity scilit-extraction-note,
+       ^
+mismatched input 'scilit-extraction-note' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 194:
+entity scilit-classification-note,
+       ^
+mismatched input 'scilit-classification-note' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 200:
+entity scilit-summary-note,
+       ^
+mismatched input 'scilit-summary-note' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 206:
+entity scilit-synthesis-note,
+       ^
+mismatched input 'scilit-synthesis-note' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 212:
+entity scilit-critique-note,
+       ^
+mismatched input 'scilit-critique-note' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 218:
+entity scilit-methodology-note,
+       ^
+mismatched input 'scilit-methodology-note' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 243:
+relation supplementary-material,
+         ^
+mismatched input 'supplementary-material' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 247:
+entity scilit-paper,
+       ^
+mismatched input 'scilit-paper' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 250:
+entity scilit-supplementary,
+       ^
+mismatched input 'scilit-supplementary' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 255:
+relation figure-reference,
+         ^
+mismatched input 'figure-reference' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 260:
+entity scilit-paragraph,
+       ^
+mismatched input 'scilit-paragraph' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 263:
+entity scilit-sentence,
+       ^
+mismatched input 'scilit-sentence' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 266:
+entity scilit-figure,
+       ^
+mismatched input 'scilit-figure' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 271:
+relation table-reference,
+         ^
+mismatched input 'table-reference' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 276:
+entity scilit-paragraph,
+       ^
+mismatched input 'scilit-paragraph' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 279:
+entity scilit-sentence,
+       ^
+mismatched input 'scilit-sentence' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 282:
+entity scilit-table,
+       ^
+mismatched input 'scilit-table' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 287:
+relation dataset-usage,
+         ^
+mismatched input 'dataset-usage' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 293:
+attribute usage-type, value string;  # "produced", "analyzed", "referenced"
+          ^
+mismatched input 'usage-type' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 295:
+entity scilit-paper,
+       ^
+mismatched input 'scilit-paper' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
+
+[TQL03] TypeQL Error: There is a syntax error at line 298:
+entity scilit-dataset,
+       ^
+mismatched input 'scilit-dataset' expecting {'type', 'abstract', SUB_, 'owns', 'regex', 'plays', 'relates', 'value'}
