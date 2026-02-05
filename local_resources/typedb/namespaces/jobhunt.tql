@@ -1,0 +1,215 @@
+# =============================================================================
+# JOB HUNTING NOTEBOOK NAMESPACE - TypeDB 2.x Schema Extension
+# =============================================================================
+# Domain-specific subtypes for job hunting and career management.
+# TypeDB as Claude's "world model" for reasoning about jobs, skills, and fit.
+# Namespace prefix: jobhunt-*
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Job Hunting Specific
+# -----------------------------------------------------------------------------
+
+# URL attributes
+job-url sub attribute, value string;
+company-url sub attribute, value string;
+resource-url sub attribute, value string;
+linkedin-url sub attribute, value string;
+
+# Position attributes
+salary-range sub attribute, value string;
+location sub attribute, value string;
+remote-policy sub attribute, value string;  # remote/hybrid/onsite
+team-size sub attribute, value string;
+
+# Application tracking
+application-status sub attribute, value string;  # researching/applied/interviewing/offer/rejected
+applied-date sub attribute, value datetime;
+interview-date sub attribute, value datetime;
+deadline sub attribute, value datetime;
+response-date sub attribute, value datetime;
+
+# Skill/requirement attributes
+skill-name sub attribute, value string;
+skill-level sub attribute, value string;  # required/preferred/nice-to-have
+your-level sub attribute, value string;   # strong/some/none
+
+# Learning resource attributes
+resource-type sub attribute, value string;  # course/book/tutorial/project/video
+estimated-hours sub attribute, value long;
+completion-status sub attribute, value string;  # not-started/in-progress/completed
+
+# Contact attributes
+contact-role sub attribute, value string;  # recruiter/hiring-manager/employee/referral
+contact-email sub attribute, value string;
+
+# Fit analysis
+fit-score sub attribute, value double;  # 0.0-1.0
+fit-summary sub attribute, value string;
+
+# Interaction tracking
+interaction-type sub attribute, value string;  # email/call/coffee/interview/message
+interaction-date sub attribute, value datetime;
+
+# Priority
+priority-level sub attribute, value string;  # high/medium/low
+
+# Your skill profile attributes
+last-updated sub attribute, value datetime;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Your Profile
+# -----------------------------------------------------------------------------
+
+# YOUR-SKILL - Your personal skill/capability for gap analysis
+your-skill sub entity,
+    owns skill-name,
+    owns skill-level,     # strong/some/none/learning
+    owns last-updated,
+    owns description;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Job Hunting Things
+# -----------------------------------------------------------------------------
+
+# JOBHUNT-COMPANY - An organization/employer
+jobhunt-company sub research-item,
+    owns company-url,
+    owns linkedin-url,
+    owns location,
+    plays position-at-company:employer,
+    plays works-at:employer;
+
+# JOBHUNT-POSITION - A specific role/job posting
+jobhunt-position sub research-item,
+    owns job-url,
+    owns salary-range,
+    owns location,
+    owns remote-policy,
+    owns team-size,
+    owns deadline,
+    owns priority-level,
+    plays position-at-company:position,
+    plays requirement-for:position;
+
+# JOBHUNT-LEARNING-RESOURCE - Course, tutorial, book, etc.
+jobhunt-learning-resource sub research-item,
+    owns resource-type,
+    owns resource-url,
+    owns estimated-hours,
+    owns completion-status,
+    plays addresses-requirement:resource;
+
+# JOBHUNT-CONTACT - A person at a company
+jobhunt-contact sub agent,
+    owns contact-role,
+    owns contact-email,
+    owns linkedin-url,
+    plays works-at:employee;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Job Hunting Artifacts
+# -----------------------------------------------------------------------------
+
+# JOBHUNT-JOB-DESCRIPTION - Full text of job posting
+jobhunt-job-description sub artifact;
+
+# JOBHUNT-RESUME - A version of your resume
+jobhunt-resume sub artifact;
+
+# JOBHUNT-COVER-LETTER - Tailored cover letter
+jobhunt-cover-letter sub artifact;
+
+# JOBHUNT-COMPANY-PAGE - About/careers page content
+jobhunt-company-page sub artifact;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Job Hunting Fragments (extracted from job descriptions)
+# -----------------------------------------------------------------------------
+
+# JOBHUNT-REQUIREMENT - A single requirement extracted from JD
+jobhunt-requirement sub fragment,
+    owns skill-name,
+    owns skill-level,
+    owns your-level,
+    plays requirement-for:requirement,
+    plays addresses-requirement:requirement;
+
+# JOBHUNT-RESPONSIBILITY - A responsibility from the JD
+jobhunt-responsibility sub fragment;
+
+# JOBHUNT-QUALIFICATION - Required/preferred qualification
+jobhunt-qualification sub fragment;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Job Hunting Notes
+# -----------------------------------------------------------------------------
+
+# JOBHUNT-APPLICATION-NOTE - Status tracking, dates
+jobhunt-application-note sub note,
+    owns application-status,
+    owns applied-date,
+    owns response-date;
+
+# JOBHUNT-RESEARCH-NOTE - Company research, culture, news
+jobhunt-research-note sub note;
+
+# JOBHUNT-INTERVIEW-NOTE - Interview prep, feedback
+jobhunt-interview-note sub note,
+    owns interview-date;
+
+# JOBHUNT-STRATEGY-NOTE - Your approach, talking points
+jobhunt-strategy-note sub note;
+
+# JOBHUNT-SKILL-GAP-NOTE - What you need to learn
+jobhunt-skill-gap-note sub note;
+
+# JOBHUNT-FIT-ANALYSIS-NOTE - How well you match a position
+jobhunt-fit-analysis-note sub note,
+    owns fit-score,
+    owns fit-summary;
+
+# JOBHUNT-INTERACTION-NOTE - Record of contact/conversation
+jobhunt-interaction-note sub note,
+    owns interaction-type,
+    owns interaction-date;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Job Hunting Specific
+# -----------------------------------------------------------------------------
+
+# POSITION-AT-COMPANY - Links position to employer
+position-at-company sub relation,
+    relates position,
+    relates employer;
+
+# REQUIREMENT-FOR - Links requirements to positions
+requirement-for sub relation,
+    relates requirement,
+    relates position;
+
+# ADDRESSES-REQUIREMENT - Learning resources that address skill gaps
+addresses-requirement sub relation,
+    owns confidence,
+    relates resource,
+    relates requirement;
+
+# WORKS-AT - Contacts working at companies
+works-at sub relation,
+    owns valid-from,
+    owns valid-until,
+    relates employee,
+    relates employer;
+
+
+# =============================================================================
+# END JOB HUNTING NAMESPACE
+# =============================================================================
