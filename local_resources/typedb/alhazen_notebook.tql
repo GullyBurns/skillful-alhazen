@@ -1,0 +1,399 @@
+# =============================================================================
+# ALHAZEN NOTEBOOK MODEL - TypeDB 2.x Schema
+# =============================================================================
+# A knowledge graph schema for agent memory systems aligned with Alhazen's
+# Notebook Model: Collection -> Thing -> Artifact -> Fragment -> Note
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Core Properties
+# -----------------------------------------------------------------------------
+
+# Identity and naming
+id sub attribute, value string;
+name sub attribute, value string;
+description sub attribute, value string;
+iri sub attribute, value string;
+abstract-text sub attribute, value string;
+
+# Content and representation
+content sub attribute, value string;
+content-hash sub attribute, value string;
+format sub attribute, value string;
+token-count sub attribute, value long;
+
+# Temporal
+created-at sub attribute, value datetime;
+updated-at sub attribute, value datetime;
+publication-date sub attribute, value datetime;
+valid-from sub attribute, value datetime;
+valid-until sub attribute, value datetime;
+
+# Provenance
+provenance sub attribute, value string;
+source-uri sub attribute, value string;
+confidence sub attribute, value double;
+license sub attribute, value string;
+
+# Fragment positioning
+offset sub attribute, value long;
+length sub attribute, value long;
+
+# Collection semantics
+logical-query sub attribute, value string;
+is-extensional sub attribute, value boolean;
+
+# Classification metadata
+schema-org-uri sub attribute, value string;
+wikidata-qid sub attribute, value string;
+vocabulary-source sub attribute, value string;
+
+# Agent/provenance tracking
+agent-id sub attribute, value string;
+agent-type sub attribute, value string;
+model-name sub attribute, value string;
+operation-type sub attribute, value string;
+operation-timestamp sub attribute, value datetime;
+operation-parameters sub attribute, value string;
+
+# Additional attributes
+value-string sub attribute, value string;
+evidence-type-attr sub attribute, value string;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Core Ontology (Alhazen's Notebook Model)
+# -----------------------------------------------------------------------------
+
+# Root type for all information-bearing entities
+information-content-entity sub entity,
+    abstract,
+    owns id @key,
+    owns name,
+    owns description,
+    owns iri,
+    owns content,
+    owns content-hash,
+    owns format,
+    owns token-count,
+    owns created-at,
+    owns updated-at,
+    owns provenance,
+    owns source-uri,
+    owns license,
+    plays authorship:work,
+    plays classification:classified-entity,
+    plays tagging:tagged-entity,
+    plays aboutness:subject,
+    plays collection-membership:member,
+    plays derivation:derived-from-source,
+    plays derivation:derivative,
+    plays provenance-record:produced-entity,
+    plays provenance-record:source-entity,
+    plays property-assertion:subject-entity,
+    plays semantic-triple:triple-subject,
+    plays semantic-triple:triple-object;
+
+
+# COLLECTION - Organized groupings of Things
+collection sub information-content-entity,
+    owns logical-query,
+    owns is-extensional,
+    plays collection-membership:collection,
+    plays collection-nesting:parent-collection,
+    plays collection-nesting:child-collection;
+
+
+# THING - Primary research objects (papers, datasets, etc.)
+research-item sub information-content-entity,
+    owns abstract-text,
+    owns publication-date,
+    plays representation:referent,
+    plays authorship:authored-work,
+    plays citation-reference:citing-item,
+    plays citation-reference:cited-item;
+
+
+# ARTIFACT - Specific representations of Things
+artifact sub information-content-entity,
+    plays representation:artifact,
+    plays fragmentation:whole;
+
+
+# FRAGMENT - Parts of artifacts
+fragment sub information-content-entity,
+    owns offset,
+    owns length,
+    plays fragmentation:part,
+    plays quotation:quoted-fragment,
+    plays quotation:quoting-fragment;
+
+
+# NOTE - Agent-generated annotations
+note sub information-content-entity,
+    owns confidence,
+    plays aboutness:note,
+    plays note-threading:parent-note,
+    plays note-threading:child-note,
+    plays evidence-chain:claim,
+    plays evidence-chain:evidence;
+
+
+# USER-QUESTION - Questions/instructions from users
+user-question sub information-content-entity;
+
+
+# INFORMATION-RESOURCE - Databases, knowledgebases, APIs
+information-resource sub information-content-entity;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Agents and Actors
+# -----------------------------------------------------------------------------
+
+# AGENT - Creator of notes and other content
+agent sub entity,
+    owns id @key,
+    owns name,
+    owns iri,
+    owns agent-type,
+    owns model-name,
+    plays authorship:author,
+    plays classification:classified-entity,
+    plays provenance-record:performing-agent;
+
+
+# AUTHOR - Specifically an author of a Thing (publication author)
+author sub agent,
+    plays authorship:publication-author,
+    plays affiliation:affiliated-agent;
+
+
+# ORGANIZATION - Groups of agents/authors
+organization sub entity,
+    owns id @key,
+    owns name,
+    owns iri,
+    plays affiliation:organization,
+    plays classification:classified-entity;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - External Vocabulary Classification
+# -----------------------------------------------------------------------------
+
+# VOCABULARY - A classification system (schema.org, Wikidata, UMLS, etc.)
+vocabulary sub entity,
+    owns id @key,
+    owns name,
+    owns iri,
+    owns description,
+    plays vocabulary-membership:vocab;
+
+
+# VOCABULARY-TYPE - A type from an external vocabulary
+vocabulary-type sub entity,
+    owns id @key,
+    owns name,
+    owns schema-org-uri,
+    owns wikidata-qid,
+    owns description,
+    plays vocabulary-membership:vocab-type,
+    plays type-hierarchy:subtype,
+    plays type-hierarchy:supertype,
+    plays classification:type-facet;
+
+
+# VOCABULARY-PROPERTY - A property from an external vocabulary
+vocabulary-property sub entity,
+    owns id @key,
+    owns name,
+    owns schema-org-uri,
+    owns description,
+    plays vocabulary-membership:vocab-type,
+    plays property-assertion:property-definition,
+    plays domain-range:property-def,
+    plays domain-range:domain-type,
+    plays domain-range:range-type,
+    plays semantic-triple:triple-predicate;
+
+
+# TAG - Lightweight classification without full vocabulary structure
+tag sub entity,
+    owns id @key,
+    owns name,
+    owns description,
+    plays tagging:tag;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Core Relations (Alhazen's Notebook Model)
+# -----------------------------------------------------------------------------
+
+# ABOUTNESS - The fundamental "is about" relation (IAO:0000136)
+aboutness sub relation,
+    relates note,
+    relates subject;
+
+
+# REPRESENTATION - Connects artifacts to the things they represent
+representation sub relation,
+    relates artifact,
+    relates referent;
+
+
+# COLLECTION-MEMBERSHIP - Things belonging to collections
+collection-membership sub relation,
+    owns created-at,
+    owns provenance,
+    relates collection,
+    relates member;
+
+
+# COLLECTION-NESTING - Hierarchical collection organization
+collection-nesting sub relation,
+    relates parent-collection,
+    relates child-collection;
+
+
+# FRAGMENTATION - Parts of artifacts
+fragmentation sub relation,
+    relates whole,
+    relates part;
+
+
+# AUTHORSHIP - Who created what (general)
+authorship sub relation,
+    owns created-at,
+    relates author,
+    relates work,
+    relates publication-author,
+    relates authored-work;
+
+
+# AFFILIATION - Agent/Author membership in organizations
+affiliation sub relation,
+    owns valid-from,
+    owns valid-until,
+    relates affiliated-agent,
+    relates organization;
+
+
+# CITATION-REFERENCE - References between Things (paper cites paper)
+citation-reference sub relation,
+    owns provenance,
+    owns created-at,
+    relates citing-item,
+    relates cited-item;
+
+
+# QUOTATION - When a fragment quotes another
+quotation sub relation,
+    relates quoting-fragment,
+    relates quoted-fragment;
+
+
+# DERIVATION - Provenance chain for derived content
+derivation sub relation,
+    owns provenance,
+    owns created-at,
+    relates derivative,
+    relates derived-from-source;
+
+
+# NOTE-THREADING - Hierarchical note organization (replies, follow-ups)
+note-threading sub relation,
+    relates parent-note,
+    relates child-note;
+
+
+# PROVENANCE-RECORD - Detailed tracking of who/what created entities
+provenance-record sub relation,
+    owns agent-id,
+    owns agent-type,
+    owns model-name,
+    owns operation-type,
+    owns operation-timestamp,
+    owns operation-parameters,
+    relates produced-entity,
+    relates source-entity,
+    relates performing-agent;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Classification System
+# -----------------------------------------------------------------------------
+
+# CLASSIFICATION - Assigning vocabulary types to entities
+classification sub relation,
+    owns confidence,
+    owns provenance,
+    owns created-at,
+    relates classified-entity,
+    relates type-facet;
+
+
+# VOCABULARY-MEMBERSHIP - Types belonging to vocabularies
+vocabulary-membership sub relation,
+    relates vocab,
+    relates vocab-type;
+
+
+# TYPE-HIERARCHY - Subtype relationships within vocabularies
+type-hierarchy sub relation,
+    relates subtype,
+    relates supertype;
+
+
+# DOMAIN-RANGE - Property constraints from vocabularies
+domain-range sub relation,
+    relates property-def,
+    relates domain-type,
+    relates range-type;
+
+
+# TAGGING - Lightweight classification
+tagging sub relation,
+    owns created-at,
+    owns provenance,
+    relates tagged-entity,
+    relates tag;
+
+
+# PROPERTY-ASSERTION - Dynamic property assignment
+property-assertion sub relation,
+    owns created-at,
+    owns provenance,
+    owns value-string,
+    relates subject-entity,
+    relates property-definition;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - N-ary Relations for Complex Assertions
+# -----------------------------------------------------------------------------
+
+# SEMANTIC-TRIPLE - For RDF-style assertions with provenance
+semantic-triple sub relation,
+    owns confidence,
+    owns provenance,
+    owns created-at,
+    owns source-uri,
+    relates triple-subject,
+    relates triple-predicate,
+    relates triple-object;
+
+
+# EVIDENCE-CHAIN - Linking claims to supporting evidence
+evidence-chain sub relation,
+    owns confidence,
+    owns evidence-type-attr,
+    relates claim,
+    relates evidence;
+
+
+# =============================================================================
+# END SCHEMA
+# =============================================================================

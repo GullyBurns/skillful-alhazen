@@ -1,0 +1,6 @@
+# Minimal dependencies for the TypeDB MCP server
+# These are the only packages needed to run the MCP server
+
+# Pin to 2.x - version 3.x has a different API
+typedb-driver>=2.25.0,<3.0.0
+mcp>=1.0.0

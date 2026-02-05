@@ -1,0 +1,46 @@
+# Dockerfile for Alhazen MCP Server
+#
+# This container runs the MCP server that exposes TypeDB operations
+# to Claude and other LLM agents via the Model Context Protocol.
+#
+# Build: docker build -f Dockerfile.mcp -t alhazen-mcp .
+# Run: docker run -p 3000:3000 -e TYPEDB_HOST=localhost alhazen-mcp
+
+FROM python:3.11-slim
+
+LABEL maintainer="gullyburns@gmail.com"
+LABEL description="Alhazen MCP Server for TypeDB knowledge graph operations"
+
+# Set working directory
+WORKDIR /app
+
+# Install minimal requirements first (for better caching)
+COPY requirements-mcp.txt .
+RUN pip install --no-cache-dir -r requirements-mcp.txt
+
+# Copy only the MCP module
+COPY src/skillful_alhazen/mcp/ skillful_alhazen/mcp/
+
+# Create package structure
+RUN touch skillful_alhazen/__init__.py
+
+# Create non-root user for security
+RUN useradd -m -u 1000 mcp
+USER mcp
+
+# Expose MCP server port
+EXPOSE 3000
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV TYPEDB_HOST=localhost
+ENV TYPEDB_PORT=1729
+ENV TYPEDB_DATABASE=alhazen
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import socket; s=socket.socket(); s.connect(('localhost', 3000)); s.close()" || exit 1
+
+# Run the MCP server
+CMD ["python", "-m", "skillful_alhazen.mcp.typedb_server"]

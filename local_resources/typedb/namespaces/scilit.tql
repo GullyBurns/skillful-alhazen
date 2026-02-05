@@ -1,0 +1,249 @@
+# =============================================================================
+# SCIENTIFIC LITERATURE NAMESPACE - TypeDB 2.x Schema Extension
+# =============================================================================
+# Domain-specific subtypes for scientific literature analysis.
+# Namespace prefix: scilit-*
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Scientific Literature Specific
+# -----------------------------------------------------------------------------
+
+# Publication identifiers
+doi sub attribute, value string;
+pmid sub attribute, value string;
+pmcid sub attribute, value string;
+arxiv-id sub attribute, value string;
+issn sub attribute, value string;
+isbn sub attribute, value string;
+
+# Publication metadata
+journal-name sub attribute, value string;
+journal-volume sub attribute, value string;
+journal-issue sub attribute, value string;
+page-range sub attribute, value string;
+publication-year sub attribute, value long;
+keyword sub attribute, value string;
+
+# Section types
+section-type sub attribute, value string;
+section-number sub attribute, value string;
+heading-level sub attribute, value long;
+
+# Figure/table specific
+figure-number sub attribute, value string;
+table-number sub attribute, value string;
+caption sub attribute, value string;
+
+# Note type classification
+note-type sub attribute, value string;
+extraction-method sub attribute, value string;
+extraction-model sub attribute, value string;
+
+# Dataset specific
+dataset-url sub attribute, value string;
+dataset-format sub attribute, value string;
+dataset-size sub attribute, value string;
+
+# Relation attributes
+usage-type sub attribute, value string;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Things
+# -----------------------------------------------------------------------------
+
+# SCILIT-PAPER - A scientific publication
+scilit-paper sub research-item,
+    owns doi,
+    owns pmid,
+    owns pmcid,
+    owns arxiv-id,
+    owns journal-name,
+    owns journal-volume,
+    owns journal-issue,
+    owns page-range,
+    owns publication-year,
+    owns keyword;
+
+
+# SCILIT-DATASET - A scientific dataset
+scilit-dataset sub research-item,
+    owns doi,
+    owns dataset-url,
+    owns dataset-format,
+    owns dataset-size;
+
+
+# SCILIT-PREPRINT - A preprint publication
+scilit-preprint sub research-item,
+    owns doi,
+    owns arxiv-id;
+
+
+# SCILIT-REVIEW - A review article
+scilit-review sub scilit-paper;
+
+
+# SCILIT-BOOK - A book or book chapter
+scilit-book sub research-item,
+    owns isbn,
+    owns doi;
+
+
+# SCILIT-PROTOCOL - A published protocol or methods paper
+scilit-protocol sub scilit-paper;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Artifacts
+# -----------------------------------------------------------------------------
+
+# SCILIT-JATS-FULLTEXT - JATS XML full-text representation
+scilit-jats-fulltext sub artifact;
+
+
+# SCILIT-PDF-FULLTEXT - PDF full-text representation
+scilit-pdf-fulltext sub artifact;
+
+
+# SCILIT-CITATION-RECORD - Citation/metadata record (from PubMed, Crossref, etc.)
+scilit-citation-record sub artifact;
+
+
+# SCILIT-SUPPLEMENTARY - Supplementary material artifact
+scilit-supplementary sub artifact,
+    plays supplementary-material:supplement;
+
+
+# SCILIT-STRUCTURED-DATA - Structured data extracted from a paper
+scilit-structured-data sub artifact;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Fragments
+# -----------------------------------------------------------------------------
+
+# SCILIT-SECTION - A section of a paper
+scilit-section sub fragment,
+    owns section-type,
+    owns section-number,
+    owns heading-level;
+
+
+# SCILIT-FIGURE - A figure from a paper
+scilit-figure sub fragment,
+    owns figure-number,
+    owns caption,
+    plays figure-reference:referenced-figure;
+
+
+# SCILIT-TABLE - A table from a paper
+scilit-table sub fragment,
+    owns table-number,
+    owns caption,
+    plays table-reference:referenced-table;
+
+
+# SCILIT-PARAGRAPH - A paragraph from a paper
+scilit-paragraph sub fragment,
+    plays figure-reference:referencing-text,
+    plays table-reference:referencing-text;
+
+
+# SCILIT-SENTENCE - A sentence from a paper
+scilit-sentence sub fragment,
+    plays figure-reference:referencing-text,
+    plays table-reference:referencing-text;
+
+
+# SCILIT-EQUATION - An equation from a paper
+scilit-equation sub fragment;
+
+
+# SCILIT-REFERENCE - A reference entry from a paper's bibliography
+scilit-reference sub fragment;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Notes
+# -----------------------------------------------------------------------------
+
+# SCILIT-EXTRACTION-NOTE - Extracted information from a paper
+scilit-extraction-note sub note,
+    owns note-type,
+    owns extraction-method,
+    owns extraction-model;
+
+
+# SCILIT-CLASSIFICATION-NOTE - Classification/categorization of a paper
+scilit-classification-note sub note,
+    owns note-type;
+
+
+# SCILIT-SUMMARY-NOTE - Summary of a paper or section
+scilit-summary-note sub note,
+    owns note-type;
+
+
+# SCILIT-SYNTHESIS-NOTE - Synthesis across multiple papers
+scilit-synthesis-note sub note,
+    owns note-type;
+
+
+# SCILIT-CRITIQUE-NOTE - Critical analysis or review
+scilit-critique-note sub note,
+    owns note-type;
+
+
+# SCILIT-METHODOLOGY-NOTE - Notes about methods/protocols
+scilit-methodology-note sub note,
+    owns note-type;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Scientific Literature Specific
+# -----------------------------------------------------------------------------
+
+# SUPPLEMENTARY-MATERIAL - Links papers to their supplementary files
+supplementary-material sub relation,
+    relates paper,
+    relates supplement;
+
+scilit-paper sub research-item,
+    plays supplementary-material:paper;
+
+
+# FIGURE-REFERENCE - When text references a figure
+figure-reference sub relation,
+    owns provenance,
+    relates referencing-text,
+    relates referenced-figure;
+
+
+# TABLE-REFERENCE - When text references a table
+table-reference sub relation,
+    owns provenance,
+    relates referencing-text,
+    relates referenced-table;
+
+
+# DATASET-USAGE - Links papers to datasets they use or produce
+dataset-usage sub relation,
+    owns usage-type,
+    owns provenance,
+    relates paper-entity,
+    relates dataset-entity;
+
+scilit-paper sub research-item,
+    plays dataset-usage:paper-entity;
+
+scilit-dataset sub research-item,
+    plays dataset-usage:dataset-entity;
+
+
+# =============================================================================
+# END SCIENTIFIC LITERATURE NAMESPACE
+# =============================================================================
