@@ -38,6 +38,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
+    "ruff>=0.4.0",
 ]
 typedb = [
     "typedb-driver>=2.25.0,<3.0.0",
@@ -45,6 +46,13 @@ typedb = [
 mcp = [
     "typedb-driver>=2.25.0,<3.0.0",
     "mcp>=1.0.0",
+]
+skills = [
+    "beautifulsoup4>=4.12.0",
+    "tqdm>=4.66.0",
+]
+all = [
+    "skillful-alhazen[typedb,dev,skills]",
 ]
 
 [project.scripts]
@@ -75,3 +83,31 @@ allow-direct-references = true
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", ".claude/skills"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults
+    "B905",   # zip without strict (Python 3.10+)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["skillful_alhazen"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

@@ -11,22 +11,84 @@ Forked from the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project
 ## Quick Start
 
 ```bash
-# Start TypeDB
+# 1. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Install dependencies
+uv sync --all-extras
+
+# 3. Start TypeDB
 docker compose -f docker-compose-typedb.yml up -d
 
-# Install with TypeDB support
-pip install -e ".[typedb]"
+# 4. Initialize database with schemas
+docker exec -i alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << 'EOF'
+database create alhazen_notebook
+transaction alhazen_notebook schema write
+source /schema/alhazen_notebook.tql
+commit
+transaction alhazen_notebook schema write
+source /schema/namespaces/scilit.tql
+commit
+transaction alhazen_notebook schema write
+source /schema/namespaces/jobhunt.tql
+commit
+EOF
 
-# Use the skill
+# 5. Use the skills
 /typedb-notebook remember "key finding from paper X"
-/typedb-notebook recall "paper X"
+/jobhunt ingest-job --url "https://example.com/job"
 ```
+
+## Environment Management
+
+**This project uses [uv](https://docs.astral.sh/uv/) for Python dependency management.**
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install all dependencies (creates .venv automatically)
+uv sync --all-extras
+
+# Run a script with dependencies
+uv run python script.py
+
+# Add a new dependency
+uv add package-name
+
+# Update dependencies
+uv sync
+```
+
+All dependencies are defined in `pyproject.toml`. The `.venv` directory is created automatically by uv.
+
+## TypeDB Version
+
+**Current: TypeDB 2.x (2.25.0 server, 2.29.x driver)**
+
+We are staying on TypeDB 2.x because:
+- TypeDB 3.0 was released Dec 2024 but Python driver is still alpha (3.0.0a9)
+- Significant breaking changes in query syntax and API
+- Production stability is important for this project
+
+**TypeDB 2.x Documentation Reference:**
+- `local_resources/typedb/typedb-2x-documentation.md` - Comprehensive TypeQL 2.x reference
+- Includes: queries, patterns, statements, types, values, modifiers, keywords, Python driver
+- **Always consult this file when writing TypeDB schemas or queries**
+
+**Future Migration (planned for Q2-Q3 2025):**
+When TypeDB 3.0 drivers reach stable, migration will require:
+- Schema updates (Rules → Functions)
+- Query syntax changes throughout codebase
+- API changes (sessions eliminated, simplified transactions)
+- See: https://typedb.com/blog/typedb-3-0-is-now-live/
 
 ## Architecture
 
 ### TypeDB Schema
 - `local_resources/typedb/alhazen_notebook.tql` - Core notebook schema
 - `local_resources/typedb/namespaces/scilit.tql` - Scientific literature extensions
+- `local_resources/typedb/namespaces/jobhunt.tql` - Job hunting extensions
 - `local_resources/typedb/agent-memory-typedb-schema.md` - Documentation
 
 ### Alhazen's Notebook Model
@@ -53,6 +115,25 @@ Each skill includes a SKILL.md (documentation) and Python script:
 - **epmc-search** - Europe PMC literature search
   - `.claude/skills/epmc-search/SKILL.md`
   - `.claude/skills/epmc-search/epmc_search.py`
+
+- **jobhunt** - Job hunting notebook (positions, companies, skills, learning)
+  - `.claude/skills/jobhunt/SKILL.md`
+  - `.claude/skills/jobhunt/jobhunt.py`
+
+### Dashboards
+
+Interactive Next.js TypeScript dashboard:
+
+- `dashboard/` - Job hunt dashboard built with Next.js 16, shadcn/ui, and Tailwind CSS
+  - Pipeline Kanban board for tracking applications
+  - Skills matrix showing gaps across positions
+  - Learning plan with progress tracking
+  - Stats overview cards
+
+Run with:
+```bash
+cd dashboard && npm run dev
+```
 
 ## Scripts and Token Efficiency
 
@@ -95,9 +176,7 @@ Example: To add a new literature source like Semantic Scholar:
 
 **Installation:**
 ```bash
-conda create -n alhazen python=3.11
-conda activate alhazen
-pip install -e ".[typedb,dev]"
+uv sync --all-extras
 ```
 
 **Start TypeDB:**
@@ -112,13 +191,19 @@ docker compose -f docker-compose-typedb-mcp.yml up -d
 
 **Running tests:**
 ```bash
-pytest tests/test_typedb_client.py -v
+uv run pytest tests/test_typedb_client.py -v
 ```
 
 **CLI usage:**
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "Test"
-python .claude/skills/epmc-search/epmc_search.py count --query "CRISPR"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "Test"
+uv run python .claude/skills/epmc-search/epmc_search.py count --query "CRISPR"
+uv run python .claude/skills/jobhunt/jobhunt.py list-pipeline
+```
+
+**Dashboard:**
+```bash
+cd dashboard && npm install && npm run dev
 ```
 
 ## Environment Variables
@@ -141,17 +226,30 @@ src/skillful_alhazen/   # Main package
 tests/                  # Test files
 local_resources/
 └── typedb/             # TypeDB schemas
+    ├── alhazen_notebook.tql
+    └── namespaces/
+        ├── scilit.tql
+        └── jobhunt.tql
+
+dashboard/              # Next.js TypeScript dashboard
+├── src/
+│   ├── app/            # App router pages and API routes
+│   ├── components/     # React components (shadcn/ui)
+│   └── lib/            # TypeDB client utilities
+├── package.json
+└── tailwind.config.ts
 
 .claude/
 └── skills/             # Claude Code skills (each with SKILL.md + script)
     ├── typedb-notebook/
-    │   ├── SKILL.md
-    │   └── typedb_notebook.py
-    └── epmc-search/
-        ├── SKILL.md
-        └── epmc_search.py
+    ├── epmc-search/
+    └── jobhunt/
 ```
 
 ## Team Conventions
 
 When Claude makes a mistake, add it to this section so it doesn't happen again.
+
+### TypeDB 2.x Query Notes
+- **No `optional` in fetch queries** - TypeDB 2.x doesn't support optional joins in fetch. Use separate queries instead.
+- **Fetch syntax** - Use `fetch $var: attr1, attr2;` not `fetch $var.attr1, $var.attr2;`

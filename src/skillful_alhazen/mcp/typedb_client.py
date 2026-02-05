@@ -8,9 +8,9 @@ in the Alhazen knowledge graph stored in TypeDB.
 import json
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
-from typedb.driver import TypeDB, SessionType, TransactionType
+from typedb.driver import SessionType, TransactionType, TypeDB
 
 
 class TypeDBClient:
@@ -25,12 +25,7 @@ class TypeDBClient:
     - Notes (agent-generated annotations)
     """
 
-    def __init__(
-        self,
-        host: str = "localhost",
-        port: int = 1729,
-        database: str = "alhazen"
-    ):
+    def __init__(self, host: str = "localhost", port: int = 1729, database: str = "alhazen"):
         """
         Initialize TypeDB client.
 
@@ -93,7 +88,7 @@ class TypeDBClient:
         if not self._driver:
             raise RuntimeError("Not connected to TypeDB")
 
-        with open(schema_path, "r") as f:
+        with open(schema_path) as f:
             schema = f.read()
 
         with self._driver.session(self.database, SessionType.SCHEMA) as session:
@@ -114,10 +109,10 @@ class TypeDBClient:
     def insert_collection(
         self,
         name: str,
-        description: Optional[str] = None,
-        logical_query: Optional[str] = None,
+        description: str | None = None,
+        logical_query: str | None = None,
         is_extensional: bool = True,
-        collection_id: Optional[str] = None
+        collection_id: str | None = None,
     ) -> str:
         """
         Insert a new Collection into the knowledge graph.
@@ -158,7 +153,7 @@ class TypeDBClient:
 
         return cid
 
-    def get_collection(self, collection_id: str) -> Optional[dict[str, Any]]:
+    def get_collection(self, collection_id: str) -> dict[str, Any] | None:
         """
         Retrieve a Collection by ID.
 
@@ -216,12 +211,12 @@ class TypeDBClient:
         self,
         name: str,
         thing_type: str = "research-item",
-        collection_id: Optional[str] = None,
-        abstract: Optional[str] = None,
-        description: Optional[str] = None,
-        publication_date: Optional[str] = None,
-        source_uri: Optional[str] = None,
-        thing_id: Optional[str] = None
+        collection_id: str | None = None,
+        abstract: str | None = None,
+        description: str | None = None,
+        publication_date: str | None = None,
+        source_uri: str | None = None,
+        thing_id: str | None = None,
     ) -> str:
         """
         Insert a new Thing into the knowledge graph.
@@ -257,7 +252,7 @@ class TypeDBClient:
         if description:
             query = query.rstrip(";") + f', has description "{self._escape_string(description)}";'
         if publication_date:
-            query = query.rstrip(";") + f', has publication-date {publication_date};'
+            query = query.rstrip(";") + f", has publication-date {publication_date};"
         if source_uri:
             query = query.rstrip(";") + f', has source-uri "{source_uri}";'
 
@@ -272,7 +267,7 @@ class TypeDBClient:
 
         return tid
 
-    def get_thing(self, thing_id: str) -> Optional[dict[str, Any]]:
+    def get_thing(self, thing_id: str) -> dict[str, Any] | None:
         """
         Retrieve a Thing by ID.
 
@@ -331,11 +326,11 @@ class TypeDBClient:
     def insert_artifact(
         self,
         thing_id: str,
-        content: Optional[str] = None,
-        format: Optional[str] = None,
-        source_uri: Optional[str] = None,
+        content: str | None = None,
+        format: str | None = None,
+        source_uri: str | None = None,
         artifact_type: str = "artifact",
-        artifact_id: Optional[str] = None
+        artifact_id: str | None = None,
     ) -> str:
         """
         Insert a new Artifact representing a Thing.
@@ -425,11 +420,11 @@ class TypeDBClient:
         self,
         artifact_id: str,
         content: str,
-        offset: Optional[int] = None,
-        length: Optional[int] = None,
-        section_type: Optional[str] = None,
+        offset: int | None = None,
+        length: int | None = None,
+        section_type: str | None = None,
         fragment_type: str = "fragment",
-        fragment_id: Optional[str] = None
+        fragment_id: str | None = None,
     ) -> str:
         """
         Insert a new Fragment of an Artifact.
@@ -460,9 +455,9 @@ class TypeDBClient:
         """
 
         if offset is not None:
-            query = query.rstrip(";") + f', has offset {offset};'
+            query = query.rstrip(";") + f", has offset {offset};"
         if length is not None:
-            query = query.rstrip(";") + f', has length {length};'
+            query = query.rstrip(";") + f", has length {length};"
         if section_type and fragment_type == "scilit-section":
             query = query.rstrip(";") + f', has section-type "{section_type}";'
 
@@ -495,12 +490,12 @@ class TypeDBClient:
         self,
         subject_ids: list[str],
         content: str,
-        note_type: Optional[str] = None,
-        confidence: Optional[float] = None,
-        tags: Optional[list[str]] = None,
-        agent_id: Optional[str] = None,
+        note_type: str | None = None,
+        confidence: float | None = None,
+        tags: list[str] | None = None,
+        agent_id: str | None = None,
         note_class: str = "note",
-        note_id: Optional[str] = None
+        note_id: str | None = None,
     ) -> str:
         """
         Insert a new Note about one or more entities.
@@ -533,7 +528,7 @@ class TypeDBClient:
         """
 
         if confidence is not None:
-            query = query.rstrip(";") + f', has confidence {confidence};'
+            query = query.rstrip(";") + f", has confidence {confidence};"
         if note_type:
             query = query.rstrip(";") + f', has format "{note_type}";'
 
@@ -607,7 +602,7 @@ class TypeDBClient:
     # Tagging Operations
     # -------------------------------------------------------------------------
 
-    def create_tag(self, name: str, description: Optional[str] = None) -> str:
+    def create_tag(self, name: str, description: str | None = None) -> str:
         """
         Create a new Tag.
 
@@ -684,11 +679,7 @@ class TypeDBClient:
                 tx.query.insert(rel_query)
                 tx.commit()
 
-    def search_by_tag(
-        self,
-        tag_name: str,
-        entity_type: Optional[str] = None
-    ) -> list[dict[str, Any]]:
+    def search_by_tag(self, tag_name: str, entity_type: str | None = None) -> list[dict[str, Any]]:
         """
         Find all entities with a given tag.
 
@@ -725,8 +716,8 @@ class TypeDBClient:
         self,
         name: str,
         agent_type: str = "llm",
-        model_name: Optional[str] = None,
-        agent_id: Optional[str] = None
+        model_name: str | None = None,
+        agent_id: str | None = None,
     ) -> str:
         """
         Insert a new Agent.
@@ -772,7 +763,7 @@ class TypeDBClient:
         source_entity_ids: list[str],
         agent_id: str,
         operation_type: str,
-        operation_parameters: Optional[dict] = None
+        operation_parameters: dict | None = None,
     ) -> None:
         """
         Record provenance for an entity.
@@ -792,7 +783,7 @@ class TypeDBClient:
         # Build match clause for all entities
         match_clauses = [
             f'$produced isa information-content-entity, has id "{produced_entity_id}";',
-            f'$agent isa agent, has id "{agent_id}";'
+            f'$agent isa agent, has id "{agent_id}";',
         ]
 
         for i, source_id in enumerate(source_entity_ids):
@@ -801,7 +792,7 @@ class TypeDBClient:
             )
 
         # Build insert clause
-        insert_base = f"""
+        insert_base = """
             (produced-entity: $produced, performing-agent: $agent"""
 
         for i in range(len(source_entity_ids)):
@@ -819,7 +810,7 @@ class TypeDBClient:
 
         query = f"""
             match
-                {' '.join(match_clauses)}
+                {" ".join(match_clauses)}
             insert
                 {insert_base}
         """
@@ -861,7 +852,7 @@ class TypeDBClient:
 
     def _escape_string(self, s: str) -> str:
         """Escape special characters for TypeQL strings."""
-        return s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+        return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
     def _parse_fetch_result(self, result: dict) -> dict[str, Any]:
         """Parse a TypeDB fetch result into a simple dictionary."""
@@ -888,14 +879,14 @@ class TypeDBClient:
         title: str,
         doi: str,
         paper_type: str = "scilit-paper",
-        pmid: Optional[str] = None,
-        pmcid: Optional[str] = None,
-        abstract: Optional[str] = None,
-        publication_year: Optional[int] = None,
-        journal_name: Optional[str] = None,
-        keywords: Optional[list[str]] = None,
-        collection_id: Optional[str] = None,
-        paper_id: Optional[str] = None
+        pmid: str | None = None,
+        pmcid: str | None = None,
+        abstract: str | None = None,
+        publication_year: int | None = None,
+        journal_name: str | None = None,
+        keywords: list[str] | None = None,
+        collection_id: str | None = None,
+        paper_id: str | None = None,
     ) -> str:
         """
         Insert a scientific paper into the knowledge graph.
@@ -938,7 +929,7 @@ class TypeDBClient:
         if abstract:
             query = query.rstrip(";") + f', has abstract-text "{self._escape_string(abstract)}";'
         if publication_year:
-            query = query.rstrip(";") + f', has publication-year {publication_year};'
+            query = query.rstrip(";") + f", has publication-year {publication_year};"
         if journal_name:
             query = query.rstrip(";") + f', has journal-name "{self._escape_string(journal_name)}";'
         if keywords:
@@ -956,7 +947,7 @@ class TypeDBClient:
 
         return pid
 
-    def get_paper_by_doi(self, doi: str) -> Optional[dict[str, Any]]:
+    def get_paper_by_doi(self, doi: str) -> dict[str, Any] | None:
         """
         Retrieve a paper by its DOI.
 
@@ -983,10 +974,10 @@ class TypeDBClient:
 
     def search_papers(
         self,
-        keyword: Optional[str] = None,
-        year: Optional[int] = None,
-        journal: Optional[str] = None,
-        limit: int = 100
+        keyword: str | None = None,
+        year: int | None = None,
+        journal: str | None = None,
+        limit: int = 100,
     ) -> list[dict[str, Any]]:
         """
         Search for papers in the knowledge graph.
@@ -1007,12 +998,12 @@ class TypeDBClient:
         if keyword:
             match_clauses.append(f'$p has keyword "{self._escape_string(keyword)}"')
         if year:
-            match_clauses.append(f'$p has publication-year {year}')
+            match_clauses.append(f"$p has publication-year {year}")
         if journal:
             match_clauses.append(f'$p has journal-name "{self._escape_string(journal)}"')
 
         query = f"""
-            match {'; '.join(match_clauses)};
+            match {"; ".join(match_clauses)};
             fetch $p: id, name, doi, publication-year, journal-name;
             limit {limit};
         """

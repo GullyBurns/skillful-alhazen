@@ -10,7 +10,7 @@ Use this skill to store and retrieve knowledge in the Alhazen TypeDB knowledge g
 ## Prerequisites
 
 - TypeDB must be running: `docker compose -f docker-compose-typedb.yml up -d`
-- TypeDB driver installed: `pip install 'typedb-driver>=2.25.0,<3.0.0'`
+- Dependencies installed: `uv sync --all-extras` (from project root)
 
 ## Environment Variables
 
@@ -29,7 +29,7 @@ Store information in the knowledge graph for later retrieval. Use this whenever 
 **Triggers:** "remember this", "remember that", "save this", "note that", "store", "make a note", "don't forget", "keep track of"
 
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "paper-xyz789" \
     --content "Key finding: 95% editing efficiency in liver cells. Uses novel lipid nanoparticle delivery." \
     --name "Key Findings" \
@@ -60,7 +60,7 @@ Query the knowledge graph for previously stored information. Use this when you n
 **Triggers:** "what do I know about", "what did I learn about", "recall", "remember", "find notes about", "what notes do I have", "retrieve"
 
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-xyz789"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-xyz789"
 ```
 
 Returns:
@@ -84,7 +84,7 @@ Create a collection of papers/documents for analysis. Collections can be defined
 **Triggers:** "create collection", "build corpus", "gather papers", "collect papers", "create a set of", "group these papers", "make a collection"
 
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection \
     --name "CRISPR Research" \
     --description "Papers about CRISPR gene editing" \
     --query "CRISPR AND (gene editing OR Cas9)"
@@ -105,7 +105,7 @@ Add a paper or research item to an existing collection.
 **Triggers:** "add to collection", "add to corpus", "include in", "add this paper to"
 
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-paper \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-paper \
     --name "CRISPR-Cas9 in Mouse Liver Cells" \
     --abstract "We demonstrate 95% editing efficiency..." \
     --doi "10.1234/example" \
@@ -130,7 +130,7 @@ Returns: `{"success": true, "paper_id": "paper-xyz789", "name": "CRISPR-Cas9 in 
 Get collection details and members.
 
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py query-collection --id "collection-abc123"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py query-collection --id "collection-abc123"
 ```
 
 Returns:
@@ -154,7 +154,7 @@ Classify an entity with a tag. Use this to categorize papers by topic, method, o
 **Triggers:** "classify", "categorize", "tag", "label", "mark as", "this is a"
 
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py tag --entity "paper-xyz789" --tag "high-impact"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py tag --entity "paper-xyz789" --tag "high-impact"
 ```
 
 Returns: `{"success": true, "entity": "paper-xyz789", "tag": "high-impact"}`
@@ -166,7 +166,7 @@ Find all entities matching a category or tag.
 **Triggers:** "find all", "show me", "list", "what papers are tagged", "which ones are"
 
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag "crispr"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag "crispr"
 ```
 
 Returns:
@@ -191,11 +191,11 @@ Create a note that summarizes/synthesizes other notes or entities. Use this when
 
 ```bash
 # First, query notes to gather information
-python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-123"
-python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-456"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-123"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-456"
 
 # Then create a synthesis note about one of the sources (or create a collection first)
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "collection-abc123" \
     --content "Synthesis: Both papers demonstrate >90% efficiency. Paper-123 uses lipid nanoparticles while paper-456 uses viral vectors. Key difference is delivery mechanism affects tissue targeting." \
     --name "Delivery Methods Synthesis" \
@@ -209,7 +209,7 @@ Create a comparative note about two or more entities. Use this to record similar
 **Triggers:** "compare", "contrast", "how does X differ from Y", "what's the difference between", "similarities between"
 
 ```bash
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "paper-123" \
     --content "Comparison with paper-456: Both achieve high editing efficiency. Paper-123 is more suitable for liver targeting, paper-456 for systemic delivery." \
     --name "Method Comparison" \
@@ -230,28 +230,28 @@ python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 
 ```bash
 # 1. Create collection
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection \
     --name "COVID-19 Vaccine Papers" \
     --description "Papers about COVID-19 vaccine development"
 
 # 2. Add papers
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-paper \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-paper \
     --name "mRNA Vaccine Efficacy Study" \
     --doi "10.1234/mrna" \
     --year 2024 \
     --collection "collection-xxx"
 
 # 3. Create notes
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "paper-yyy" \
     --content "Key finding: 95% efficacy in preventing severe disease" \
     --tags efficacy mrna
 
 # 4. Tag papers
-python .claude/skills/typedb-notebook/typedb_notebook.py tag --entity "paper-yyy" --tag "high-efficacy"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py tag --entity "paper-yyy" --tag "high-efficacy"
 
 # 5. Create synthesis
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "collection-xxx" \
     --content "Summary: mRNA vaccines show consistently high efficacy..." \
     --name "Literature Review Summary" \
@@ -263,7 +263,7 @@ python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 When you learn something worth remembering:
 ```bash
 # Remember
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "paper-123" \
     --content "This paper introduces a novel approach to X" \
     --tags important methodology
@@ -272,10 +272,10 @@ python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 When you need to recall:
 ```bash
 # Recall by subject
-python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-123"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-123"
 
 # Or search by tag
-python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag "methodology"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag "methodology"
 ```
 
 ### Question-Answering Workflow
@@ -286,13 +286,13 @@ python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag "metho
 
 ```bash
 # 1. Find relevant papers
-python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag "crispr"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag "crispr"
 
 # 2. Get notes about each
-python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-123"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-123"
 
 # 3. Create answer note
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "paper-123" \
     --content "Answer: The most efficient CRISPR delivery method appears to be..." \
     --name "Research Question Answer" \
@@ -321,3 +321,41 @@ python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 | `query-notes` | Find notes about entity | `--subject` |
 | `tag` | Tag an entity | `--entity`, `--tag` |
 | `search-tag` | Search by tag | `--tag` |
+
+---
+
+## TypeDB 2.x Reference
+
+**Always consult the TypeDB documentation when writing schemas or queries:**
+
+- **Full Reference:** `local_resources/typedb/typedb-2x-documentation.md`
+- **Core Schema:** `local_resources/typedb/alhazen_notebook.tql`
+- **Namespaces:** `local_resources/typedb/namespaces/*.tql`
+
+### Key TypeQL 2.x Patterns
+
+```typeql
+# Define entities with attributes
+define
+person sub entity,
+    owns name,
+    plays friendship:friend;
+
+# Insert data
+insert $p isa person, has name "Alice";
+
+# Match and fetch (returns JSON)
+match $p isa person, has name $n;
+fetch $p: name;
+
+# Match and get (returns ConceptMaps)
+match $p isa person, has name $n;
+get $p, $n;
+```
+
+### Common Pitfalls (TypeDB 2.x)
+
+- **No `optional` in fetch queries** - Use separate queries instead
+- **Fetch projections must match owned attributes** - Can't fetch attributes the type doesn't own
+- **Use semicolons** between statements in match clauses (implicit AND)
+- **Escape strings** properly: `\"` for quotes, `\\n` for newlines

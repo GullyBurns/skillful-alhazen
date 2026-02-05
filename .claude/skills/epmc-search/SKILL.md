@@ -10,8 +10,7 @@ Search Europe PMC (EPMC) for scientific literature and store results in the Alha
 ## Prerequisites
 
 - TypeDB must be running: `docker compose -f docker-compose-typedb.yml up -d`
-- TypeDB driver installed: `pip install 'typedb-driver>=2.25.0,<3.0.0'`
-- requests and tqdm: `pip install requests tqdm`
+- Dependencies installed: `uv sync --all-extras` (from project root)
 
 ## Environment Variables
 
@@ -30,7 +29,7 @@ Search EPMC and store results in TypeDB as a collection.
 **Triggers:** "search epmc", "search for papers", "find papers about", "build a corpus", "search pubmed", "search literature"
 
 ```bash
-python .claude/skills/epmc-search/epmc_search.py search \
+uv run python .claude/skills/epmc-search/epmc_search.py search \
     --query "CRISPR AND gene editing" \
     --collection "CRISPR Papers" \
     --max-results 500
@@ -64,7 +63,7 @@ Count papers matching a query without storing anything. Use this to estimate cor
 **Triggers:** "how many papers", "count papers", "estimate corpus size"
 
 ```bash
-python .claude/skills/epmc-search/epmc_search.py count --query "COVID-19 AND vaccine"
+uv run python .claude/skills/epmc-search/epmc_search.py count --query "COVID-19 AND vaccine"
 ```
 
 **Returns:**
@@ -84,13 +83,13 @@ Fetch a specific paper by DOI or PMID and store it.
 
 ```bash
 # By DOI
-python .claude/skills/epmc-search/epmc_search.py fetch-paper --doi "10.1038/s41586-020-2008-3"
+uv run python .claude/skills/epmc-search/epmc_search.py fetch-paper --doi "10.1038/s41586-020-2008-3"
 
 # By PMID
-python .claude/skills/epmc-search/epmc_search.py fetch-paper --pmid "32015507"
+uv run python .claude/skills/epmc-search/epmc_search.py fetch-paper --pmid "32015507"
 
 # Add to existing collection
-python .claude/skills/epmc-search/epmc_search.py fetch-paper --doi "10.1038/s41586-020-2008-3" --collection "collection-abc123"
+uv run python .claude/skills/epmc-search/epmc_search.py fetch-paper --doi "10.1038/s41586-020-2008-3" --collection "collection-abc123"
 ```
 
 **Returns:**
@@ -111,7 +110,7 @@ List all collections created from EPMC searches.
 **Triggers:** "list collections", "show my collections", "what collections do I have"
 
 ```bash
-python .claude/skills/epmc-search/epmc_search.py list-collections
+uv run python .claude/skills/epmc-search/epmc_search.py list-collections
 ```
 
 ---
@@ -161,17 +160,17 @@ OPEN_ACCESS:y
 
 ```bash
 # CRISPR papers from 2022 onwards
-python .claude/skills/epmc-search/epmc_search.py search \
+uv run python .claude/skills/epmc-search/epmc_search.py search \
     --query "CRISPR AND (Cas9 OR Cas12) AND FIRST_PDATE:[2022-01-01 TO *]" \
     --collection "Recent CRISPR"
 
 # Open access single-cell papers
-python .claude/skills/epmc-search/epmc_search.py search \
+uv run python .claude/skills/epmc-search/epmc_search.py search \
     --query '"single cell" AND (RNA-seq OR transcriptomics) AND OPEN_ACCESS:y' \
     --collection "Open Access scRNA-seq"
 
 # Papers by author in specific journal
-python .claude/skills/epmc-search/epmc_search.py search \
+uv run python .claude/skills/epmc-search/epmc_search.py search \
     --query 'AUTH:"Doudna J" AND JOURNAL:Science' \
     --collection "Doudna Science Papers"
 ```
@@ -184,19 +183,19 @@ python .claude/skills/epmc-search/epmc_search.py search \
 
 ```bash
 # 1. Estimate size
-python .claude/skills/epmc-search/epmc_search.py count --query "your query"
+uv run python .claude/skills/epmc-search/epmc_search.py count --query "your query"
 
 # 2. Search and store (adjust max-results based on count)
-python .claude/skills/epmc-search/epmc_search.py search \
+uv run python .claude/skills/epmc-search/epmc_search.py search \
     --query "your query" \
     --collection "Descriptive Name" \
     --max-results 1000
 
 # 3. Review collection
-python .claude/skills/typedb-notebook/typedb_notebook.py query-collection --id "collection-xxx"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py query-collection --id "collection-xxx"
 
 # 4. Add notes about papers
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "paper-id" \
     --content "Key finding: ..."
 ```
@@ -205,14 +204,14 @@ python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 
 ```bash
 # 1. Create collection
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "Key Papers"
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "Key Papers"
 
 # 2. Fetch specific papers
-python .claude/skills/epmc-search/epmc_search.py fetch-paper --doi "10.1234/paper1" --collection "collection-xxx"
-python .claude/skills/epmc-search/epmc_search.py fetch-paper --doi "10.1234/paper2" --collection "collection-xxx"
+uv run python .claude/skills/epmc-search/epmc_search.py fetch-paper --doi "10.1234/paper1" --collection "collection-xxx"
+uv run python .claude/skills/epmc-search/epmc_search.py fetch-paper --doi "10.1234/paper2" --collection "collection-xxx"
 
 # 3. Add analysis notes
-python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "doi-10_1234-paper1" \
     --content "Analysis: ..."
 ```

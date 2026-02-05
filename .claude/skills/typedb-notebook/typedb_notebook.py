@@ -38,17 +38,20 @@ import json
 import os
 import sys
 import uuid
-from datetime import datetime
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 try:
-    from typedb.driver import TypeDB, SessionType, TransactionType
+    from typedb.driver import SessionType, TransactionType, TypeDB
+
     TYPEDB_AVAILABLE = True
 except ImportError:
     TYPEDB_AVAILABLE = False
-    print("Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=2.25.0,<3.0.0'", file=sys.stderr)
+    print(
+        "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=2.25.0,<3.0.0'",
+        file=sys.stderr,
+    )
 
 
 # Configuration
@@ -69,7 +72,7 @@ def generate_id(prefix: str) -> str:
 
 def escape_string(s: str) -> str:
     """Escape special characters for TypeQL."""
-    return s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def insert_collection(args):
@@ -104,7 +107,7 @@ def insert_paper(args):
     if args.pmid:
         query += f', has pmid "{args.pmid}"'
     if args.year:
-        query += f', has publication-year {args.year}'
+        query += f", has publication-year {args.year}"
     query += ";"
 
     with get_driver() as driver:
@@ -132,7 +135,7 @@ def insert_note(args):
     if args.name:
         query += f', has name "{escape_string(args.name)}"'
     if args.confidence:
-        query += f', has confidence {args.confidence}'
+        query += f", has confidence {args.confidence}"
     query += ";"
 
     with get_driver() as driver:
@@ -154,13 +157,17 @@ def insert_note(args):
                         # Create tag if not exists, then tag the note
                         tag_id = generate_id("tag")
                         try:
-                            tx.query.insert(f'insert $t isa tag, has id "{tag_id}", has name "{tag}";')
+                            tx.query.insert(
+                                f'insert $t isa tag, has id "{tag_id}", has name "{tag}";'
+                            )
                             tx.commit()
-                        except:
+                        except Exception:
                             pass  # Tag might already exist
 
                     with session.transaction(TransactionType.WRITE) as tx:
-                        tx.query.insert(f'match $n isa note, has id "{nid}"; $t isa tag, has name "{tag}"; insert (tagged-entity: $n, tag: $t) isa tagging;')
+                        tx.query.insert(
+                            f'match $n isa note, has id "{nid}"; $t isa tag, has name "{tag}"; insert (tagged-entity: $n, tag: $t) isa tagging;'
+                        )
                         tx.commit()
 
     print(json.dumps({"success": True, "note_id": nid, "subject": args.subject}))
@@ -172,20 +179,33 @@ def query_collection(args):
         with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
             with session.transaction(TransactionType.READ) as tx:
                 # Get collection
-                result = list(tx.query.fetch(f'match $c isa collection, has id "{args.id}"; fetch $c: id, name, description;'))
+                result = list(
+                    tx.query.fetch(
+                        f'match $c isa collection, has id "{args.id}"; fetch $c: id, name, description;'
+                    )
+                )
                 if not result:
                     print(json.dumps({"success": False, "error": "Collection not found"}))
                     return
 
                 # Get members
-                members = list(tx.query.fetch(f'match $c isa collection, has id "{args.id}"; (collection: $c, member: $m) isa collection-membership; fetch $m: id, name;'))
+                members = list(
+                    tx.query.fetch(
+                        f'match $c isa collection, has id "{args.id}"; (collection: $c, member: $m) isa collection-membership; fetch $m: id, name;'
+                    )
+                )
 
-                print(json.dumps({
-                    "success": True,
-                    "collection": result[0],
-                    "members": members,
-                    "member_count": len(members)
-                }, indent=2))
+                print(
+                    json.dumps(
+                        {
+                            "success": True,
+                            "collection": result[0],
+                            "members": members,
+                            "member_count": len(members),
+                        },
+                        indent=2,
+                    )
+                )
 
 
 def query_notes(args):
@@ -196,12 +216,17 @@ def query_notes(args):
                 query = f'match $s isa information-content-entity, has id "{args.subject}"; (note: $n, subject: $s) isa aboutness; fetch $n: id, name, content, confidence;'
                 results = list(tx.query.fetch(query))
 
-                print(json.dumps({
-                    "success": True,
-                    "subject": args.subject,
-                    "notes": results,
-                    "count": len(results)
-                }, indent=2))
+                print(
+                    json.dumps(
+                        {
+                            "success": True,
+                            "subject": args.subject,
+                            "notes": results,
+                            "count": len(results),
+                        },
+                        indent=2,
+                    )
+                )
 
 
 def tag_entity(args):
@@ -214,12 +239,14 @@ def tag_entity(args):
                 try:
                     tx.query.insert(f'insert $t isa tag, has id "{tag_id}", has name "{args.tag}";')
                     tx.commit()
-                except:
+                except Exception:
                     pass
 
             # Create tagging relation
             with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(f'match $e isa information-content-entity, has id "{args.entity}"; $t isa tag, has name "{args.tag}"; insert (tagged-entity: $e, tag: $t) isa tagging;')
+                tx.query.insert(
+                    f'match $e isa information-content-entity, has id "{args.entity}"; $t isa tag, has name "{args.tag}"; insert (tagged-entity: $e, tag: $t) isa tagging;'
+                )
                 tx.commit()
 
     print(json.dumps({"success": True, "entity": args.entity, "tag": args.tag}))
@@ -233,16 +260,23 @@ def search_tag(args):
                 query = f'match $t isa tag, has name "{args.tag}"; (tagged-entity: $e, tag: $t) isa tagging; fetch $e: id, name;'
                 results = list(tx.query.fetch(query))
 
-                print(json.dumps({
-                    "success": True,
-                    "tag": args.tag,
-                    "entities": results,
-                    "count": len(results)
-                }, indent=2))
+                print(
+                    json.dumps(
+                        {
+                            "success": True,
+                            "tag": args.tag,
+                            "entities": results,
+                            "count": len(results),
+                        },
+                        indent=2,
+                    )
+                )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="TypeDB Notebook CLI for Alhazen's knowledge graph")
+    parser = argparse.ArgumentParser(
+        description="TypeDB Notebook CLI for Alhazen's knowledge graph"
+    )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # insert-collection
