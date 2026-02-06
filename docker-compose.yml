@@ -1,0 +1,114 @@
+# Docker Compose for Skillful-Alhazen
+# Usage: docker compose up -d
+#
+# Services:
+# - Hub: http://localhost:8080 (master landing page)
+# - Job Hunt Dashboard: http://localhost:3001
+# - TypeDB: localhost:1729
+#
+# To run only TypeDB: docker compose up -d typedb
+# To run everything: docker compose up -d
+
+services:
+  # ============================================
+  # TypeDB - Knowledge Graph Database
+  # ============================================
+  typedb:
+    image: vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: alhazen-typedb
+    ports:
+      - "1729:1729"
+    volumes:
+      - typedb-data:/opt/typedb-all-linux-x86_64/server/data
+      - ./local_resources/typedb:/schema:ro
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'database list' | /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - alhazen-network
+
+  # ============================================
+  # Schema Initialization (runs once)
+  # ============================================
+  typedb-init:
+    image: vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: alhazen-typedb-init
+    depends_on:
+      typedb:
+        condition: service_healthy
+    volumes:
+      - ./local_resources/typedb:/schema:ro
+    networks:
+      - alhazen-network
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Checking if database exists..."
+        if echo "database list" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729 2>/dev/null | grep -q "alhazen_notebook"; then
+          echo "Database already exists, skipping initialization"
+          exit 0
+        fi
+
+        echo "Creating database..."
+        echo "database create alhazen_notebook" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729 2>/dev/null || true
+
+        echo "Loading main schema..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/alhazen_notebook.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading scientific literature namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/scilit.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading job hunt namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/jobhunt.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Schema initialization complete!"
+
+  # ============================================
+  # Hub - Master Landing Page
+  # ============================================
+  hub:
+    build:
+      context: ./hub
+      dockerfile: Dockerfile
+    container_name: alhazen-hub
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - alhazen-network
+
+  # ============================================
+  # Job Hunt Dashboard
+  # ============================================
+  # NOTE: The dashboard requires uv/Python to run jobhunt.py scripts.
+  # For now, run it outside Docker:
+  #   cd dashboard && npm run dev
+  #
+  # Future: Create an API service that wraps jobhunt.py operations
+  # jobhunt-dashboard:
+  #   build:
+  #     context: ./dashboard
+  #     dockerfile: Dockerfile
+  #   container_name: alhazen-jobhunt-dashboard
+  #   ports:
+  #     - "3001:3000"
+
+volumes:
+  typedb-data:
+    driver: local
+
+networks:
+  alhazen-network:
+    driver: bridge
