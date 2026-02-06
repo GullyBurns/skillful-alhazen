@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skillful-Alhazen Hub</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #e4e4e7;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      color: #a1a1aa;
+      font-size: 1.1rem;
+    }
+    .dashboards {
+      display: grid;
+      gap: 1.5rem;
+    }
+    .dashboard-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.2s;
+    }
+    .dashboard-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(129, 140, 248, 0.5);
+      transform: translateY(-2px);
+    }
+    .dashboard-card h2 {
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .dashboard-card p {
+      color: #a1a1aa;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+    .dashboard-card a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #818cf8;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .dashboard-card a:hover {
+      color: #a5b4fc;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      margin-left: auto;
+    }
+    .status.online {
+      background: rgba(34, 197, 94, 0.2);
+      color: #4ade80;
+    }
+    .status.offline {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+    .status.checking {
+      background: rgba(250, 204, 21, 0.2);
+      color: #fde047;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .services {
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .services h3 {
+      font-size: 1rem;
+      color: #a1a1aa;
+      margin-bottom: 1rem;
+    }
+    .service-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .service-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Skillful-Alhazen</h1>
+      <p class="subtitle">AI-Powered Knowledge Curation System</p>
+    </header>
+
+    <div class="dashboards">
+      <div class="dashboard-card">
+        <h2>
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          Job Hunt Dashboard
+          <span class="status checking" id="jobhunt-status">
+            <span class="dot"></span>
+            Checking...
+          </span>
+        </h2>
+        <p>Track job applications, analyze skill gaps, and manage your learning plan.</p>
+        <a href="http://localhost:3000" target="_blank" id="jobhunt-link">
+          Open Dashboard
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="dashboard-card">
+        <h2>
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+          </svg>
+          Literature Dashboard
+          <span class="status offline" id="literature-status">
+            <span class="dot"></span>
+            Not Available
+          </span>
+        </h2>
+        <p>Search and organize scientific papers from Europe PMC and other sources.</p>
+        <a href="#" style="opacity: 0.5; pointer-events: none;">
+          Coming Soon
+        </a>
+      </div>
+    </div>
+
+    <div class="services">
+      <h3>Backend Services</h3>
+      <div class="service-list">
+        <div class="service-item">
+          <span class="dot" id="typedb-dot" style="background: #fde047;"></span>
+          TypeDB
+          <span id="typedb-port">:1729</span>
+        </div>
+        <div class="service-item">
+          <span class="dot" id="mcp-dot" style="background: #fde047;"></span>
+          MCP Server
+          <span id="mcp-port">:3000</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function checkService(url, statusId, dotId) {
+      const statusEl = document.getElementById(statusId);
+      const dotEl = dotId ? document.getElementById(dotId) : null;
+
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch(url, {
+          method: 'HEAD',
+          mode: 'no-cors',
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (statusEl) {
+          statusEl.className = 'status online';
+          statusEl.innerHTML = '<span class="dot"></span>Online';
+        }
+        if (dotEl) dotEl.style.background = '#4ade80';
+        return true;
+      } catch (e) {
+        if (statusEl) {
+          statusEl.className = 'status offline';
+          statusEl.innerHTML = '<span class="dot"></span>Offline';
+        }
+        if (dotEl) dotEl.style.background = '#f87171';
+        return false;
+      }
+    }
+
+    // Check services on load
+    checkService('http://localhost:3000', 'jobhunt-status', null);
+    checkService('http://localhost:1729', null, 'typedb-dot');
+    // MCP server not always running
+    document.getElementById('mcp-dot').style.background = '#71717a';
+  </script>
+</body>
+</html>
