@@ -72,7 +72,7 @@ We are staying on TypeDB 2.x because:
 - Production stability is important for this project
 
 **TypeDB 2.x Documentation Reference:**
-- `local_resources/typedb/typedb-2x-documentation.md` - Comprehensive TypeQL 2.x reference
+- `.claude/skills/typedb-notebook/typedb-2x-documentation.md` - Comprehensive TypeQL 2.x reference
 - Includes: queries, patterns, statements, types, values, modifiers, keywords, Python driver
 - **Always consult this file when writing TypeDB schemas or queries**
 
@@ -106,7 +106,17 @@ The data model uses five core entity types in TypeDB:
 
 ### Skills
 
-Each skill includes a SKILL.md (documentation) and Python script:
+Skills follow a **three-component architecture**:
+1. **TypeDB Schema** (`local_resources/typedb/namespaces/<domain>.tql`) - Data model
+2. **Skill Definition** (`.claude/skills/<domain>/SKILL.md` + `<domain>.py`) - Claude's interface
+3. **Dashboard** (optional) (`dashboard/`) - Web UI
+
+**Documentation:**
+- Wiki: [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) - Complete guide for humans
+- `.claude/skills/domain-modeling/SKILL.md` - Design guidance (callable skill for Claude)
+- `.claude/skills/_template/` - Template files for creating new skills
+
+**Available Skills:**
 
 - **typedb-notebook** - Knowledge operations (remember, recall, organize)
   - `.claude/skills/typedb-notebook/SKILL.md`
@@ -119,6 +129,8 @@ Each skill includes a SKILL.md (documentation) and Python script:
 - **jobhunt** - Job hunting notebook (positions, companies, skills, learning)
   - `.claude/skills/jobhunt/SKILL.md`
   - `.claude/skills/jobhunt/jobhunt.py`
+  - `local_resources/typedb/namespaces/jobhunt.tql`
+  - `dashboard/` (full-stack example)
 
 ### Dashboards
 
@@ -152,10 +164,11 @@ cd dashboard && npm run dev
 - Analyzing results returned by scripts
 
 **Writing new skills:** When integrating a new data source or API:
-1. Use WebFetch to read the API documentation
-2. Create a skill directory: `.claude/skills/<skill-name>/`
-3. Write a script following the pattern of existing scripts
-4. Create `SKILL.md` documenting the commands
+1. Copy the template: `cp -r .claude/skills/_template .claude/skills/<skill-name>`
+2. Design the TypeDB schema in `schema.tql`, copy to `local_resources/typedb/namespaces/`
+3. Implement commands in `<skill-name>.py` following the template
+4. Document in `SKILL.md` with commands and sensemaking workflow
+5. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide
 
 **Script conventions:**
 - Scripts output JSON to stdout for easy parsing

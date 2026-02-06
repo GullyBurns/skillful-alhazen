@@ -1,0 +1,106 @@
+# =============================================================================
+# [DOMAIN NAME] NAMESPACE - TypeDB 2.x Schema Extension
+# =============================================================================
+# Domain-specific subtypes for [description].
+# TypeDB as Claude's "world model" for reasoning about [domain entities].
+# Namespace prefix: DOMAIN-*
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Domain Specific
+# -----------------------------------------------------------------------------
+
+# TODO: Define your domain-specific attributes
+# Pattern: attribute-name sub attribute, value [string|long|double|boolean|datetime];
+
+# URL attributes
+# domain-url sub attribute, value string;
+
+# Status/state attributes
+# domain-status sub attribute, value string;
+
+# Measurement/score attributes
+# domain-score sub attribute, value double;
+
+# Date attributes
+# domain-date sub attribute, value datetime;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Things
+# -----------------------------------------------------------------------------
+
+# TODO: Define your primary entity types
+# Pattern: domain-thing sub research-item,
+#     owns domain-attribute,
+#     plays domain-relation:role;
+
+# DOMAIN-ENTITY - Primary thing you track
+# domain-entity sub research-item,
+#     owns domain-url,
+#     owns domain-status,
+#     plays domain-relation:role1;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Artifacts (raw captured content)
+# -----------------------------------------------------------------------------
+
+# TODO: Define artifact types for raw content storage
+# Pattern: domain-artifact-type sub artifact;
+
+# DOMAIN-CONTENT - Raw content from source
+# domain-content sub artifact;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Fragments (extracted pieces)
+# -----------------------------------------------------------------------------
+
+# TODO: Define fragment types for extracted pieces
+# Pattern: domain-fragment sub fragment,
+#     owns fragment-specific-attribute,
+#     plays domain-relation:role;
+
+# DOMAIN-FRAGMENT - Extracted piece of content
+# domain-fragment sub fragment,
+#     owns domain-attribute,
+#     plays domain-relation:role2;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Notes (Claude's analysis)
+# -----------------------------------------------------------------------------
+
+# TODO: Define note types for different kinds of analysis
+# Pattern: domain-note-type sub note,
+#     owns note-specific-attribute;
+
+# DOMAIN-ANALYSIS-NOTE - Claude's analysis
+# domain-analysis-note sub note,
+#     owns domain-score;
+
+# DOMAIN-RESEARCH-NOTE - Research findings
+# domain-research-note sub note;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Domain Specific
+# -----------------------------------------------------------------------------
+
+# TODO: Define relations between your entities
+# Pattern: domain-relation sub relation,
+#     relates role1,
+#     relates role2;
+
+# DOMAIN-RELATION - Links entity1 to entity2
+# domain-relation sub relation,
+#     relates role1,
+#     relates role2;
+
+
+# =============================================================================
+# END [DOMAIN NAME] NAMESPACE
+# =============================================================================
