@@ -1,0 +1,435 @@
+# =============================================================================
+# ALGORITHM FOR PRECISION MEDICINE (APM) NAMESPACE - TypeDB 2.x Schema Extension
+# =============================================================================
+# Domain-specific subtypes for rare disease investigation following
+# Matt Might's Algorithm for Precision Medicine:
+#   Phase 1 (Diagnostic): Symptoms -> Molecular Diagnosis
+#   Phase 2 (Therapeutic): Mechanism of Harm -> Treatment
+#
+# A rare disease investigation is a detective case:
+#   Collection = case file
+#   Thing = actors (patient, gene, variant, disease, drug)
+#   Artifact = raw evidence (sequencing reports, database records, papers)
+#   Fragment = extracted clues (phenotype features, variant calls, ACMG evidence)
+#   Note = detective's reasoning (diagnosis hypotheses, mechanism analysis)
+#
+# Papers reuse scilit-paper from the scilit namespace.
+# Namespace prefix: apm-*
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Genomic Coordinates
+# -----------------------------------------------------------------------------
+
+apm-chromosome sub attribute, value string;           # "chr1", "chrX"
+apm-position-start sub attribute, value long;
+apm-position-end sub attribute, value long;
+apm-reference-allele sub attribute, value string;
+apm-alternate-allele sub attribute, value string;
+apm-genome-build sub attribute, value string;         # "GRCh37", "GRCh38"
+apm-transcript-id sub attribute, value string;        # "NM_001354609.2"
+apm-hgvs-c sub attribute, value string;               # coding DNA: "c.1201A>T"
+apm-hgvs-p sub attribute, value string;               # protein: "p.Arg401Ter"
+apm-hgvs-g sub attribute, value string;               # genomic: "g.12345A>T"
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Variant Classification
+# -----------------------------------------------------------------------------
+
+apm-acmg-class sub attribute, value string;           # pathogenic, likely-pathogenic, VUS, likely-benign, benign
+apm-acmg-criteria sub attribute, value string;        # "PS1,PM2,PP3"
+apm-zygosity sub attribute, value string;             # heterozygous, homozygous, hemizygous, compound-het
+apm-inheritance-pattern sub attribute, value string;  # autosomal-dominant, autosomal-recessive, X-linked, de-novo
+apm-allele-frequency sub attribute, value double;
+apm-gnomad-af sub attribute, value double;
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Functional Impact
+# -----------------------------------------------------------------------------
+
+apm-mechanism-type sub attribute, value string;       # gain-of-function, partial-loss, total-loss, dominant-negative, toxification
+apm-functional-impact sub attribute, value string;    # overactivity, underactivity, absence, toxicity
+apm-conservation-score sub attribute, value double;
+apm-prediction-tool sub attribute, value string;      # "PolyPhen2", "CADD", "REVEL"
+apm-prediction-score sub attribute, value double;
+apm-prediction-result sub attribute, value string;    # "damaging", "benign", "deleterious"
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Clinical
+# -----------------------------------------------------------------------------
+
+apm-hpo-id sub attribute, value string;               # "HP:0001250"
+apm-hpo-label sub attribute, value string;            # "Seizures"
+apm-omim-id sub attribute, value string;
+apm-orpha-id sub attribute, value string;
+apm-mondo-id sub attribute, value string;
+apm-clinvar-id sub attribute, value string;
+apm-onset-category sub attribute, value string;       # infantile, childhood, juvenile, adult
+apm-severity sub attribute, value string;             # mild, moderate, severe, profound
+apm-penetrance sub attribute, value string;           # complete, incomplete, variable
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Gene/Protein
+# -----------------------------------------------------------------------------
+
+apm-gene-symbol sub attribute, value string;          # "NGLY1"
+apm-ensembl-id sub attribute, value string;
+apm-entrez-id sub attribute, value string;
+apm-uniprot-id sub attribute, value string;
+apm-protein-domain sub attribute, value string;
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Drug/Therapy
+# -----------------------------------------------------------------------------
+
+apm-drugbank-id sub attribute, value string;
+apm-chembl-id sub attribute, value string;
+apm-therapeutic-approach sub attribute, value string; # inhibitor, activator, gene-therapy, ERT, antisense, readthrough, diet
+apm-development-stage sub attribute, value string;    # preclinical, phase-1, phase-2, phase-3, approved, off-label
+apm-target-type sub attribute, value string;          # enzyme, receptor, channel, transporter
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Model Systems
+# -----------------------------------------------------------------------------
+
+apm-model-type sub attribute, value string;           # patient-fibroblast, iPSC, mouse, zebrafish, fly, yeast
+apm-model-species sub attribute, value string;
+apm-phenotype-recapitulated sub attribute, value boolean;
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Investigation Tracking
+# -----------------------------------------------------------------------------
+
+apm-diagnostic-status sub attribute, value string;    # unsolved, candidate, confirmed, reclassified
+apm-therapeutic-status sub attribute, value string;   # exploring, candidate-therapy, in-trial, treating
+apm-investigation-phase sub attribute, value string;  # diagnostic, therapeutic, both
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - APM Things (sub research-item)
+# -----------------------------------------------------------------------------
+
+# APM-CASE - The patient investigation (the central "case file")
+apm-case sub research-item,
+    owns apm-diagnostic-status,
+    owns apm-therapeutic-status,
+    owns apm-investigation-phase,
+    plays apm-case-has-phenotype:case,
+    plays apm-case-has-variant:case,
+    plays apm-case-has-diagnosis:case;
+
+# APM-GENE - A gene implicated in the investigation
+apm-gene sub research-item,
+    owns apm-gene-symbol,
+    owns apm-ensembl-id,
+    owns apm-entrez-id,
+    owns apm-inheritance-pattern,
+    plays apm-variant-in-gene:gene,
+    plays apm-phenotype-gene-association:gene,
+    plays apm-mechanism-of-harm:gene,
+    plays apm-gene-encodes:gene,
+    plays apm-drug-target:target-gene,
+    plays apm-pathway-membership:member-gene;
+
+# APM-VARIANT - A specific genomic variant
+apm-variant sub research-item,
+    owns apm-chromosome,
+    owns apm-position-start,
+    owns apm-position-end,
+    owns apm-reference-allele,
+    owns apm-alternate-allele,
+    owns apm-genome-build,
+    owns apm-transcript-id,
+    owns apm-hgvs-c,
+    owns apm-hgvs-p,
+    owns apm-hgvs-g,
+    owns apm-acmg-class,
+    owns apm-acmg-criteria,
+    owns apm-allele-frequency,
+    owns apm-gnomad-af,
+    owns apm-clinvar-id,
+    plays apm-case-has-variant:variant,
+    plays apm-variant-in-gene:variant,
+    plays apm-variant-pathogenicity:variant,
+    plays apm-mechanism-of-harm:variant;
+
+# APM-DISEASE - A disease or condition
+apm-disease sub research-item,
+    owns apm-omim-id,
+    owns apm-orpha-id,
+    owns apm-mondo-id,
+    owns apm-inheritance-pattern,
+    owns apm-penetrance,
+    plays apm-case-has-diagnosis:disease,
+    plays apm-variant-pathogenicity:disease,
+    plays apm-phenotype-gene-association:disease,
+    plays apm-drug-indication:indication,
+    plays apm-model-for-disease:disease;
+
+# APM-PHENOTYPE - A clinical phenotype feature (canonical HPO concept)
+apm-phenotype sub research-item,
+    owns apm-hpo-id,
+    owns apm-hpo-label,
+    owns apm-onset-category,
+    owns apm-severity,
+    plays apm-case-has-phenotype:phenotype,
+    plays apm-phenotype-gene-association:phenotype;
+
+# APM-PROTEIN - Protein product of a gene
+apm-protein sub research-item,
+    owns apm-uniprot-id,
+    owns apm-protein-domain,
+    plays apm-gene-encodes:protein,
+    plays apm-drug-target:target-protein;
+
+# APM-PATHWAY - A biological pathway
+apm-pathway sub research-item,
+    plays apm-pathway-membership:pathway;
+
+# APM-DRUG - A therapeutic compound
+apm-drug sub research-item,
+    owns apm-drugbank-id,
+    owns apm-chembl-id,
+    owns apm-therapeutic-approach,
+    owns apm-development-stage,
+    plays apm-drug-target:drug,
+    plays apm-drug-indication:drug;
+
+# APM-DISEASE-MODEL - An experimental model system
+apm-disease-model sub research-item,
+    owns apm-model-type,
+    owns apm-model-species,
+    owns apm-phenotype-recapitulated,
+    plays apm-model-for-disease:model,
+    plays apm-assay-for-model:model;
+
+# APM-ASSAY - A functional test/experiment
+apm-assay sub research-item,
+    plays apm-assay-for-model:assay;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - APM Artifacts (sub artifact)
+# -----------------------------------------------------------------------------
+
+# APM-SEQUENCING-REPORT - Clinical WES/WGS report, VCF files
+apm-sequencing-report sub artifact;
+
+# APM-CLINVAR-RECORD - Raw ClinVar entry for a variant
+apm-clinvar-record sub artifact,
+    owns apm-clinvar-id;
+
+# APM-OMIM-RECORD - OMIM gene/disease entry
+apm-omim-record sub artifact,
+    owns apm-omim-id;
+
+# APM-GNOMAD-RECORD - Population frequency data
+apm-gnomad-record sub artifact,
+    owns apm-gnomad-af;
+
+# APM-PREDICTION-RECORD - In silico prediction output
+apm-prediction-record sub artifact,
+    owns apm-prediction-tool,
+    owns apm-prediction-score,
+    owns apm-prediction-result;
+
+# APM-DRUG-RECORD - DrugBank/ChEMBL entry
+apm-drug-record sub artifact,
+    owns apm-drugbank-id,
+    owns apm-chembl-id;
+
+# APM-PATHWAY-RECORD - STRING/BioCyc/Genemania pathway data
+apm-pathway-record sub artifact;
+
+# APM-SCREENING-RESULT - Drug screening assay results
+apm-screening-result sub artifact;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - APM Fragments (sub fragment)
+# -----------------------------------------------------------------------------
+
+# APM-PHENOTYPE-FEATURE - Phenotype mention extracted from clinical notes/reports
+apm-phenotype-feature sub fragment,
+    owns apm-hpo-id,
+    owns apm-hpo-label,
+    owns apm-onset-category,
+    owns apm-severity;
+
+# APM-VARIANT-CALL - Variant extracted from sequencing reports
+apm-variant-call sub fragment,
+    owns apm-chromosome,
+    owns apm-hgvs-c,
+    owns apm-hgvs-p,
+    owns apm-zygosity,
+    owns apm-gene-symbol,
+    owns apm-allele-frequency;
+
+# APM-PATHOGENICITY-EVIDENCE - Individual ACMG evidence item
+apm-pathogenicity-evidence sub fragment,
+    owns apm-acmg-criteria,
+    owns confidence;
+
+# APM-DRUG-GENE-INTERACTION - Drug-gene interaction from databases
+apm-drug-gene-interaction sub fragment,
+    owns apm-gene-symbol,
+    owns apm-therapeutic-approach;
+
+# APM-MECHANISM-CLAIM - Mechanism claim from literature/studies
+apm-mechanism-claim sub fragment,
+    owns apm-mechanism-type,
+    owns apm-functional-impact,
+    owns confidence;
+
+# APM-CONSERVATION-DATA - Conservation/prediction data extracted from records
+apm-conservation-data sub fragment,
+    owns apm-conservation-score,
+    owns apm-prediction-tool,
+    owns apm-prediction-score;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - APM Notes (sub note)
+# -----------------------------------------------------------------------------
+
+# APM-DIAGNOSIS-HYPOTHESIS-NOTE - Candidate diagnosis with reasoning
+apm-diagnosis-hypothesis-note sub note,
+    owns apm-diagnostic-status,
+    owns apm-acmg-class;
+
+# APM-VARIANT-INTERPRETATION-NOTE - Full ACMG variant classification
+apm-variant-interpretation-note sub note,
+    owns apm-acmg-class,
+    owns apm-acmg-criteria;
+
+# APM-MECHANISM-ANALYSIS-NOTE - How the variant causes disease (bridges Phase 1->2)
+apm-mechanism-analysis-note sub note,
+    owns apm-mechanism-type,
+    owns apm-functional-impact;
+
+# APM-THERAPEUTIC-STRATEGY-NOTE - Proposed treatment based on mechanism
+apm-therapeutic-strategy-note sub note,
+    owns apm-therapeutic-approach,
+    owns apm-functional-impact;
+
+# APM-PHENOTYPE-GENOTYPE-NOTE - Links symptoms to genetic findings
+apm-phenotype-genotype-note sub note;
+
+# APM-REANALYSIS-NOTE - Re-analysis when initial diagnosis fails
+apm-reanalysis-note sub note,
+    owns apm-diagnostic-status;
+
+# APM-CROSS-CASE-SYNTHESIS-NOTE - Findings across multiple cases
+apm-cross-case-synthesis-note sub note;
+
+# APM-SCREENING-ANALYSIS-NOTE - Drug screening hit analysis
+apm-screening-analysis-note sub note;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Diagnostic Phase
+# -----------------------------------------------------------------------------
+
+# APM-CASE-HAS-PHENOTYPE - Patient presents with symptom
+apm-case-has-phenotype sub relation,
+    owns apm-onset-category,
+    owns apm-severity,
+    owns provenance,
+    relates case,
+    relates phenotype;
+
+# APM-CASE-HAS-VARIANT - Patient carries variant
+apm-case-has-variant sub relation,
+    owns apm-zygosity,
+    owns provenance,
+    relates case,
+    relates variant;
+
+# APM-CASE-HAS-DIAGNOSIS - Working or confirmed diagnosis
+apm-case-has-diagnosis sub relation,
+    owns apm-diagnostic-status,
+    owns confidence,
+    owns provenance,
+    relates case,
+    relates disease;
+
+# APM-VARIANT-IN-GENE - Variant location in gene
+apm-variant-in-gene sub relation,
+    relates variant,
+    relates gene;
+
+# APM-VARIANT-PATHOGENICITY - Central interpretive claim: variant causes disease
+apm-variant-pathogenicity sub relation,
+    owns apm-acmg-class,
+    owns confidence,
+    owns provenance,
+    relates variant,
+    relates disease;
+
+# APM-PHENOTYPE-GENE-ASSOCIATION - Known phenotype-gene link
+apm-phenotype-gene-association sub relation,
+    owns confidence,
+    owns provenance,
+    relates phenotype,
+    relates gene,
+    relates disease;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Therapeutic Phase
+# -----------------------------------------------------------------------------
+
+# APM-MECHANISM-OF-HARM - How variant disrupts gene function
+apm-mechanism-of-harm sub relation,
+    owns apm-mechanism-type,
+    owns apm-functional-impact,
+    owns confidence,
+    owns provenance,
+    relates variant,
+    relates gene;
+
+# APM-GENE-ENCODES - Gene produces protein
+apm-gene-encodes sub relation,
+    relates gene,
+    relates protein;
+
+# APM-DRUG-TARGET - Drug acts on target gene/protein
+apm-drug-target sub relation,
+    owns apm-therapeutic-approach,
+    owns confidence,
+    owns provenance,
+    relates drug,
+    relates target-gene,
+    relates target-protein;
+
+# APM-DRUG-INDICATION - Drug-disease relationship
+apm-drug-indication sub relation,
+    owns apm-development-stage,
+    owns provenance,
+    relates drug,
+    relates indication;
+
+# APM-PATHWAY-MEMBERSHIP - Gene participates in pathway
+apm-pathway-membership sub relation,
+    relates member-gene,
+    relates pathway;
+
+# APM-MODEL-FOR-DISEASE - Model recapitulates disease
+apm-model-for-disease sub relation,
+    owns apm-phenotype-recapitulated,
+    owns confidence,
+    owns provenance,
+    relates model,
+    relates disease;
+
+# APM-ASSAY-FOR-MODEL - Assay measures model phenotype
+apm-assay-for-model sub relation,
+    relates assay,
+    relates model;
+
+
+# =============================================================================
+# END APM NAMESPACE
+# =============================================================================
