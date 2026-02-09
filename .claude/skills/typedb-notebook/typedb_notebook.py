@@ -36,8 +36,13 @@ Environment:
 import argparse
 import json
 import os
+import shutil
+import subprocess
 import sys
 import uuid
+import zipfile
+from datetime import datetime
+from pathlib import Path
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -273,6 +278,182 @@ def search_tag(args):
                 )
 
 
+def export_db(args):
+    """Export the full TypeDB database to a timestamped zip in the cache."""
+    database = args.database or TYPEDB_DATABASE
+    container = args.container or "alhazen-typedb"
+    typedb_bin = args.typedb_bin or "/opt/typedb-all-linux-x86_64/typedb"
+    port = args.port or TYPEDB_PORT
+
+    # Build timestamped folder name
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    folder_name = f"{database}_export_{timestamp}"
+
+    # Determine cache directory
+    cache_dir_env = os.getenv("ALHAZEN_CACHE_DIR")
+    if cache_dir_env:
+        cache_dir = Path(cache_dir_env).expanduser()
+    else:
+        cache_dir = Path.home() / ".alhazen" / "cache"
+    export_dir = cache_dir / "typedb" / folder_name
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    schema_file = f"{database}_schema.typeql"
+    data_file = f"{database}_data.typedb"
+    container_schema = f"/tmp/{schema_file}"
+    container_data = f"/tmp/{data_file}"
+
+    print(f"Exporting database '{database}' from container '{container}'...", file=sys.stderr)
+
+    # Run export inside the Docker container
+    export_cmd = [
+        "docker", "exec", container,
+        typedb_bin, "server", "export",
+        f"--database={database}",
+        f"--port={port}",
+        f"--schema={container_schema}",
+        f"--data={container_data}",
+    ]
+    result = subprocess.run(export_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        # Check if the error is just noisy progress output (exit code 0 with stderr)
+        # TypeDB export prints progress to stderr but may still succeed
+        if "Exception" in result.stderr or "Error" in result.stderr:
+            print(json.dumps({
+                "success": False,
+                "error": f"Export failed: {result.stderr[-500:]}"
+            }))
+            return
+
+    print("Copying files from container...", file=sys.stderr)
+
+    # Copy files from container to local export directory
+    for filename in [schema_file, data_file]:
+        cp_cmd = ["docker", "cp", f"{container}:/tmp/{filename}", str(export_dir / filename)]
+        cp_result = subprocess.run(cp_cmd, capture_output=True, text=True)
+        if cp_result.returncode != 0:
+            print(json.dumps({
+                "success": False,
+                "error": f"Failed to copy {filename}: {cp_result.stderr}"
+            }))
+            return
+
+    # Clean up temp files in container
+    for filename in [schema_file, data_file]:
+        subprocess.run(
+            ["docker", "exec", container, "rm", f"/tmp/{filename}"],
+            capture_output=True,
+        )
+
+    # Create zip archive
+    zip_path = export_dir.parent / f"{folder_name}.zip"
+    print(f"Creating zip archive...", file=sys.stderr)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for filepath in export_dir.iterdir():
+            zf.write(filepath, f"{folder_name}/{filepath.name}")
+
+    # Get file sizes
+    schema_size = (export_dir / schema_file).stat().st_size
+    data_size = (export_dir / data_file).stat().st_size
+    zip_size = zip_path.stat().st_size
+
+    # Remove unzipped folder (keep only the zip)
+    shutil.rmtree(export_dir)
+
+    print(json.dumps({
+        "success": True,
+        "database": database,
+        "timestamp": timestamp,
+        "zip_path": str(zip_path),
+        "zip_size": zip_size,
+        "contents": {
+            "schema": {"file": schema_file, "size": schema_size},
+            "data": {"file": data_file, "size": data_size},
+        },
+    }, indent=2))
+
+
+def import_db(args):
+    """Import a TypeDB database from a previously exported zip."""
+    zip_path = Path(args.zip).expanduser()
+    if not zip_path.exists():
+        print(json.dumps({"success": False, "error": f"File not found: {zip_path}"}))
+        return
+
+    database = args.database
+    container = args.container or "alhazen-typedb"
+    typedb_bin = args.typedb_bin or "/opt/typedb-all-linux-x86_64/typedb"
+    port = args.port or TYPEDB_PORT
+
+    # Extract zip to temp directory
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmpdir)
+
+        # Find the schema and data files
+        schema_file = None
+        data_file = None
+        for f in tmpdir.rglob("*"):
+            if f.suffix == ".typeql":
+                schema_file = f
+            elif f.suffix == ".typedb":
+                data_file = f
+
+        if not schema_file or not data_file:
+            print(json.dumps({
+                "success": False,
+                "error": "Zip must contain one .typeql (schema) and one .typedb (data) file"
+            }))
+            return
+
+        print(f"Importing into database '{database}' on container '{container}'...", file=sys.stderr)
+
+        # Copy files into container
+        for local_file in [schema_file, data_file]:
+            cp_cmd = ["docker", "cp", str(local_file), f"{container}:/tmp/{local_file.name}"]
+            cp_result = subprocess.run(cp_cmd, capture_output=True, text=True)
+            if cp_result.returncode != 0:
+                print(json.dumps({
+                    "success": False,
+                    "error": f"Failed to copy {local_file.name}: {cp_result.stderr}"
+                }))
+                return
+
+        # Run import
+        import_cmd = [
+            "docker", "exec", container,
+            typedb_bin, "server", "import",
+            f"--database={database}",
+            f"--port={port}",
+            f"--schema=/tmp/{schema_file.name}",
+            f"--data=/tmp/{data_file.name}",
+        ]
+        result = subprocess.run(import_cmd, capture_output=True, text=True)
+
+        # Clean up temp files in container
+        for local_file in [schema_file, data_file]:
+            subprocess.run(
+                ["docker", "exec", container, "rm", f"/tmp/{local_file.name}"],
+                capture_output=True,
+            )
+
+        if result.returncode != 0:
+            if "Exception" in result.stderr or "Error" in result.stderr:
+                print(json.dumps({
+                    "success": False,
+                    "error": f"Import failed: {result.stderr[-500:]}"
+                }))
+                return
+
+    print(json.dumps({
+        "success": True,
+        "database": database,
+        "source": str(zip_path),
+    }, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="TypeDB Notebook CLI for Alhazen's knowledge graph"
@@ -322,14 +503,30 @@ def main():
     p = subparsers.add_parser("search-tag", help="Search by tag")
     p.add_argument("--tag", required=True, help="Tag to search for")
 
-    args = parser.parse_args()
+    # export-db
+    p = subparsers.add_parser("export-db", help="Export database to timestamped zip")
+    p.add_argument("--database", help=f"Database name (default: {TYPEDB_DATABASE})")
+    p.add_argument("--container", help="Docker container name (default: alhazen-typedb)")
+    p.add_argument("--typedb-bin", help="Path to typedb binary in container")
+    p.add_argument("--port", type=int, help=f"TypeDB port (default: {TYPEDB_PORT})")
 
-    if not TYPEDB_AVAILABLE:
-        print(json.dumps({"success": False, "error": "typedb-driver not installed"}))
-        sys.exit(1)
+    # import-db
+    p = subparsers.add_parser("import-db", help="Import database from exported zip")
+    p.add_argument("--zip", required=True, help="Path to the export zip file")
+    p.add_argument("--database", required=True, help="Target database name (must not exist)")
+    p.add_argument("--container", help="Docker container name (default: alhazen-typedb)")
+    p.add_argument("--typedb-bin", help="Path to typedb binary in container")
+    p.add_argument("--port", type=int, help=f"TypeDB port (default: {TYPEDB_PORT})")
+
+    args = parser.parse_args()
 
     if not args.command:
         parser.print_help()
+        sys.exit(1)
+
+    # export-db and import-db use Docker CLI, not the TypeDB driver
+    if not TYPEDB_AVAILABLE and args.command not in ("export-db", "import-db"):
+        print(json.dumps({"success": False, "error": "typedb-driver not installed"}))
         sys.exit(1)
 
     commands = {
@@ -340,6 +537,8 @@ def main():
         "query-notes": query_notes,
         "tag": tag_entity,
         "search-tag": search_tag,
+        "export-db": export_db,
+        "import-db": import_db,
     }
 
     try:

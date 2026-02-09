@@ -321,42 +321,66 @@ uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 | `query-notes` | Find notes about entity | `--subject` |
 | `tag` | Tag an entity | `--entity`, `--tag` |
 | `search-tag` | Search by tag | `--tag` |
+| `export-db` | Export database to timestamped zip | `--database` |
+| `import-db` | Import database from zip | `--zip`, `--database` |
 
 ---
 
 ## Database Export and Import
 
-Export the full database for backup or migration to another TypeDB instance.
+Export the full database for backup or migration to another TypeDB instance. Exports are saved as timestamped zips in the artifact cache (`~/.alhazen/cache/typedb/`).
 
-**Export:**
+### Export (export-db)
+
+**Triggers:** "export database", "backup database", "dump database", "save database"
+
 ```bash
-# Run inside the Docker container
-docker exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb server export \
-    --database=alhazen_notebook --port=1729 \
-    --schema=/tmp/alhazen_notebook_schema.typeql \
-    --data=/tmp/alhazen_notebook_data.typedb
-
-# Copy to local machine
-docker cp alhazen-typedb:/tmp/alhazen_notebook_schema.typeql .
-docker cp alhazen-typedb:/tmp/alhazen_notebook_data.typedb .
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py export-db \
+    --database alhazen_notebook
 ```
 
-**Import (target database must not exist):**
-```bash
-docker cp ./alhazen_notebook_schema.typeql alhazen-typedb:/tmp/
-docker cp ./alhazen_notebook_data.typedb alhazen-typedb:/tmp/
+**Options:**
+- `--database`: Database name (default: from `TYPEDB_DATABASE` env var)
+- `--container`: Docker container name (default: `alhazen-typedb`)
+- `--port`: TypeDB port (default: 1729)
 
-docker exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb server import \
-    --database=alhazen_notebook --port=1729 \
-    --schema=/tmp/alhazen_notebook_schema.typeql \
-    --data=/tmp/alhazen_notebook_data.typedb
+**Output:** Creates a zip at `~/.alhazen/cache/typedb/<database>_export_<YYYYMMDD_HHMMSS>.zip` containing:
+- `<database>_schema.typeql` — human-readable TypeQL schema
+- `<database>_data.typedb` — binary data file
+
+Returns:
+```json
+{
+  "success": true,
+  "database": "alhazen_notebook",
+  "timestamp": "20260208_182846",
+  "zip_path": "/Users/you/.alhazen/cache/typedb/alhazen_notebook_export_20260208_182846.zip",
+  "zip_size": 192745
+}
 ```
+
+### Import (import-db)
+
+**Triggers:** "import database", "restore database", "load database backup"
+
+The target database **must not already exist**. TypeDB creates it during import.
+
+```bash
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py import-db \
+    --zip ~/.alhazen/cache/typedb/alhazen_notebook_export_20260208_182846.zip \
+    --database alhazen_notebook_restored
+```
+
+**Options:**
+- `--zip` (required): Path to the export zip file
+- `--database` (required): Target database name (must not exist)
+- `--container`: Docker container name (default: `alhazen-typedb`)
+- `--port`: TypeDB port (default: 1729)
 
 **Notes:**
-- Export/import must use the same TypeDB version
-- The data file is binary; the schema file is human-readable TypeQL
-- Use `/tmp` inside the container since the schema mount is read-only
-- See `.claude/skills/typedb-notebook/typedb-2x-documentation.md` for full details
+- Export/import must use the same TypeDB version (binary format is version-specific)
+- These commands use Docker CLI, not the TypeDB Python driver
+- See `.claude/skills/typedb-notebook/typedb-2x-documentation.md` for raw Docker commands
 
 ---
 
