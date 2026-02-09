@@ -459,6 +459,52 @@ focus on distributed systems prep. Want me to find specific resources?
 | `learning-plan` | Prioritized study list | |
 | `tag` | Tag an entity | `--entity`, `--tag` |
 | `search-tag` | Find by tag | `--tag` |
+| `report-pipeline` | Pipeline overview (Markdown) | |
+| `report-stats` | Stats summary (Markdown) | |
+| `report-gaps` | Skill gaps report (Markdown) | |
+| `report-position` | Position detail (Markdown) | `--id` |
+
+---
+
+## Reports (Markdown Output)
+
+These commands output formatted Markdown suitable for messaging apps (Telegram, Discord, etc.) instead of JSON. Use them when displaying information directly to users.
+
+### Pipeline Report
+
+```bash
+uv run python .claude/skills/jobhunt/jobhunt.py report-pipeline
+```
+
+Shows all positions grouped by status (Interviewing → Applied → Researching) with priority indicators and counts.
+
+### Stats Overview
+
+```bash
+uv run python .claude/skills/jobhunt/jobhunt.py report-stats
+```
+
+Quick summary: total positions, active applications, high priority count, breakdown by status.
+
+### Skill Gaps Report
+
+```bash
+uv run python .claude/skills/jobhunt/jobhunt.py report-gaps
+```
+
+Shows skills where your profile level is below what positions require. Sorted by requirement level (required first) and number of positions needing the skill. Requires skill profile to be populated via `add-skill`.
+
+### Position Detail
+
+```bash
+uv run python .claude/skills/jobhunt/jobhunt.py report-position --id "position-xyz"
+```
+
+Full position detail: status, priority, URL, salary, location, and all notes (truncated to 500 chars each for messaging).
+
+**When to use reports vs JSON commands:**
+- **Reports** (`report-*`): When displaying to users in chat/messaging. Output is Markdown text.
+- **JSON commands** (`list-pipeline`, `show-position`, etc.): When processing data programmatically or doing sensemaking. Output is JSON.
 
 ---
 
