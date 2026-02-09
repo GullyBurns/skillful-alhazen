@@ -149,6 +149,27 @@ The data model uses five core entity types in TypeDB:
 - `src/skillful_alhazen/mcp/typedb_client.py` - TypeDB client library
 - `src/skillful_alhazen/mcp/typedb_server.py` - FastMCP server
 
+### Artifact Cache
+
+Large artifacts (PDFs, HTML, images) are stored in a file cache organized by content type:
+- `~/.alhazen/cache/html/` - Web pages (job postings, company pages)
+- `~/.alhazen/cache/pdf/` - Documents (papers, reports)
+- `~/.alhazen/cache/image/` - Images (screenshots, diagrams)
+- `~/.alhazen/cache/json/` - Structured data (API responses)
+- `~/.alhazen/cache/text/` - Plain text files
+
+**Storage Strategy:**
+- Content < 50KB: Stored inline in TypeDB `content` attribute
+- Content >= 50KB: Stored in cache, referenced via `cache-path` attribute
+
+**Artifact types are shared across skills.** A PDF ingested by jobhunt (resume) uses the same `pdf/` directory as papers ingested by epmc-search. This enables cross-skill artifact reuse and consistent type handling.
+
+**Cache Utilities:**
+- `src/skillful_alhazen/utils/cache.py` - Cache management functions
+- Use `should_cache()` to check if content exceeds threshold
+- Use `save_to_cache()` to store and get metadata
+- Use `load_from_cache_text()` to retrieve content
+
 ### Skills
 
 Skills follow a **three-component architecture**:
@@ -279,6 +300,9 @@ cd dashboard && npm install && npm run dev
 - `TYPEDB_HOST` - TypeDB server host (default: localhost)
 - `TYPEDB_PORT` - TypeDB server port (default: 1729)
 - `TYPEDB_DATABASE` - Database name (default: alhazen_notebook)
+
+**Cache:**
+- `ALHAZEN_CACHE_DIR` - File cache directory for large artifacts (default: ~/.alhazen/cache)
 
 ## Directory Structure
 

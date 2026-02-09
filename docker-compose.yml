@@ -92,18 +92,24 @@ services:
   # ============================================
   # Job Hunt Dashboard
   # ============================================
-  # NOTE: The dashboard requires uv/Python to run jobhunt.py scripts.
-  # For now, run it outside Docker:
-  #   cd dashboard && npm run dev
-  #
-  # Future: Create an API service that wraps jobhunt.py operations
-  # jobhunt-dashboard:
-  #   build:
-  #     context: ./dashboard
-  #     dockerfile: Dockerfile
-  #   container_name: alhazen-jobhunt-dashboard
-  #   ports:
-  #     - "3001:3000"
+  jobhunt-dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: alhazen-jobhunt-dashboard
+    depends_on:
+      typedb:
+        condition: service_healthy
+    environment:
+      - TYPEDB_HOST=typedb
+      - TYPEDB_PORT=1729
+      - TYPEDB_DATABASE=alhazen_notebook
+      - PROJECT_ROOT=/app
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+    networks:
+      - alhazen-network
 
 volumes:
   typedb-data:

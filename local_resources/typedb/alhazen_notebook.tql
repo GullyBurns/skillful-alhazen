@@ -24,6 +24,11 @@ content-hash sub attribute, value string;
 format sub attribute, value string;
 token-count sub attribute, value long;
 
+# Cache storage (for large artifacts stored externally)
+cache-path sub attribute, value string;      # Relative path in cache: "html/artifact-abc123.html"
+mime-type sub attribute, value string;       # MIME type: "text/html", "application/pdf"
+file-size sub attribute, value long;         # Size in bytes
+
 # Temporal
 created-at sub attribute, value datetime;
 updated-at sub attribute, value datetime;
@@ -78,6 +83,9 @@ information-content-entity sub entity,
     owns content-hash,
     owns format,
     owns token-count,
+    owns cache-path,
+    owns mime-type,
+    owns file-size,
     owns created-at,
     owns updated-at,
     owns provenance,

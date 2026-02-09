@@ -98,6 +98,8 @@ def ingest_url(url):
     return artifact_id  # Claude does the rest
 ```
 
+**Browser-based ingestion tip:** When using Playwright to browse large web pages (especially LinkedIn profiles), use `mcp__playwright__browser_take_screenshot` instead of parsing the DOM snapshot. The accessibility tree for these pages can be 100KB+ and easy to misread. A screenshot gives visual context that's much easier to interpret accurately.
+
 ---
 
 ### Phase 3: SENSEMAKING - Claude Reads and Extracts
@@ -225,6 +227,54 @@ CLAUDE RESPONSIBILITIES
 │ - Suggest next actions                 │
 └────────────────────────────────────────┘
 ```
+
+---
+
+## Artifact Types Registry
+
+Artifact types are shared across all skills. When designing a new skill, reuse existing types rather than creating new ones.
+
+### Standard Artifact Types
+
+| Type | Cache Dir | MIME Types | Example Uses |
+|------|-----------|------------|--------------|
+| `html` | `html/` | text/html | Job postings, web articles, company pages |
+| `pdf` | `pdf/` | application/pdf | Papers, resumes, reports, cover letters |
+| `image` | `image/` | image/* | Screenshots, figures, diagrams |
+| `json` | `json/` | application/json | API responses, structured exports |
+| `text` | `text/` | text/plain, text/markdown | Plain text content, notes |
+
+### TypeDB Schema for Cached Artifacts
+
+All artifacts inherit from `artifact` and can own these cache-related attributes:
+- `cache-path` - Relative path in cache (e.g., "pdf/artifact-abc123.pdf")
+- `mime-type` - Content type (e.g., "application/pdf")
+- `file-size` - Size in bytes
+- `content-hash` - SHA-256 hash of content
+
+### Storage Strategy
+
+- **< 50KB:** Store inline in TypeDB `content` attribute
+- **>= 50KB:** Store in cache, reference via `cache-path`
+
+```python
+from skillful_alhazen.utils.cache import should_cache, save_to_cache
+
+if should_cache(content):
+    cache_result = save_to_cache(artifact_id, content, mime_type)
+    # Store cache_result['cache_path'] in TypeDB
+else:
+    # Store content inline in TypeDB
+```
+
+### Cross-Skill Artifact Sharing
+
+Skills can consume artifacts created by other skills:
+- A paper PDF ingested by `epmc-search` can be referenced by `typedb-notebook`
+- A resume PDF from `jobhunt` can be analyzed by any skill
+- Web content cached by one skill is available to all
+
+When creating new artifact subtypes in your skill's schema, use the standard cache directories rather than creating new ones.
 
 ---
 

@@ -50,19 +50,19 @@ const NOTE_ICONS: Record<string, React.ReactNode> = {
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  high: 'bg-red-100 text-red-800',
-  medium: 'bg-yellow-100 text-yellow-800',
-  low: 'bg-green-100 text-green-800',
+  high: 'bg-red-500/20 text-red-400 border-red-500/30',
+  medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  low: 'bg-green-500/20 text-green-400 border-green-500/30',
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  researching: 'bg-slate-100 text-slate-800',
-  applied: 'bg-blue-100 text-blue-800',
-  'phone-screen': 'bg-purple-100 text-purple-800',
-  interviewing: 'bg-amber-100 text-amber-800',
-  offer: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
-  withdrawn: 'bg-gray-100 text-gray-800',
+  researching: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+  applied: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  'phone-screen': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  interviewing: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  offer: 'bg-green-500/20 text-green-400 border-green-500/30',
+  rejected: 'bg-red-500/20 text-red-400 border-red-500/30',
+  withdrawn: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
 interface PositionPageProps {
@@ -165,19 +165,19 @@ export default function PositionPage({ params }: PositionPageProps) {
   }, {});
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <Link href="/">
-            <Button variant="ghost" size="sm" className="mb-2">
+            <Button variant="ghost" size="sm" className="mb-2 hover:bg-primary/10">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
             </Button>
           </Link>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold">{title}</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">{title}</h1>
               {companyName && (
                 <div className="flex items-center gap-2 text-muted-foreground mt-1">
                   <Building2 className="w-4 h-4" />
@@ -404,7 +404,8 @@ export default function PositionPage({ params }: PositionPageProps) {
           {/* Right Column - Notes */}
           <div className="space-y-6">
             {/* Notes by Type */}
-            {Object.entries(groupedNotes).map(([type, typeNotes]) => (
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(Object.entries(groupedNotes) as [string, any[]][]).map(([type, typeNotes]) => (
               <Card key={type}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2 capitalize">

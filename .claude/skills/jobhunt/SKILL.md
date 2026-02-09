@@ -459,3 +459,37 @@ focus on distributed systems prep. Want me to find specific resources?
 | `learning-plan` | Prioritized study list | |
 | `tag` | Tag an entity | `--entity`, `--tag` |
 | `search-tag` | Find by tag | `--tag` |
+
+---
+
+## TypeDB 2.x Reference
+
+When writing custom TypeDB queries or scripts for job hunting data, consult the TypeDB documentation:
+
+- **Full Reference:** `.claude/skills/typedb-notebook/typedb-2x-documentation.md`
+- **JobHunt Schema:** `local_resources/typedb/namespaces/jobhunt.tql`
+- **Core Schema:** `local_resources/typedb/alhazen_notebook.tql`
+
+### Quick TypeQL Examples
+
+```typeql
+# Find all positions with a specific status
+match
+  $p isa jobhunt-position;
+  $n isa jobhunt-application-note, has application-status "interviewing";
+  (about: $p, note: $n) isa notation;
+fetch $p: name, job-url;
+
+# Update an attribute (delete old, insert new)
+match
+  $r isa jobhunt-learning-resource, has resource-url $old;
+  $old "https://old-url.com";
+delete $r has $old;
+insert $r has resource-url "https://new-url.com";
+```
+
+### Common Pitfalls
+
+- **No `optional` in fetch** - Use separate queries for optional attributes
+- **Update = delete + insert** - Can't modify attributes in place
+- **Use semicolons** between match patterns (implicit AND)

@@ -37,6 +37,9 @@ Commands:
     tag                 Tag an entity
     search-tag          Search by tag
 
+    # Cache
+    cache-stats         Show cache statistics
+
 Examples:
     # Ingest a job posting (stores raw content for Claude to analyze)
     python .claude/skills/jobhunt/jobhunt.py ingest-job --url "https://example.com/jobs/123"
@@ -55,9 +58,10 @@ Examples:
     python .claude/skills/jobhunt/jobhunt.py list-pipeline --status interviewing
 
 Environment:
-    TYPEDB_HOST     TypeDB server host (default: localhost)
-    TYPEDB_PORT     TypeDB server port (default: 1729)
-    TYPEDB_DATABASE Database name (default: alhazen_notebook)
+    TYPEDB_HOST       TypeDB server host (default: localhost)
+    TYPEDB_PORT       TypeDB server port (default: 1729)
+    TYPEDB_DATABASE   Database name (default: alhazen_notebook)
+    ALHAZEN_CACHE_DIR File cache directory (default: ~/.alhazen/cache)
 """
 
 import argparse
@@ -90,6 +94,30 @@ except ImportError:
         "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=2.25.0,<3.0.0'",
         file=sys.stderr,
     )
+
+# Cache utilities
+try:
+    from skillful_alhazen.utils.cache import (
+        get_cache_dir,
+        save_to_cache,
+        load_from_cache_text,
+        should_cache,
+        get_cache_stats,
+        format_size,
+    )
+
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+    # Fallback: define minimal versions if cache module not available
+    def should_cache(content):
+        return False
+
+    def get_cache_stats():
+        return {"error": "Cache module not available"}
+
+    def format_size(size):
+        return f"{size} bytes"
 
 
 # Configuration
@@ -257,14 +285,33 @@ def cmd_ingest_job(args):
                 tx.query.insert(position_query)
                 tx.commit()
 
-            # Create job description artifact with RAW content
+            # Create job description artifact with content (inline or cached)
             with session.transaction(TransactionType.WRITE) as tx:
-                artifact_query = f'''insert $a isa jobhunt-job-description,
-                    has id "{artifact_id}",
-                    has name "Job Description: {escape_string(placeholder_name)}",
-                    has content "{escape_string(content)}",
-                    has source-uri "{escape_string(url)}",
-                    has created-at {timestamp};'''
+                # Check if content should be cached externally
+                if CACHE_AVAILABLE and should_cache(content):
+                    # Store in cache
+                    cache_result = save_to_cache(
+                        artifact_id=artifact_id,
+                        content=content,
+                        mime_type="text/html",
+                    )
+                    artifact_query = f'''insert $a isa jobhunt-job-description,
+                        has id "{artifact_id}",
+                        has name "Job Description: {escape_string(placeholder_name)}",
+                        has cache-path "{cache_result['cache_path']}",
+                        has mime-type "text/html",
+                        has file-size {cache_result['file_size']},
+                        has content-hash "{cache_result['content_hash']}",
+                        has source-uri "{escape_string(url)}",
+                        has created-at {timestamp};'''
+                else:
+                    # Store inline
+                    artifact_query = f'''insert $a isa jobhunt-job-description,
+                        has id "{artifact_id}",
+                        has name "Job Description: {escape_string(placeholder_name)}",
+                        has content "{escape_string(content)}",
+                        has source-uri "{escape_string(url)}",
+                        has created-at {timestamp};'''
                 tx.query.insert(artifact_query)
                 tx.commit()
 
@@ -319,20 +366,25 @@ def cmd_ingest_job(args):
                         insert (tagged-entity: $p, tag: $t) isa tagging;''')
                         tx.commit()
 
-    print(
-        json.dumps(
-            {
-                "success": True,
-                "position_id": position_id,
-                "artifact_id": artifact_id,
-                "url": url,
-                "content_length": len(content),
-                "status": "raw",
-                "message": "Job posting ingested. Artifact stored - ask Claude to 'analyze this job posting' for sensemaking.",
-            },
-            indent=2,
-        )
-    )
+    # Prepare output
+    output = {
+        "success": True,
+        "position_id": position_id,
+        "artifact_id": artifact_id,
+        "url": url,
+        "content_length": len(content),
+        "status": "raw",
+        "message": "Job posting ingested. Artifact stored - ask Claude to 'analyze this job posting' for sensemaking.",
+    }
+
+    # Add cache info if applicable
+    if CACHE_AVAILABLE and should_cache(content):
+        output["storage"] = "cache"
+        output["cache_path"] = cache_result["cache_path"]
+    else:
+        output["storage"] = "inline"
+
+    print(json.dumps(output, indent=2))
 
 
 def cmd_add_company(args):
@@ -1265,15 +1317,16 @@ def cmd_show_artifact(args):
     Get full artifact content for Claude to read during sensemaking.
 
     Returns the raw content stored during ingestion, along with
-    metadata about the linked position.
+    metadata about the linked position. Content is loaded from cache
+    if the artifact was stored externally.
     """
     with get_driver() as driver:
         with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
             with session.transaction(TransactionType.READ) as tx:
-                # Get artifact
+                # Get artifact - include cache-path and other cache attributes
                 artifact_query = f'''match
                     $a isa jobhunt-job-description, has id "{args.id}";
-                fetch $a: id, name, content, source-uri, created-at;'''
+                fetch $a: id, name, content, cache-path, mime-type, file-size, source-uri, created-at;'''
                 artifact_result = list(tx.query.fetch(artifact_query))
 
                 if not artifact_result:
@@ -1302,6 +1355,22 @@ def cmd_show_artifact(args):
                         pass
 
     art = artifact_result[0]["a"]
+
+    # Get content - either from inline content or from cache
+    cache_path = get_attr(art, "cache-path")
+    if cache_path and CACHE_AVAILABLE:
+        # Load from cache
+        try:
+            content = load_from_cache_text(cache_path)
+            storage = "cache"
+        except FileNotFoundError:
+            content = f"[ERROR: Cache file not found: {cache_path}]"
+            storage = "cache_missing"
+    else:
+        # Get inline content
+        content = get_attr(art, "content")
+        storage = "inline"
+
     output = {
         "success": True,
         "artifact": {
@@ -1309,7 +1378,11 @@ def cmd_show_artifact(args):
             "name": get_attr(art, "name"),
             "source_url": get_attr(art, "source-uri"),
             "created_at": get_attr(art, "created-at"),
-            "content": get_attr(art, "content"),
+            "content": content,
+            "storage": storage,
+            "cache_path": cache_path,
+            "mime_type": get_attr(art, "mime-type"),
+            "file_size": get_attr(art, "file-size"),
         },
         "position": None,
         "company": None,
@@ -1332,6 +1405,34 @@ def cmd_show_artifact(args):
         output["company"] = {
             "id": get_attr(comp, "id"),
             "name": get_attr(comp, "name"),
+        }
+
+    print(json.dumps(output, indent=2))
+
+
+def cmd_cache_stats(args):
+    """Show cache statistics."""
+    stats = get_cache_stats()
+
+    if "error" in stats:
+        print(json.dumps({"success": False, "error": stats["error"]}))
+        return
+
+    # Format sizes for readability
+    output = {
+        "success": True,
+        "cache_dir": stats["cache_dir"],
+        "total_files": stats["total_files"],
+        "total_size": stats["total_size"],
+        "total_size_human": format_size(stats["total_size"]),
+        "by_type": {},
+    }
+
+    for type_name, type_stats in stats["by_type"].items():
+        output["by_type"][type_name] = {
+            "count": type_stats["count"],
+            "size": type_stats["size"],
+            "size_human": format_size(type_stats["size"]),
         }
 
     print(json.dumps(output, indent=2))
@@ -1523,6 +1624,9 @@ def main():
     p = subparsers.add_parser("search-tag", help="Search by tag")
     p.add_argument("--tag", required=True, help="Tag to search for")
 
+    # cache-stats
+    subparsers.add_parser("cache-stats", help="Show cache statistics")
+
     args = parser.parse_args()
 
     if not TYPEDB_AVAILABLE:
@@ -1559,6 +1663,8 @@ def main():
         "learning-plan": cmd_learning_plan,
         "tag": cmd_tag,
         "search-tag": cmd_search_tag,
+        # Cache
+        "cache-stats": cmd_cache_stats,
     }
 
     try:

@@ -21,11 +21,13 @@ import {
   GraduationCap,
   Target,
   Filter,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface Position {
   id: string;
   title: string;
+  short_name: string | null;
   company: string;
   url: string;
   location: string;
@@ -124,19 +126,30 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Job Hunt Dashboard</h1>
-              <p className="text-sm text-muted-foreground">
-                Track your applications, skills, and learning progress
-              </p>
+            <div className="flex items-center gap-6">
+              <a
+                href="http://localhost:8080"
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Hub
+              </a>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                  Job Hunt Dashboard
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Track your applications, skills, and learning progress
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-4">
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs border-primary/30 text-primary">
                 TypeDB Connected
               </Badge>
               <Button
@@ -144,6 +157,7 @@ export default function Dashboard() {
                 size="sm"
                 onClick={fetchData}
                 disabled={loading}
+                className="border-border/50 hover:border-primary/50 hover:bg-primary/10"
               >
                 <RefreshCw
                   className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`}
@@ -255,7 +269,7 @@ export default function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t mt-8">
+      <footer className="border-t border-border/50 mt-8">
         <div className="container mx-auto px-4 py-4">
           <p className="text-xs text-muted-foreground text-center">
             Job Hunt Dashboard • Powered by TypeDB + Next.js

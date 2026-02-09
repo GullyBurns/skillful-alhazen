@@ -27,9 +27,10 @@ Commands:
     search-tag          Search by tag
 
 Environment:
-    TYPEDB_HOST     TypeDB server host (default: localhost)
-    TYPEDB_PORT     TypeDB server port (default: 1729)
-    TYPEDB_DATABASE Database name (default: alhazen_notebook)
+    TYPEDB_HOST       TypeDB server host (default: localhost)
+    TYPEDB_PORT       TypeDB server port (default: 1729)
+    TYPEDB_DATABASE   Database name (default: alhazen_notebook)
+    ALHAZEN_CACHE_DIR File cache directory (default: ~/.alhazen/cache)
 """
 
 import argparse
@@ -59,6 +60,29 @@ except ImportError:
         "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=2.25.0,<3.0.0'",
         file=sys.stderr,
     )
+
+# Cache utilities for large artifacts
+try:
+    from skillful_alhazen.utils.cache import (
+        save_to_cache,
+        load_from_cache_text,
+        should_cache,
+        get_cache_stats,
+        format_size,
+    )
+
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+    # Fallback: define minimal versions if cache module not available
+    def should_cache(content):
+        return False
+
+    def get_cache_stats():
+        return {"error": "Cache module not available"}
+
+    def format_size(size):
+        return f"{size} bytes"
 
 
 # =============================================================================
@@ -201,14 +225,33 @@ def cmd_ingest(args):
                 tx.query.insert(entity_query)
                 tx.commit()
 
-            # Create artifact with raw content
+            # Create artifact with content (inline or cached)
             with session.transaction(TransactionType.WRITE) as tx:
-                artifact_query = f'''insert $a isa {ARTIFACT_TYPE},
-                    has id "{artifact_id}",
-                    has name "Content: {escape_string(placeholder_name)}",
-                    has content "{escape_string(content)}",
-                    has source-uri "{escape_string(url)}",
-                    has created-at {timestamp};'''
+                # Check if content should be cached externally (>50KB)
+                if CACHE_AVAILABLE and should_cache(content):
+                    # Store in cache
+                    cache_result = save_to_cache(
+                        artifact_id=artifact_id,
+                        content=content,
+                        mime_type="text/html",
+                    )
+                    artifact_query = f'''insert $a isa {ARTIFACT_TYPE},
+                        has id "{artifact_id}",
+                        has name "Content: {escape_string(placeholder_name)}",
+                        has cache-path "{cache_result['cache_path']}",
+                        has mime-type "text/html",
+                        has file-size {cache_result['file_size']},
+                        has content-hash "{cache_result['content_hash']}",
+                        has source-uri "{escape_string(url)}",
+                        has created-at {timestamp};'''
+                else:
+                    # Store inline in TypeDB
+                    artifact_query = f'''insert $a isa {ARTIFACT_TYPE},
+                        has id "{artifact_id}",
+                        has name "Content: {escape_string(placeholder_name)}",
+                        has content "{escape_string(content)}",
+                        has source-uri "{escape_string(url)}",
+                        has created-at {timestamp};'''
                 tx.query.insert(artifact_query)
                 tx.commit()
 
@@ -349,9 +392,10 @@ def cmd_show_artifact(args):
     with get_driver() as driver:
         with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
             with session.transaction(TransactionType.READ) as tx:
+                # Include cache attributes in fetch
                 query = f'''match
                     $a isa {ARTIFACT_TYPE}, has id "{args.id}";
-                fetch $a: id, name, content, source-uri, created-at;'''
+                fetch $a: id, name, content, cache-path, mime-type, file-size, source-uri, created-at;'''
                 result = list(tx.query.fetch(query))
 
                 if not result:
@@ -366,6 +410,22 @@ def cmd_show_artifact(args):
                 entity_result = list(tx.query.fetch(entity_query))
 
     art = result[0]["a"]
+
+    # Get content - either from inline content or from cache
+    cache_path = get_attr(art, "cache-path")
+    if cache_path and CACHE_AVAILABLE:
+        # Load from cache
+        try:
+            content = load_from_cache_text(cache_path)
+            storage = "cache"
+        except FileNotFoundError:
+            content = f"[ERROR: Cache file not found: {cache_path}]"
+            storage = "cache_missing"
+    else:
+        # Get inline content
+        content = get_attr(art, "content")
+        storage = "inline"
+
     output = {
         "success": True,
         "artifact": {
@@ -373,7 +433,11 @@ def cmd_show_artifact(args):
             "name": get_attr(art, "name"),
             "source_url": get_attr(art, "source-uri"),
             "created_at": get_attr(art, "created-at"),
-            "content": get_attr(art, "content"),
+            "content": content,
+            "storage": storage,
+            "cache_path": cache_path,
+            "mime_type": get_attr(art, "mime-type"),
+            "file_size": get_attr(art, "file-size"),
         },
         "entity": None,
     }
