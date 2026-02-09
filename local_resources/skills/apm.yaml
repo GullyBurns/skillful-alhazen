@@ -1,0 +1,166 @@
+name: apm
+description: "Investigate rare diseases using the Algorithm for Precision Medicine - from symptoms to diagnosis to treatment"
+license: Apache-2.0
+compatibility: "Requires uv, docker, TypeDB 2.x running with APM schema loaded"
+
+# Core files
+script: apm.py
+schema: apm.tql
+
+# Dependencies
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+  optional_env: []
+
+# TypeDB namespaces
+namespaces:
+  - apm.tql
+
+# APM methodology
+methodology:
+  name: "Algorithm for Precision Medicine (Matt Might)"
+  phases:
+    phase1:
+      name: "Diagnostic"
+      description: "From symptoms to molecular diagnosis"
+      workflow: "phenotypes → variants → genes → disease"
+    phase2:
+      name: "Therapeutic" 
+      description: "From mechanism of harm to treatment"
+      workflow: "variant → mechanism → gene → protein → drug targets"
+
+# Design pattern
+pattern: curation
+phases:
+  - foraging: "Discover evidence (clinical reports, ClinVar, OMIM, gnomAD, literature)"
+  - ingestion: "Store raw records as artifacts"
+  - sensemaking: "Claude extracts clues, creates interpretive notes"
+  - analysis: "Build diagnostic/therapeutic reasoning chains"
+  - reporting: "Investigation status, ACMG evidence tables, therapeutic options"
+
+# Core operations
+operations:
+  # Case management
+  - add-case
+  - list-cases
+  - show-case
+  
+  # Entity creation
+  - add-gene
+  - add-variant
+  - add-disease
+  - add-phenotype
+  - add-protein
+  - add-drug
+  - add-pathway
+  - add-model
+  
+  # Evidence ingestion
+  - ingest-report
+  - ingest-record
+  - list-artifacts
+  - show-artifact
+  
+  # Relationship linking
+  - link-case-phenotype
+  - link-case-variant
+  - link-case-diagnosis
+  - link-variant-gene
+  - link-variant-disease
+  - link-mechanism
+  - link-gene-protein
+  - link-drug-target
+  - link-drug-indication
+  
+  # Analysis views
+  - show-diagnostic-chain
+  - show-therapeutic-chain
+  
+  # Notes and tagging
+  - add-note
+  - tag
+  - search-tag
+
+# Entity types
+entities:
+  things:
+    - apm-case
+    - apm-gene
+    - apm-variant
+    - apm-disease
+    - apm-phenotype
+    - apm-protein
+    - apm-pathway
+    - apm-drug
+    - apm-disease-model
+    - apm-assay
+  artifacts:
+    - apm-sequencing-report
+    - apm-clinvar-record
+    - apm-omim-record
+    - apm-gnomad-record
+    - apm-prediction-record
+    - apm-drug-record
+    - apm-pathway-record
+    - apm-screening-result
+  fragments:
+    - apm-phenotype-feature
+    - apm-variant-call
+    - apm-pathogenicity-evidence
+    - apm-drug-gene-interaction
+    - apm-mechanism-claim
+    - apm-conservation-data
+  notes:
+    - apm-diagnosis-hypothesis-note
+    - apm-variant-interpretation-note
+    - apm-mechanism-analysis-note
+    - apm-therapeutic-strategy-note
+    - apm-phenotype-genotype-note
+    - apm-reanalysis-note
+    - apm-cross-case-synthesis-note
+    - apm-screening-analysis-note
+
+# ACMG classification
+acmg_classes:
+  - pathogenic
+  - likely-pathogenic
+  - uncertain-significance
+  - likely-benign
+  - benign
+
+# Variant zygosity
+zygosity_types:
+  - heterozygous
+  - homozygous
+  - compound-het
+  - hemizygous
+
+# Diagnostic status
+diagnostic_status:
+  - unsolved
+  - candidate
+  - confirmed
+  - ruled-out
+
+# Functional impact types
+functional_impacts:
+  - total-loss
+  - partial-loss
+  - gain-of-function
+  - dominant-negative
+  - unknown
+
+# External databases
+databases:
+  clinvar: "https://www.ncbi.nlm.nih.gov/clinvar/"
+  omim: "https://omim.org/"
+  gnomad: "https://gnomad.broadinstitute.org/"
+  hpo: "https://hpo.jax.org/"
+  uniprot: "https://www.uniprot.org/"
+  drugbank: "https://drugbank.com/"
+
+# Integration with other skills
+integrates_with:
+  - typedb-notebook
+  - epmc-search

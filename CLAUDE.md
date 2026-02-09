@@ -14,29 +14,25 @@ Forked from the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project
 # 1. Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Install dependencies
-uv sync --all-extras
+# 2. Setup everything (dependencies + TypeDB + database)
+make setup
 
-# 3. Start TypeDB
-docker compose -f docker-compose-typedb.yml up -d
-
-# 4. Initialize database with schemas
-docker exec -i alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << 'EOF'
-database create alhazen_notebook
-transaction alhazen_notebook schema write
-source /schema/alhazen_notebook.tql
-commit
-transaction alhazen_notebook schema write
-source /schema/namespaces/scilit.tql
-commit
-transaction alhazen_notebook schema write
-source /schema/namespaces/jobhunt.tql
-commit
-EOF
-
-# 5. Use the skills
+# 3. Use the skills
 /typedb-notebook remember "key finding from paper X"
 /jobhunt ingest-job --url "https://example.com/job"
+```
+
+**Manual setup (if you prefer):**
+```bash
+# Install dependencies
+make setup-python
+
+# Start TypeDB and initialize database
+make setup-typedb
+
+# Or individual steps:
+make db-start     # Start TypeDB container
+make db-init      # Create database and load schemas
 ```
 
 ## Environment Management
@@ -61,6 +57,55 @@ uv sync
 ```
 
 All dependencies are defined in `pyproject.toml`. The `.venv` directory is created automatically by uv.
+
+## Makefile Usage
+
+The project includes a comprehensive Makefile for managing setup, skill deployment, database operations, and development tasks.
+
+**Common commands:**
+```bash
+make help           # Show all available targets
+make setup          # Full setup: Python deps + TypeDB + database
+make status         # Show project status
+make skills-list    # List all available skills
+```
+
+**Database management:**
+```bash
+make db-start       # Start TypeDB container
+make db-stop        # Stop TypeDB container 
+make db-init        # Create database and load schemas
+make db-export      # Export database to timestamped zip
+make db-import ZIP=/path/to/export.zip  # Import database
+```
+
+**Development:**
+```bash
+make test           # Run tests
+make lint           # Run ruff linter
+make clean          # Clean generated files
+```
+
+## Skill Portability System
+
+This repository implements a comprehensive skill portability system that allows skills to work across different AI agent frameworks (Claude Code, OpenClaw, Goose/MCP).
+
+**Gold Standard:** Skills are defined in `local_resources/skills/*.yaml` manifests that serve as the source of truth for metadata.
+
+**Deployment targets:**
+```bash
+make deploy-claude      # Copy/update to .claude/skills/ (Claude Code)
+make deploy-openclaw    # Symlink to OpenClaw + generate config
+make deploy-goose       # Generate MCP config (future)
+```
+
+**Skill management:**
+```bash
+make skills-sync        # Sync metadata from YAML manifests to deployed copies
+make skills-validate    # Validate SKILL.md frontmatter consistency
+```
+
+**Documentation:** See `local_resources/skills/README.md` for comprehensive framework comparison and portability details.
 
 ## TypeDB Version
 
@@ -110,6 +155,11 @@ Skills follow a **three-component architecture**:
 1. **TypeDB Schema** (`local_resources/typedb/namespaces/<domain>.tql`) - Data model
 2. **Skill Definition** (`.claude/skills/<domain>/SKILL.md` + `<domain>.py`) - Claude's interface
 3. **Dashboard** (optional) (`dashboard/`) - Web UI
+
+**Portability:** Skills are designed to work across multiple AI agent frameworks. Metadata is managed through:
+- **Source of truth:** `local_resources/skills/*.yaml` manifests
+- **Deployment automation:** Makefile targets for different frameworks
+- **Documentation:** `local_resources/skills/README.md` - Framework comparison guide
 
 **Documentation:**
 - Wiki: [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) - Complete guide for humans
@@ -187,24 +237,28 @@ Example: To add a new literature source like Semantic Scholar:
 
 ## Development Commands
 
-**Installation:**
+**Quick setup (recommended):**
 ```bash
+make setup          # Install dependencies + start TypeDB + initialize database
+make status         # Check project status
+```
+
+**Manual commands:**
+```bash
+# Installation
 uv sync --all-extras
-```
 
-**Start TypeDB:**
-```bash
-docker compose -f docker-compose-typedb.yml up -d
-```
+# TypeDB management
+make db-start       # Start TypeDB container
+make db-stop        # Stop TypeDB container
 
-**Full stack with MCP server:**
-```bash
+# Full stack with MCP server
 docker compose -f docker-compose-typedb-mcp.yml up -d
-```
 
-**Running tests:**
-```bash
-uv run pytest tests/test_typedb_client.py -v
+# Testing and development
+make test           # Run tests
+make lint           # Run linter
+make clean          # Clean generated files
 ```
 
 **CLI usage:**

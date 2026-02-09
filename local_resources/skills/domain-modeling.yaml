@@ -1,0 +1,98 @@
+name: domain-modeling
+description: "Design and implement domain-specific knowledge skills using the curation pattern"
+license: Apache-2.0
+compatibility: "Meta-skill for designing other skills - requires understanding of TypeDB and skill architecture"
+
+# Core files
+# Note: This is a meta-skill for designing other skills
+
+# Dependencies
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+  optional_env: []
+
+# Meta-skill pattern
+skill_type: meta
+purpose: "Teaches how to build domain-specific skills following the curation pattern"
+
+# Curation workflow phases
+curation_phases:
+  foraging:
+    description: "Discovering sources worth capturing"
+    examples:
+      - "Job boards, company pages (job hunting)"
+      - "PubMed, citation chains (literature review)"
+      - "RSS feeds, social media (news investigation)"
+  
+  ingestion:
+    description: "Raw capture with provenance"
+    properties:
+      - provenance
+      - immutability
+      - completeness
+    script_responsibility: "Fetch and store raw content - NO parsing or interpretation"
+  
+  sensemaking:
+    description: "Claude reads and extracts structured understanding"
+    subtasks:
+      - parsing
+      - entity_extraction
+      - relation_extraction
+      - classification
+      - summarization
+      - gap_analysis
+      - inference
+    output: "Fragments, Notes, Relations"
+  
+  analysis:
+    description: "Reasoning across many notes over time"
+    examples:
+      - "What skills appear most frequently across positions?"
+      - "How does this company compare to others?"
+    output: "Synthesis notes"
+  
+  reporting:
+    description: "Dashboard views for human decision-making"
+    components:
+      - pipeline_views
+      - comparison_matrices
+      - progress_tracking
+      - alerts
+      - deep_dives
+
+# TypeDB entity mapping
+entity_mapping:
+  thing: "Primary items you track (Company, Paper, etc.)"
+  artifact: "Raw captured content (Job Description, PDF, etc.)"
+  fragment: "Extracted pieces (Requirement, Claim, etc.)"
+  note: "Claude's analysis (Fit Analysis, Critique, etc.)"
+
+# Design principles
+design_principles:
+  separation_of_concerns:
+    scripts: ["Fetch/store raw content", "Query TypeDB", "Return data for Claude"]
+    claude: ["Read artifacts", "Extract entities", "Create notes", "Reason across data"]
+  dashboard_design:
+    - "Query the graph - don't duplicate data"
+    - "Pipeline views - show entities moving through states"
+    - "Matrix views - compare across dimensions"
+    - "Progress tracking - show plan completion"
+    - "Deep dives - all context about an entity"
+
+# When to create new domain
+create_when:
+  - "Specific information type to track"
+  - "Discoverable sources (APIs, URLs, databases)"
+  - "Need to reason over time"
+  - "Structure matters - entities have attributes/relationships"
+  - "Want Claude to build understanding through sensemaking"
+
+dont_create_for:
+  - "Simple lookups (use web search)"
+  - "One-time questions (just ask)"
+  - "Unstructured brainstorming (use notes)"
+
+# Integration with other skills
+integrates_with:
+  - typedb-notebook

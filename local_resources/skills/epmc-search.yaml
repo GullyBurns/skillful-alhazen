@@ -1,0 +1,48 @@
+name: epmc-search
+description: "Search Europe PMC for scientific papers and store them in the TypeDB knowledge graph"
+license: Apache-2.0
+compatibility: "Requires uv, docker, TypeDB 2.x running, and internet access for Europe PMC API"
+
+# Core files
+script: epmc_search.py
+
+# Dependencies
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+  optional_env: []
+
+# Operations
+operations:
+  - search
+  - count
+  - fetch-paper
+  - list-collections
+
+# External APIs
+apis:
+  europe_pmc:
+    endpoint: "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+    documentation: "https://europepmc.org/RestfulWebService"
+    syntax_guide: "https://europepmc.org/searchsyntax"
+    result_type: core
+    page_size: 1000
+
+# Search capabilities
+search_fields:
+  - TITLE
+  - ABSTRACT
+  - AUTH
+  - JOURNAL
+  - DOI
+  - PMID
+  - GRANT_ID
+  - GRANT_AGENCY
+  - PUB_YEAR
+  - FIRST_PDATE
+  - PUB_TYPE
+  - OPEN_ACCESS
+
+# Integration with other skills
+integrates_with:
+  - typedb-notebook

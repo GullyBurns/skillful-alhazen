@@ -1,0 +1,109 @@
+name: jobhunt
+description: "Track job applications, analyze positions, identify skill gaps, and plan your job search strategy"
+license: Apache-2.0
+compatibility: "Requires uv, docker, TypeDB 2.x running, and internet access for job posting URLs"
+
+# Core files
+script: jobhunt.py
+schema: jobhunt.tql
+
+# Dependencies
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+  optional_env: [ALHAZEN_CACHE_DIR]
+
+# TypeDB namespaces
+namespaces:
+  - jobhunt.tql
+
+# Design pattern
+pattern: curation
+phases:
+  - foraging: "Discover job postings"
+  - ingestion: "Fetch and store raw job descriptions"
+  - sensemaking: "Claude analyzes content and extracts structured data"
+  - analysis: "Query across notes for insights"
+  - reporting: "Dashboard views and recommendations"
+
+# Core operations
+operations:
+  # Skill profile management
+  - add-skill
+  - list-skills
+  
+  # Job ingestion
+  - ingest-job
+  - list-artifacts
+  - show-artifact
+  
+  # Entity management
+  - add-company
+  - add-position
+  - add-requirement
+  - add-note
+  - add-resource
+  
+  # Application tracking
+  - update-status
+  - list-pipeline
+  - show-position
+  - show-company
+  - show-gaps
+  - learning-plan
+  
+  # Search and tagging
+  - tag
+  - search-tag
+
+# Entity types
+entities:
+  things:
+    - your-skill
+    - jobhunt-company
+    - jobhunt-position
+    - jobhunt-learning-resource
+    - jobhunt-contact
+  artifacts:
+    - jobhunt-job-description
+    - jobhunt-resume
+    - jobhunt-cover-letter
+  fragments:
+    - jobhunt-requirement
+    - jobhunt-responsibility
+    - jobhunt-qualification
+  notes:
+    - jobhunt-application-note
+    - jobhunt-research-note
+    - jobhunt-interview-note
+    - jobhunt-strategy-note
+    - jobhunt-skill-gap-note
+    - jobhunt-fit-analysis-note
+    - jobhunt-interaction-note
+
+# Status values
+status_values:
+  - researching
+  - applied
+  - phone-screen
+  - interviewing
+  - offer
+  - rejected
+  - withdrawn
+
+# Priority levels
+priority_levels:
+  - high
+  - medium
+  - low
+
+# Skill levels
+skill_levels:
+  - strong
+  - some
+  - learning
+  - none
+
+# Integration with other skills
+integrates_with:
+  - typedb-notebook

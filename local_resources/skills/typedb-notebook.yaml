@@ -1,0 +1,38 @@
+name: typedb-notebook
+description: "Store and retrieve knowledge in the Alhazen TypeDB knowledge graph - remember, recall, organize papers and notes"
+license: Apache-2.0
+compatibility: "Requires uv, docker, and TypeDB 2.x running"
+
+# Core files
+script: typedb_notebook.py
+schema: alhazen_notebook.tql
+
+# Dependencies  
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+  optional_env: [ALHAZEN_CACHE_DIR]
+
+# TypeDB namespaces
+namespaces:
+  - scilit.tql
+
+# Usage patterns
+operations:
+  - insert-note
+  - query-notes
+  - insert-collection
+  - insert-paper
+  - query-collection
+  - tag
+  - search-tag
+  - export-db
+  - import-db
+
+# TypeDB specific configuration
+typedb:
+  container_name: alhazen-typedb
+  default_port: 1729
+  default_database: alhazen_notebook
+  schema_path: local_resources/typedb/alhazen_notebook.tql
+  namespaces_path: local_resources/typedb/namespaces/
