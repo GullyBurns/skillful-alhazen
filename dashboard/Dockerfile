@@ -49,7 +49,8 @@ WORKDIR /app
 
 # Copy Python environment and project files
 COPY --from=python-deps /app/.venv /app/.venv
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
+COPY src/skillful_alhazen/__init__.py ./src/skillful_alhazen/
 COPY .claude/skills/jobhunt/jobhunt.py ./.claude/skills/jobhunt/
 
 # Copy Node.js build and dependencies

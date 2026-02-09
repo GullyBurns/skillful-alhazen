@@ -1439,6 +1439,353 @@ def cmd_cache_stats(args):
 
 
 # =============================================================================
+# REPORT COMMANDS (Markdown output for messaging apps)
+# =============================================================================
+
+
+STATUS_EMOJI = {
+    "researching": "🔍",
+    "applied": "📨",
+    "phone-screen": "📞",
+    "interviewing": "🎯",
+    "offer": "🎉",
+    "rejected": "❌",
+    "withdrawn": "⏸️",
+}
+
+PRIORITY_EMOJI = {
+    "high": "🔴",
+    "medium": "🟡",
+    "low": "🟢",
+}
+
+
+def _fetch_pipeline_data():
+    """Fetch all pipeline data: positions with status from application notes."""
+    client = TypeDB.core_driver(f"{TYPEDB_HOST}:{TYPEDB_PORT}")
+    session = client.session(TYPEDB_DATABASE, SessionType.DATA)
+
+    try:
+        tx = session.transaction(TransactionType.READ)
+
+        # Get positions with status from application notes
+        query = """
+            match
+            $p isa jobhunt-position;
+            (note: $n, subject: $p) isa aboutness;
+            $n isa jobhunt-application-note, has application-status $status;
+            fetch $p: id, name, short-name, job-url, priority-level;
+                $n: application-status;
+        """
+        results = list(tx.query.fetch(query))
+
+        # Also get positions WITHOUT application notes (still researching)
+        all_pos_query = """
+            match $p isa jobhunt-position;
+            fetch $p: id, name, short-name, job-url, priority-level;
+        """
+        all_positions = list(tx.query.fetch(all_pos_query))
+
+        tx.close()
+    finally:
+        session.close()
+        client.close()
+
+    # Extract positions with status
+    tracked = {}
+    for r in results:
+        p = r["p"]
+        pid = p.get("id", [{}])[0].get("value", "") if p.get("id") else ""
+        if not pid:
+            continue
+        tracked[pid] = {
+            "id": pid,
+            "name": p.get("name", [{}])[0].get("value", "") if p.get("name") else "",
+            "short_name": p.get("short-name", [{}])[0].get("value", "") if p.get("short-name") else "",
+            "priority": p.get("priority-level", [{}])[0].get("value", "") if p.get("priority-level") else "",
+            "url": p.get("job-url", [{}])[0].get("value", "") if p.get("job-url") else "",
+            "status": r["n"].get("application-status", [{}])[0].get("value", "researching") if r.get("n") else "researching",
+        }
+
+    # Add untracked positions as "researching"
+    for r in all_positions:
+        p = r["p"]
+        pid = p.get("id", [{}])[0].get("value", "") if p.get("id") else ""
+        if not pid or pid in tracked:
+            continue
+        tracked[pid] = {
+            "id": pid,
+            "name": p.get("name", [{}])[0].get("value", "") if p.get("name") else "",
+            "short_name": p.get("short-name", [{}])[0].get("value", "") if p.get("short-name") else "",
+            "priority": p.get("priority-level", [{}])[0].get("value", "") if p.get("priority-level") else "",
+            "url": p.get("job-url", [{}])[0].get("value", "") if p.get("job-url") else "",
+            "status": "researching",
+        }
+
+    return list(tracked.values())
+
+
+def cmd_report_pipeline(args):
+    """Generate pipeline report as formatted Markdown."""
+    positions = _fetch_pipeline_data()
+
+    # Group by status
+    by_status = {}
+    for p in positions:
+        s = p["status"]
+        by_status.setdefault(s, []).append(p)
+
+    # Count stats
+    total = len(positions)
+    active = sum(1 for p in positions if p["status"] not in ("rejected", "withdrawn", "offer"))
+    applied = sum(1 for p in positions if p["status"] == "applied")
+    interviewing = sum(1 for p in positions if p["status"] in ("phone-screen", "interviewing"))
+
+    # Build markdown
+    lines = ["**📊 Job Search Pipeline**", ""]
+    lines.append(f"Total: {total} | Active: {active} | Applied: {applied} | Interviewing: {interviewing}")
+    lines.append("")
+
+    status_order = ["interviewing", "phone-screen", "applied", "researching", "offer", "rejected", "withdrawn"]
+
+    for status in status_order:
+        group = by_status.get(status, [])
+        if not group:
+            continue
+        emoji = STATUS_EMOJI.get(status, "•")
+        lines.append(f"**{emoji} {status.replace('-', ' ').title()}** ({len(group)})")
+        for p in group:
+            display = p["short_name"] or p["name"][:40]
+            pri = PRIORITY_EMOJI.get(p["priority"], "") + " " if p["priority"] else ""
+            lines.append(f"  • {pri}{display}")
+        lines.append("")
+
+    print("\n".join(lines))
+
+
+def cmd_report_position(args):
+    """Generate position detail report as formatted Markdown."""
+    client = TypeDB.core_driver(f"{TYPEDB_HOST}:{TYPEDB_PORT}")
+    session = client.session(TYPEDB_DATABASE, SessionType.DATA)
+
+    try:
+        tx = session.transaction(TransactionType.READ)
+
+        pid = args.id
+
+        # Get position attributes
+        query = f"""
+            match $p isa jobhunt-position, has id "{pid}", has $a;
+            get $a;
+        """
+        results = list(tx.query.get(query))
+        if not results:
+            print(f"Position `{pid}` not found.")
+            return
+
+        attrs = {}
+        for r in results:
+            a = r.get("a")
+            label = a.get_type().get_label().name
+            attrs[label] = a.get_value()
+
+        # Get notes
+        note_query = f"""
+            match
+            $p isa jobhunt-position, has id "{pid}";
+            $note isa note, has content $c;
+            (subject: $p, note: $note) isa aboutness;
+            $note has name $nname;
+            get $c, $nname;
+        """
+        try:
+            notes = list(tx.query.get(note_query))
+        except Exception:
+            notes = []
+
+        # Get notes without names
+        note_query2 = f"""
+            match
+            $p isa jobhunt-position, has id "{pid}";
+            $note isa note, has content $c;
+            (subject: $p, note: $note) isa aboutness;
+            get $c;
+        """
+        try:
+            all_notes = list(tx.query.get(note_query2))
+        except Exception:
+            all_notes = []
+
+        # Get application status from application note
+        status_query = f"""
+            match
+            $p isa jobhunt-position, has id "{pid}";
+            $n isa jobhunt-application-note, has application-status $s;
+            (subject: $p, note: $n) isa aboutness;
+            get $s;
+        """
+        try:
+            status_results = list(tx.query.get(status_query))
+            if status_results:
+                attrs["application-status"] = status_results[0].get("s").get_value()
+        except Exception:
+            pass
+
+        tx.close()
+    finally:
+        session.close()
+        client.close()
+
+    # Build markdown
+    title = attrs.get("short-name") or attrs.get("name", pid)
+    status = attrs.get("application-status", "unknown")
+    status_emoji = STATUS_EMOJI.get(status, "•")
+
+    lines = [f"**{title}**", ""]
+    lines.append(f"Status: {status_emoji} {status}")
+    if attrs.get("priority-level"):
+        lines.append(f"Priority: {PRIORITY_EMOJI.get(attrs['priority-level'], '')} {attrs['priority-level']}")
+    if attrs.get("job-url"):
+        lines.append(f"URL: {attrs['job-url']}")
+    if attrs.get("salary-range"):
+        lines.append(f"Salary: {attrs['salary-range']}")
+    if attrs.get("location"):
+        lines.append(f"Location: {attrs['location']}")
+    if attrs.get("remote-policy"):
+        lines.append(f"Remote: {attrs['remote-policy']}")
+    lines.append("")
+
+    if all_notes:
+        lines.append(f"**Notes** ({len(all_notes)})")
+        lines.append("")
+        for n in all_notes:
+            content = n.get("c").get_value()
+            # Unescape literal \n sequences
+            content = content.replace("\\n", "\n").replace("\\'", "'")
+            # Truncate long notes for messaging
+            if len(content) > 500:
+                content = content[:497] + "..."
+            lines.append(f"{content}")
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+
+    print("\n".join(lines))
+
+
+def cmd_report_gaps(args):
+    """Generate skill gaps report as formatted Markdown."""
+    client = TypeDB.core_driver(f"{TYPEDB_HOST}:{TYPEDB_PORT}")
+    session = client.session(TYPEDB_DATABASE, SessionType.DATA)
+
+    try:
+        tx = session.transaction(TransactionType.READ)
+
+        # Get all requirements with your skill levels
+        query = """
+            match
+            $req isa jobhunt-requirement, has skill-name $skill, has skill-level $level;
+            $p isa jobhunt-position, has name $pname, has id $pid;
+            (position: $p, requirement: $req) isa requirement-for;
+            get $skill, $level, $pname, $pid;
+        """
+        results = list(tx.query.get(query))
+
+        # Get your skills
+        skill_query = """
+            match $s isa your-skill, has skill-name $name, has skill-level $level;
+            get $name, $level;
+        """
+        try:
+            skill_results = list(tx.query.get(skill_query))
+        except Exception:
+            skill_results = []
+
+        tx.close()
+    finally:
+        session.close()
+        client.close()
+
+    my_skills = {}
+    for s in skill_results:
+        my_skills[s.get("name").get_value()] = s.get("level").get_value()
+
+    # Group by skill
+    gaps = {}
+    for r in results:
+        skill = r.get("skill").get_value()
+        level = r.get("level").get_value()
+        pos_name = r.get("pname").get_value()
+        my_level = my_skills.get(skill, "none")
+
+        if my_level in ("strong",):
+            continue  # No gap
+
+        gaps.setdefault(skill, {
+            "required_level": level,
+            "your_level": my_level,
+            "positions": [],
+        })
+        gaps[skill]["positions"].append(pos_name[:30])
+
+    # Build markdown
+    lines = ["**🎯 Skill Gaps Analysis**", ""]
+
+    if not gaps:
+        lines.append("No significant skill gaps found! ✅")
+    else:
+        # Sort: required gaps first, then by number of positions
+        sorted_gaps = sorted(
+            gaps.items(),
+            key=lambda x: (0 if x[1]["required_level"] == "required" else 1, -len(x[1]["positions"]))
+        )
+
+        LEVEL_EMOJI = {"none": "⬜", "some": "🟨", "learning": "🟧", "strong": "🟩"}
+
+        for skill, info in sorted_gaps:
+            level_e = LEVEL_EMOJI.get(info["your_level"], "⬜")
+            req_marker = "❗" if info["required_level"] == "required" else "💡"
+            count = len(info["positions"])
+            lines.append(f"{req_marker} **{skill}** {level_e} ({info['your_level']}) → needed by {count} position(s)")
+
+    lines.append("")
+    lines.append("Legend: ❗required 💡preferred | ⬜none 🟧learning 🟨some 🟩strong")
+
+    print("\n".join(lines))
+
+
+def cmd_report_stats(args):
+    """Generate stats overview as formatted Markdown."""
+    positions = _fetch_pipeline_data()
+
+    total = len(positions)
+    statuses = [p["status"] for p in positions]
+    priorities = [p["priority"] for p in positions]
+
+    active = sum(1 for s in statuses if s not in ("rejected", "withdrawn", "offer"))
+    by_status = {}
+    for s in statuses:
+        by_status[s] = by_status.get(s, 0) + 1
+    high_pri = sum(1 for p in priorities if p == "high")
+
+    lines = ["**📈 Job Search Stats**", ""]
+    lines.append(f"📋 **{total}** total positions")
+    lines.append(f"🚀 **{active}** active applications")
+    lines.append(f"🔴 **{high_pri}** high priority")
+    lines.append("")
+    lines.append("**By Status:**")
+
+    status_order = ["interviewing", "phone-screen", "applied", "researching", "offer", "rejected", "withdrawn"]
+    for s in status_order:
+        count = by_status.get(s, 0)
+        if count > 0:
+            emoji = STATUS_EMOJI.get(s, "•")
+            lines.append(f"  {emoji} {s.replace('-', ' ').title()}: {count}")
+
+    print("\n".join(lines))
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -1627,6 +1974,13 @@ def main():
     # cache-stats
     subparsers.add_parser("cache-stats", help="Show cache statistics")
 
+    # report commands (Markdown output for messaging apps)
+    p = subparsers.add_parser("report-pipeline", help="Pipeline report (Markdown)")
+    p = subparsers.add_parser("report-stats", help="Stats overview (Markdown)")
+    p = subparsers.add_parser("report-gaps", help="Skill gaps report (Markdown)")
+    p = subparsers.add_parser("report-position", help="Position detail report (Markdown)")
+    p.add_argument("--id", required=True, help="Position ID")
+
     args = parser.parse_args()
 
     if not TYPEDB_AVAILABLE:
@@ -1665,6 +2019,11 @@ def main():
         "search-tag": cmd_search_tag,
         # Cache
         "cache-stats": cmd_cache_stats,
+        # Reports (Markdown)
+        "report-pipeline": cmd_report_pipeline,
+        "report-stats": cmd_report_stats,
+        "report-gaps": cmd_report_gaps,
+        "report-position": cmd_report_position,
     }
 
     try:
