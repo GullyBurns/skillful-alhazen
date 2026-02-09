@@ -324,13 +324,51 @@ uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 
 ---
 
+## Database Export and Import
+
+Export the full database for backup or migration to another TypeDB instance.
+
+**Export:**
+```bash
+# Run inside the Docker container
+docker exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb server export \
+    --database=alhazen_notebook --port=1729 \
+    --schema=/tmp/alhazen_notebook_schema.typeql \
+    --data=/tmp/alhazen_notebook_data.typedb
+
+# Copy to local machine
+docker cp alhazen-typedb:/tmp/alhazen_notebook_schema.typeql .
+docker cp alhazen-typedb:/tmp/alhazen_notebook_data.typedb .
+```
+
+**Import (target database must not exist):**
+```bash
+docker cp ./alhazen_notebook_schema.typeql alhazen-typedb:/tmp/
+docker cp ./alhazen_notebook_data.typedb alhazen-typedb:/tmp/
+
+docker exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb server import \
+    --database=alhazen_notebook --port=1729 \
+    --schema=/tmp/alhazen_notebook_schema.typeql \
+    --data=/tmp/alhazen_notebook_data.typedb
+```
+
+**Notes:**
+- Export/import must use the same TypeDB version
+- The data file is binary; the schema file is human-readable TypeQL
+- Use `/tmp` inside the container since the schema mount is read-only
+- See `.claude/skills/typedb-notebook/typedb-2x-documentation.md` for full details
+
+---
+
 ## TypeDB 2.x Reference
 
 **Always consult the TypeDB documentation when writing schemas or queries:**
 
-- **Full Reference:** `local_resources/typedb/typedb-2x-documentation.md`
+- **Full Reference:** `.claude/skills/typedb-notebook/typedb-2x-documentation.md` (comprehensive TypeQL 2.x guide)
 - **Core Schema:** `local_resources/typedb/alhazen_notebook.tql`
 - **Namespaces:** `local_resources/typedb/namespaces/*.tql`
+
+The documentation file covers: queries (match/get/fetch), patterns, statements, types, values, modifiers, keywords, and Python driver usage.
 
 ### Key TypeQL 2.x Patterns
 

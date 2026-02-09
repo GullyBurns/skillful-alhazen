@@ -1509,4 +1509,71 @@ rule add-view-permission: when {
 
 ---
 
+## Database Export and Import
+
+TypeDB 2.x (since 2.19.0) supports full database export and import via the server CLI. This produces a schema file (TypeQL) and a binary data file that can be imported into another TypeDB instance running the same version.
+
+### Export
+
+```bash
+typedb server export \
+    --database=<database-name> \
+    --port=<port> \
+    --schema=<schema-output-file>.typeql \
+    --data=<data-output-file>.typedb
+```
+
+**Example (Docker):**
+```bash
+# Export from inside the container (write to a writable path like /tmp)
+docker exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb server export \
+    --database=alhazen_notebook \
+    --port=1729 \
+    --schema=/tmp/alhazen_notebook_schema.typeql \
+    --data=/tmp/alhazen_notebook_data.typedb
+
+# Copy files out of the container
+docker cp alhazen-typedb:/tmp/alhazen_notebook_schema.typeql ./alhazen_notebook_schema.typeql
+docker cp alhazen-typedb:/tmp/alhazen_notebook_data.typedb ./alhazen_notebook_data.typedb
+```
+
+**Output:**
+- Schema file (`.typeql`) — human-readable TypeQL define statements
+- Data file (`.typedb`) — binary format containing all entity/relation/attribute instances
+
+### Import
+
+The target database must **not already exist**. TypeDB creates it during import.
+
+```bash
+typedb server import \
+    --database=<database-name> \
+    --port=<port> \
+    --schema=<schema-file>.typeql \
+    --data=<data-file>.typedb
+```
+
+**Example (Docker):**
+```bash
+# Copy files into the container
+docker cp ./alhazen_notebook_schema.typeql alhazen-typedb:/tmp/alhazen_notebook_schema.typeql
+docker cp ./alhazen_notebook_data.typedb alhazen-typedb:/tmp/alhazen_notebook_data.typedb
+
+# Import (database must not exist yet)
+docker exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb server import \
+    --database=alhazen_notebook \
+    --port=1729 \
+    --schema=/tmp/alhazen_notebook_schema.typeql \
+    --data=/tmp/alhazen_notebook_data.typedb
+```
+
+### Important Notes
+
+- **Version compatibility:** Export and import must use the same TypeDB version. The binary data format is version-specific.
+- **Write path:** When running in Docker, the schema volume mount (`/data` or `/schema`) may be read-only. Use `/tmp` or another writable path for export output.
+- **Full database only:** There is no built-in way to export a subset of data. To export a subset, use TypeQL fetch queries via the Python driver and generate insert statements.
+- **No overwrite:** Import requires the target database to not exist. Drop the existing database first if re-importing: `database delete <name>` in the TypeDB console.
+
+---
+
 *Document compiled from TypeDB 2.x official documentation.*
