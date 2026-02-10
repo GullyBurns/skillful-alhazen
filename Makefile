@@ -40,6 +40,9 @@ help: ## Show this help message
 	@echo "$(GREEN)Database Management:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'db-' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
+	@echo "$(GREEN)Remote Access:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'tailscale' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
 	@echo "$(GREEN)Development:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(test|lint|clean)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 
@@ -300,6 +303,47 @@ clean: ## Clean generated files
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	find . -type f -name ".DS_Store" -delete 2>/dev/null || true
 	@echo "$(GREEN)✓ Cleaned$(NC)"
+
+# =============================================================================
+# Tailscale (Remote Access)
+# =============================================================================
+
+.PHONY: tailscale-serve
+tailscale-serve: ## Expose hub and dashboard to Tailscale network
+	@echo "$(BLUE)Starting Tailscale Serve...$(NC)"
+	@if ! command -v tailscale &>/dev/null; then \
+		echo "$(RED)✗ Tailscale not installed. Run: brew install tailscale$(NC)"; \
+		exit 1; \
+	fi
+	@if ! tailscale status &>/dev/null; then \
+		echo "$(RED)✗ Tailscale not running. Start it first.$(NC)"; \
+		exit 1; \
+	fi
+	tailscale serve --bg --http 8080 http://127.0.0.1:8080
+	tailscale serve --bg --http 3001 http://127.0.0.1:3001
+	@echo
+	@TSIP=$$(tailscale ip -4 2>/dev/null); \
+	echo "$(GREEN)✓ Tailscale Serve running$(NC)"; \
+	echo "  Hub:       http://$$TSIP:8080"; \
+	echo "  Dashboard: http://$$TSIP:3001"
+
+.PHONY: tailscale-stop
+tailscale-stop: ## Stop Tailscale Serve proxies
+	@echo "$(BLUE)Stopping Tailscale Serve...$(NC)"
+	tailscale serve --http 8080 off 2>/dev/null || true
+	tailscale serve --http 3001 off 2>/dev/null || true
+	@echo "$(GREEN)✓ Tailscale Serve stopped$(NC)"
+
+.PHONY: tailscale-status
+tailscale-status: ## Show Tailscale Serve configuration
+	@if command -v tailscale &>/dev/null && tailscale status &>/dev/null; then \
+		tailscale serve status; \
+		echo; \
+		TSIP=$$(tailscale ip -4 2>/dev/null); \
+		echo "$(GREEN)Tailscale IP:$(NC) $$TSIP"; \
+	else \
+		echo "$(RED)Tailscale not running$(NC)"; \
+	fi
 
 # =============================================================================
 # Utility Targets

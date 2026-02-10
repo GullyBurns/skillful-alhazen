@@ -188,6 +188,14 @@
   </div>
 
   <script>
+    // Dynamic hostname detection for Tailscale/remote access
+    const HOST = window.location.hostname;
+    const DASHBOARD_URL = `http://${HOST}:3001`;
+    const TYPEDB_URL = `http://${HOST}:1729`;
+
+    // Set dashboard link dynamically
+    document.getElementById('jobhunt-link').href = DASHBOARD_URL;
+
     async function checkService(url, statusId, dotId) {
       const statusEl = document.getElementById(statusId);
       const dotEl = dotId ? document.getElementById(dotId) : null;
@@ -220,8 +228,8 @@
     }
 
     // Check services on load
-    checkService('http://localhost:3001', 'jobhunt-status', null);
-    checkService('http://localhost:1729', null, 'typedb-dot');
+    checkService(DASHBOARD_URL, 'jobhunt-status', null);
+    checkService(TYPEDB_URL, null, 'typedb-dot');
     // MCP server not always running
     document.getElementById('mcp-dot').style.background = '#71717a';
   </script>
