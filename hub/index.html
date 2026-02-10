@@ -188,10 +188,11 @@
   </div>
 
   <script>
-    // Dynamic hostname detection for Tailscale/remote access
+    // Dynamic hostname/protocol detection for Tailscale/remote access
+    const PROTO = window.location.protocol;
     const HOST = window.location.hostname;
-    const DASHBOARD_URL = `http://${HOST}:3001`;
-    const TYPEDB_URL = `http://${HOST}:1729`;
+    const DASHBOARD_URL = `${PROTO}//${HOST}:3001`;
+    const TYPEDB_URL = `${PROTO}//${HOST}:1729`;
 
     // Set dashboard link dynamically
     document.getElementById('jobhunt-link').href = DASHBOARD_URL;

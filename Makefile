@@ -309,8 +309,8 @@ clean: ## Clean generated files
 # =============================================================================
 
 .PHONY: tailscale-serve
-tailscale-serve: ## Expose hub and dashboard to Tailscale network
-	@echo "$(BLUE)Starting Tailscale Serve...$(NC)"
+tailscale-serve: ## Expose hub and dashboard over HTTPS on Tailscale network
+	@echo "$(BLUE)Starting Tailscale Serve (HTTPS)...$(NC)"
 	@if ! command -v tailscale &>/dev/null; then \
 		echo "$(RED)✗ Tailscale not installed. Run: brew install tailscale$(NC)"; \
 		exit 1; \
@@ -319,17 +319,19 @@ tailscale-serve: ## Expose hub and dashboard to Tailscale network
 		echo "$(RED)✗ Tailscale not running. Start it first.$(NC)"; \
 		exit 1; \
 	fi
-	tailscale serve --bg --http 8080 http://127.0.0.1:8080
-	tailscale serve --bg --http 3001 http://127.0.0.1:3001
+	tailscale serve --bg --https 8080 http://127.0.0.1:8080
+	tailscale serve --bg --https 3001 http://127.0.0.1:3001
 	@echo
-	@TSIP=$$(tailscale ip -4 2>/dev/null); \
-	echo "$(GREEN)✓ Tailscale Serve running$(NC)"; \
-	echo "  Hub:       http://$$TSIP:8080"; \
-	echo "  Dashboard: http://$$TSIP:3001"
+	@TSNAME=$$(tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | sed 's/"DNSName":"//;s/\."$$//'); \
+	echo "$(GREEN)✓ Tailscale Serve running (HTTPS)$(NC)"; \
+	echo "  Hub:       https://$$TSNAME:8080"; \
+	echo "  Dashboard: https://$$TSNAME:3001"
 
 .PHONY: tailscale-stop
 tailscale-stop: ## Stop Tailscale Serve proxies
 	@echo "$(BLUE)Stopping Tailscale Serve...$(NC)"
+	tailscale serve --https 8080 off 2>/dev/null || true
+	tailscale serve --https 3001 off 2>/dev/null || true
 	tailscale serve --http 8080 off 2>/dev/null || true
 	tailscale serve --http 3001 off 2>/dev/null || true
 	@echo "$(GREEN)✓ Tailscale Serve stopped$(NC)"

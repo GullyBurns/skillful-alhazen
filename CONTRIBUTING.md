@@ -1,10 +1,8 @@
 # How to contribute
 
-IMPORTANT: This is primarily a vehicle for distributing tools developed within the CZI technical group to the community to be used in trainings or in an ad-hoc manner by interested third parties. This is _intended to provide a lightweight mechanism of code dissemination to facilitate direct interaction with our stakeholders_. 
+This project is a fork of the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project, now maintained independently.
 
-Contributions are welcome but would likely be best handled through direct contact with a CZI team member. 
-
-If you would like to contact us, please contact Gully Burns at gully.burns@chanzuckerberg.com for more information and coordination. 
+Contributions are welcome. Please contact Gully Burns at gullyburns@gmail.com for more information and coordination.
 
 ## Did you find a bug?
 
