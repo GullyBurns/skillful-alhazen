@@ -395,6 +395,46 @@ focus on distributed systems prep. Want me to find specific resources?
 
 ---
 
+## Cross-Skill: Literature as Learning Resources
+
+Paper collections from the **epmc-search** skill can be linked to skill gaps, and learning resources can reference specific papers. This bridges scientific literature with your learning plan.
+
+### Link a Paper Collection to a Skill Gap
+
+```bash
+# Link to a specific requirement
+uv run python .claude/skills/jobhunt/jobhunt.py link-collection \
+    --collection "collection-abc123" \
+    --requirement "requirement-xyz789"
+
+# Link to all requirements matching a skill name
+uv run python .claude/skills/jobhunt/jobhunt.py link-collection \
+    --collection "collection-abc123" \
+    --skill "machine-learning"
+```
+
+### Link a Learning Resource to a Paper
+
+```bash
+uv run python .claude/skills/jobhunt/jobhunt.py link-paper \
+    --resource "resource-abc123" \
+    --paper "doi-10_1234-paper1"
+```
+
+### Workflow: From Skill Gap to Reading List
+
+```
+1. Identify gaps:       jobhunt show-gaps
+2. Search literature:   epmc-search search --query "topic" --collection "Reading List"
+3. Link to gap:         jobhunt link-collection --collection <id> --skill "topic"
+4. View plan:           jobhunt learning-plan  → shows collections alongside courses
+5. Link key papers:     jobhunt link-paper --resource <id> --paper <id>
+```
+
+The `show-gaps` and `learning-plan` commands now include linked collections and referenced papers in their output.
+
+---
+
 ## Data Model
 
 ### Entity Types
@@ -452,6 +492,9 @@ focus on distributed systems prep. Want me to find specific resources?
 | `update-status` | Change application status | `--position`, `--status` |
 | `add-note` | Create any note type | `--about`, `--type`, `--content` |
 | `add-resource` | Add learning resource | `--name`, `--type` |
+| `link-resource` | Link resource to requirement | `--resource`, `--requirement` |
+| `link-collection` | Link paper collection to skill gap | `--collection`, `--requirement` or `--skill` |
+| `link-paper` | Link learning resource to a paper | `--resource`, `--paper` |
 | `list-pipeline` | Show applications | `--status`, `--priority` |
 | `show-position` | Position details | `--id` |
 | `show-company` | Company details | `--id` |

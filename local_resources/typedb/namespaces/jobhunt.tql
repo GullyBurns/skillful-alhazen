@@ -212,6 +212,14 @@ works-at sub relation,
     relates employer;
 
 
+# -----------------------------------------------------------------------------
+# CROSS-NAMESPACE EXTENSIONS - Allow core types to participate in jobhunt relations
+# -----------------------------------------------------------------------------
+
+# Allow paper collections to address skill requirements (bridges scilit ↔ jobhunt)
+collection plays addresses-requirement:resource;
+
+
 # =============================================================================
 # END JOB HUNTING NAMESPACE
 # =============================================================================

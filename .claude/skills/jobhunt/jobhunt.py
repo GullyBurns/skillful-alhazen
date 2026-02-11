@@ -27,6 +27,8 @@ Commands:
     add-resource        Add a learning resource
     add-requirement     Add a requirement to a position
     link-resource       Link resource to a skill requirement
+    link-collection     Link paper collection to skill requirement(s)
+    link-paper          Link learning resource to a paper
 
     # Queries
     list-pipeline       Show your application pipeline
@@ -751,6 +753,97 @@ def cmd_link_resource(args):
     print(json.dumps({"success": True, "resource": args.resource, "requirement": args.requirement}))
 
 
+def cmd_link_collection(args):
+    """Link a paper collection to skill requirement(s).
+
+    Bridges scilit collections to jobhunt skill gaps via addresses-requirement.
+    Use --requirement for a specific requirement, or --skill to link to all
+    matching requirements across positions.
+    """
+    with get_driver() as driver:
+        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
+            if args.requirement:
+                # Link to specific requirement
+                with session.transaction(TransactionType.WRITE) as tx:
+                    link_query = f'''match
+                        $c isa collection, has id "{args.collection}";
+                        $req isa jobhunt-requirement, has id "{args.requirement}";
+                    insert (resource: $c, requirement: $req) isa addresses-requirement;'''
+                    tx.query.insert(link_query)
+                    tx.commit()
+                print(json.dumps({
+                    "success": True,
+                    "collection": args.collection,
+                    "requirement": args.requirement,
+                }))
+
+            elif args.skill:
+                # Link to all requirements matching skill name
+                with session.transaction(TransactionType.READ) as tx:
+                    find_query = f'''match
+                        $req isa jobhunt-requirement, has skill-name "{escape_string(args.skill)}";
+                    fetch $req: id;'''
+                    reqs = list(tx.query.fetch(find_query))
+
+                if not reqs:
+                    print(json.dumps({
+                        "success": False,
+                        "error": f"No requirements found with skill-name '{args.skill}'",
+                    }))
+                    return
+
+                linked = []
+                for r in reqs:
+                    req_id = get_attr(r["req"], "id")
+                    with session.transaction(TransactionType.WRITE) as tx:
+                        link_query = f'''match
+                            $c isa collection, has id "{args.collection}";
+                            $req isa jobhunt-requirement, has id "{req_id}";
+                        insert (resource: $c, requirement: $req) isa addresses-requirement;'''
+                        tx.query.insert(link_query)
+                        tx.commit()
+                    linked.append(req_id)
+
+                print(json.dumps({
+                    "success": True,
+                    "collection": args.collection,
+                    "skill": args.skill,
+                    "linked_requirements": linked,
+                    "count": len(linked),
+                }))
+            else:
+                print(json.dumps({
+                    "success": False,
+                    "error": "Must specify either --requirement or --skill",
+                }))
+
+
+def cmd_link_paper(args):
+    """Link a learning resource to a paper via citation-reference.
+
+    Creates a citation-reference relation where the learning resource
+    cites the paper. Both types inherit from research-item so they
+    can already play citing-item/cited-item roles.
+    """
+    with get_driver() as driver:
+        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
+            timestamp = get_timestamp()
+            with session.transaction(TransactionType.WRITE) as tx:
+                link_query = f'''match
+                    $res isa jobhunt-learning-resource, has id "{args.resource}";
+                    $paper isa scilit-paper, has id "{args.paper}";
+                insert (citing-item: $res, cited-item: $paper) isa citation-reference,
+                    has created-at {timestamp};'''
+                tx.query.insert(link_query)
+                tx.commit()
+
+    print(json.dumps({
+        "success": True,
+        "resource": args.resource,
+        "paper": args.paper,
+    }))
+
+
 def cmd_list_pipeline(args):
     """List positions in the pipeline."""
     with get_driver() as driver:
@@ -954,6 +1047,14 @@ def cmd_show_gaps(args):
                 fetch $res: id, name, resource-type, resource-url, estimated-hours, completion-status;"""
                 resources = list(tx.query.fetch(resources_query))
 
+                # Get collections linked to requirements via addresses-requirement
+                coll_query = """match
+                    $c isa collection;
+                    (resource: $c, requirement: $req) isa addresses-requirement;
+                fetch $c: id, name, description;
+                    $req: id, skill-name;"""
+                coll_results = list(tx.query.fetch(coll_query))
+
     # Aggregate skills
     skill_map = {}
     for r in results:
@@ -979,6 +1080,17 @@ def cmd_show_gaps(args):
     # Sort by number of positions needing this skill
     gaps.sort(key=lambda x: len(x["positions"]), reverse=True)
 
+    # Format collections linked to requirements
+    collections = []
+    for cr in coll_results:
+        collections.append({
+            "id": get_attr(cr["c"], "id"),
+            "name": get_attr(cr["c"], "name"),
+            "description": get_attr(cr["c"], "description"),
+            "requirement_id": get_attr(cr["req"], "id"),
+            "skill_name": get_attr(cr["req"], "skill-name"),
+        })
+
     print(
         json.dumps(
             {
@@ -986,6 +1098,7 @@ def cmd_show_gaps(args):
                 "skill_gaps": gaps,
                 "total_gaps": len(gaps),
                 "resources": [r["res"] for r in resources],
+                "collections": collections,
             },
             indent=2,
             default=str,
@@ -1005,6 +1118,23 @@ def cmd_learning_plan(args):
                 fetch $res: id, name, resource-type, resource-url, estimated-hours, completion-status;"""
 
                 results = list(tx.query.fetch(query))
+
+                # Get collections linked to skill requirements
+                coll_query = """match
+                    $c isa collection;
+                    (resource: $c, requirement: $req) isa addresses-requirement;
+                    $req has skill-name $skill;
+                fetch $c: id, name, description;
+                    $req: skill-name;"""
+                coll_results = list(tx.query.fetch(coll_query))
+
+                # Get papers referenced by learning resources via citation-reference
+                paper_query = """match
+                    $res isa jobhunt-learning-resource;
+                    (citing-item: $res, cited-item: $paper) isa citation-reference;
+                fetch $res: id, name;
+                    $paper: id, name;"""
+                paper_results = list(tx.query.fetch(paper_query))
 
     # Format resources
     resources = []
@@ -1027,12 +1157,40 @@ def cmd_learning_plan(args):
             seen.add(r["id"])
             unique_resources.append(r)
 
+    # Format collections
+    collections = []
+    seen_colls = set()
+    for cr in coll_results:
+        coll_id = get_attr(cr["c"], "id")
+        skill = get_attr(cr["req"], "skill-name")
+        key = f"{coll_id}:{skill}"
+        if key not in seen_colls:
+            seen_colls.add(key)
+            collections.append({
+                "id": coll_id,
+                "name": get_attr(cr["c"], "name"),
+                "description": get_attr(cr["c"], "description"),
+                "skill_name": skill,
+            })
+
+    # Format referenced papers
+    referenced_papers = []
+    for pr in paper_results:
+        referenced_papers.append({
+            "resource_id": get_attr(pr["res"], "id"),
+            "resource_name": get_attr(pr["res"], "name"),
+            "paper_id": get_attr(pr["paper"], "id"),
+            "paper_name": get_attr(pr["paper"], "name"),
+        })
+
     print(
         json.dumps(
             {
                 "success": True,
                 "learning_plan": unique_resources,
                 "total_resources": len(unique_resources),
+                "collections": collections,
+                "referenced_papers": referenced_papers,
             },
             indent=2,
         )
@@ -1898,6 +2056,17 @@ def main():
     p.add_argument("--resource", required=True, help="Resource ID")
     p.add_argument("--requirement", required=True, help="Requirement ID")
 
+    # link-collection
+    p = subparsers.add_parser("link-collection", help="Link paper collection to skill requirement(s)")
+    p.add_argument("--collection", required=True, help="Collection ID")
+    p.add_argument("--requirement", help="Specific requirement ID")
+    p.add_argument("--skill", help="Skill name (links to all matching requirements)")
+
+    # link-paper
+    p = subparsers.add_parser("link-paper", help="Link learning resource to a paper via citation-reference")
+    p.add_argument("--resource", required=True, help="Learning resource ID")
+    p.add_argument("--paper", required=True, help="Paper ID (scilit-paper)")
+
     # add-requirement
     p = subparsers.add_parser("add-requirement", help="Add a requirement to a position")
     p.add_argument("--position", required=True, help="Position ID")
@@ -2008,6 +2177,8 @@ def main():
         "add-note": cmd_add_note,
         "add-resource": cmd_add_resource,
         "link-resource": cmd_link_resource,
+        "link-collection": cmd_link_collection,
+        "link-paper": cmd_link_paper,
         "add-requirement": cmd_add_requirement,
         # Queries
         "list-pipeline": cmd_list_pipeline,

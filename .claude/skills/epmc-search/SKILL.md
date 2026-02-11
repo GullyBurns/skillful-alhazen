@@ -226,3 +226,34 @@ For writing new scripts or understanding the API:
 - API endpoint: `https://www.ebi.ac.uk/europepmc/webservices/rest/search`
 
 The script uses `resultType=core` to get full metadata including abstracts.
+
+---
+
+## Cross-Skill: Literature as Learning Resources
+
+Paper collections created by EPMC searches can serve as learning resources for the **jobhunt** skill's learning plan. This bridges scientific literature with career skill gaps.
+
+### Workflow
+
+```bash
+# 1. Search for papers on a skill gap topic
+uv run python .claude/skills/epmc-search/epmc_search.py search \
+    --query "machine learning systems design" \
+    --collection "ML Systems Reading List" \
+    --max-results 20
+
+# 2. Link the collection to a skill gap in jobhunt
+uv run python .claude/skills/jobhunt/jobhunt.py link-collection \
+    --collection "<collection-id>" \
+    --skill "machine-learning"
+
+# 3. View updated learning plan (now includes the collection)
+uv run python .claude/skills/jobhunt/jobhunt.py learning-plan
+
+# 4. Optionally link specific papers to learning resources
+uv run python .claude/skills/jobhunt/jobhunt.py link-paper \
+    --resource "<resource-id>" \
+    --paper "<paper-id>"
+```
+
+The jobhunt `show-gaps` and `learning-plan` commands will show linked collections alongside traditional learning resources (courses, books, etc.).
