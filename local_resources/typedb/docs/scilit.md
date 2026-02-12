@@ -127,16 +127,16 @@ classDiagram
     class table_reference {
         +provenance
     }
-    class collection
-    <<core>> collection
-    class domain_thing
-    <<core>> domain_thing
-    class note_t
-    <<core>> note_t
-    class artifact
-    <<core>> artifact
     class fragment
     <<core>> fragment
+    class collection
+    <<core>> collection
+    class note_t
+    <<core>> note_t
+    class domain_thing
+    <<core>> domain_thing
+    class artifact
+    <<core>> artifact
 ```
 
 ## Relationships

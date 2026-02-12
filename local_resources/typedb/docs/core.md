@@ -2,7 +2,7 @@
 
 > **Source:** `alhazen_notebook.tql`
 
-The foundational Alhazen Notebook Model — five ICE subtypes, agents, classification, and provenance.
+The foundational Alhazen Notebook Model — identifiable-entity hierarchy, agents, classification, and provenance.
 
 **Summary:** 16 entities, 20 relations, 36 attributes
 
