@@ -5,41 +5,46 @@
 ## Overview
 
 The Alhazen Notebook Model is a TypeDB knowledge graph schema for agent memory systems.
-It follows a five-level hierarchy: **Collection → Thing → Artifact → Fragment → Note**.
+It uses a three-branch hierarchy rooted at `identifiable-entity`: **domain-thing** (real-world objects),
+**collection** (typed sets), and **information-content-entity** (content-bearing artifacts, fragments, notes).
 
 **Total types:** 96 entities, 41 relations, 136 attributes
 
 ## Core Model
 
-The five primary ICE (Information Content Entity) subtypes form the backbone:
+The three-branch hierarchy separates domain objects from information content:
 
 ```mermaid
 classDiagram
     direction LR
-    class information_content_entity {
+    class identifiable_entity {
         +id @key
         +name
         +description
-        +content
         +created-at
     }
-    <<abstract>> information_content_entity
-    information_content_entity <|-- collection
-    information_content_entity <|-- research_item
-    information_content_entity <|-- artifact
-    information_content_entity <|-- fragment
-    information_content_entity <|-- note_t
-    information_content_entity <|-- user_question
-    information_content_entity <|-- information_resource
+    <<abstract>> identifiable_entity
+    identifiable_entity <|-- domain_thing
+    identifiable_entity <|-- collection
+    identifiable_entity <|-- information_content_entity
+    identifiable_entity <|-- user_question
+    identifiable_entity <|-- information_resource
 
+    class domain_thing
     class collection {
         +logical-query
         +is-extensional
     }
-    class research_item {
-        +abstract-text
-        +publication-date
+    class information_content_entity {
+        +content
+        +format
+        +cache-path
     }
+    <<abstract>> information_content_entity
+    information_content_entity <|-- artifact
+    information_content_entity <|-- fragment
+    information_content_entity <|-- note_t
+
     class artifact
     class fragment {
         +offset
@@ -48,15 +53,13 @@ classDiagram
     class note_t {
         +confidence
     }
-    class user_question
-    class information_resource
 ```
 
 ## Namespaces
 
 | Namespace | Description | Entities | Relations | Attributes | Docs |
 |-----------|-------------|----------|-----------|------------|------|
-| **Core Schema** | The foundational Alhazen Notebook Model — five ICE subtypes,... | 16 | 20 | 36 | [core.md](core.md) |
+| **Core Schema** | The foundational Alhazen Notebook Model — identifiable-entit... | 16 | 20 | 36 | [core.md](core.md) |
 | **Scientific Literature (scilit)** | Domain-specific subtypes for scientific literature analysis:... | 25 | 4 | 25 | [scilit.md](scilit.md) |
 | **Job Hunting (jobhunt)** | Job hunting and career management: positions, companies, ski... | 20 | 4 | 28 | [jobhunt.md](jobhunt.md) |
 | **Algorithm for Precision Medicine (apm)** | Rare disease investigation following Matt Might's APM: diagn... | 35 | 13 | 47 | [apm.md](apm.md) |
