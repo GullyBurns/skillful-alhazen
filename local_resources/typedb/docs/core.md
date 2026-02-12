@@ -1235,7 +1235,7 @@ fetch $m: id, name;
 ```typeql
 match
     $c isa collection, has id "my-collection-id";
-    $p isa research-item, has id "paper-id";
+    $p isa domain-thing, has id "paper-id";
 insert
     (collection: $c, member: $p) isa collection-membership;
 ```

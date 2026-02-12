@@ -22,7 +22,7 @@
         {
           "title": "Add member to collection",
           "command": "typedb_notebook.py insert-paper",
-          "query": "match\n    $c isa collection, has id \"my-collection-id\";\n    $p isa research-item, has id \"paper-id\";\ninsert\n    (collection: $c, member: $p) isa collection-membership;"
+          "query": "match\n    $c isa collection, has id \"my-collection-id\";\n    $p isa domain-thing, has id \"paper-id\";\ninsert\n    (collection: $c, member: $p) isa collection-membership;"
         }
       ]
     },

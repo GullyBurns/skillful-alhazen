@@ -506,6 +506,121 @@ Example views:
 
 ---
 
+## Documenting Your Domain
+
+Every new domain skill needs documentation at four levels. Follow this checklist after implementing the schema and scripts.
+
+### Step 1: Skill Manifest (`local_resources/skills/<domain>.yaml`)
+
+Create a YAML manifest as the metadata source of truth. This drives deployment and validation.
+
+```yaml
+name: my-domain
+description: "Short description of what this skill does"
+license: Apache-2.0
+compatibility: "Requires uv, docker, TypeDB 2.x running"
+
+script: my_domain.py
+schema: my_domain.tql
+
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+
+namespaces:
+  - my_domain.tql
+
+pattern: curation
+phases:
+  - foraging: "How sources are discovered"
+  - ingestion: "How raw content is captured"
+  - sensemaking: "What Claude extracts and analyzes"
+  - analysis: "What cross-entity reasoning looks like"
+  - reporting: "What dashboard views exist"
+
+operations:
+  - list of CLI commands
+
+entities:
+  things: [my-domain-entity-1, my-domain-entity-2]
+  collections: [my-domain-collection-type]
+  artifacts: [my-domain-artifact-type]
+  fragments: [my-domain-fragment-type]
+  notes: [my-domain-note-type]
+```
+
+### Step 2: Query Examples (`local_resources/typedb/docs/query_examples.json`)
+
+Add curated TypeQL examples for your namespace. The schema doc generator includes these in the generated pages. Edit the JSON file and add a section for your domain:
+
+```json
+{
+  "my-domain": [
+    {
+      "title": "Section Title",
+      "description": "What these queries demonstrate.",
+      "examples": [
+        {
+          "title": "Example name",
+          "command": "my_domain.py some-command",
+          "query": "match $x isa my-domain-entity; fetch $x: id, name;"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Step 3: Regenerate Schema Docs and Wiki
+
+After updating the schema `.tql` files and query examples:
+
+```bash
+# Generate local docs (local_resources/typedb/docs/)
+make docs-schema
+
+# Generate local docs AND update wiki pages
+make docs-schema-wiki
+```
+
+This auto-generates:
+- `local_resources/typedb/docs/<domain>.md` — local Markdown with Mermaid diagrams
+- `Schema:-<Domain>.md` wiki page — same content formatted for GitHub wiki
+- `Schema-Reference.md` wiki index — updated with your namespace
+
+### Step 4: Wiki Skill Page
+
+Create a hand-written wiki page at `Skills:-<Domain>.md` in the wiki repo (`~/Documents/Coding/skillful-alhazen.wiki/`). Follow the pattern of existing pages (e.g., `Skills:-Jobhunt.md`). Include:
+
+- **Overview** — what the skill does
+- **Entity types** — table of things, collections, ICEs
+- **Commands** — CLI reference with examples
+- **Curation workflow** — how the five phases work for this domain
+- **Dashboard** — if applicable, what views are available
+
+Add a link to your new page in the wiki sidebar (`_Sidebar.md`).
+
+### Step 5: Update CLAUDE.md
+
+Add your skill to the "Available Skills" section in `CLAUDE.md` so Claude knows about it:
+
+```markdown
+- **my-domain** - Short description
+  - `.claude/skills/my-domain/SKILL.md`
+  - `.claude/skills/my-domain/my_domain.py`
+  - `local_resources/typedb/namespaces/my_domain.tql`
+```
+
+### Documentation Maintenance
+
+When you modify a schema:
+1. `make docs-schema-wiki` — regenerate schema docs + wiki
+2. Push wiki: `cd ~/Documents/Coding/skillful-alhazen.wiki && git add . && git commit -m 'Update schema docs' && git push`
+3. Update `CLAUDE.md` Architecture section if the hierarchy changed
+4. Update the `Design-Concepts` wiki page if core concepts changed
+
+---
+
 ## When to Create a New Domain
 
 Create a new domain skill when:
