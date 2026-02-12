@@ -6,12 +6,26 @@ const execFileAsync = promisify(execFile);
 
 const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '../../..');
 const JOBHUNT_SCRIPT = path.join(PROJECT_ROOT, '.claude/skills/jobhunt/jobhunt.py');
+const NOTEBOOK_SCRIPT = path.join(PROJECT_ROOT, '.claude/skills/typedb-notebook/typedb_notebook.py');
 
 async function runJobhunt(args: string[]): Promise<unknown> {
   const { stdout } = await execFileAsync(
     'uv',
     ['run', 'python', JOBHUNT_SCRIPT, ...args],
     { cwd: PROJECT_ROOT, maxBuffer: 10 * 1024 * 1024 }
+  );
+  return JSON.parse(stdout);
+}
+
+async function runNotebook(args: string[]): Promise<unknown> {
+  const { stdout } = await execFileAsync(
+    'uv',
+    ['run', 'python', NOTEBOOK_SCRIPT, ...args],
+    {
+      cwd: PROJECT_ROOT,
+      maxBuffer: 10 * 1024 * 1024,
+      env: { ...process.env, TYPEDB_DATABASE: 'alhazen_notebook' },
+    }
   );
   return JSON.parse(stdout);
 }
@@ -50,4 +64,12 @@ export async function updateStatus(
 
 export async function getPosition(id: string) {
   return runJobhunt(['show-position', '--id', id]);
+}
+
+export async function getCollection(id: string) {
+  return runNotebook(['query-collection', '--id', id]);
+}
+
+export async function getNotes(subjectId: string) {
+  return runNotebook(['query-notes', '--subject', subjectId]);
 }

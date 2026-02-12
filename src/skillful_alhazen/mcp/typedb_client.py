@@ -195,7 +195,7 @@ class TypeDBClient:
             match
                 $c isa collection, has id "{collection_id}";
                 (collection: $c, member: $m) isa collection-membership;
-            fetch $m: id, name, description, abstract-text;
+            fetch $m: id, name, description;
         """
 
         with self._driver.session(self.database, SessionType.DATA) as session:
@@ -210,11 +210,9 @@ class TypeDBClient:
     def insert_thing(
         self,
         name: str,
-        thing_type: str = "research-item",
+        thing_type: str = "domain-thing",
         collection_id: str | None = None,
-        abstract: str | None = None,
         description: str | None = None,
-        publication_date: str | None = None,
         source_uri: str | None = None,
         thing_id: str | None = None,
     ) -> str:
@@ -223,11 +221,9 @@ class TypeDBClient:
 
         Args:
             name: Human-readable name/title for the thing
-            thing_type: The specific type (research-item, scilit-paper, etc.)
+            thing_type: The specific type (domain-thing, scilit-paper, jobhunt-position, etc.)
             collection_id: Optional collection to add this thing to
-            abstract: Optional abstract text
             description: Optional description
-            publication_date: Optional publication date (ISO format)
             source_uri: Optional source URI
             thing_id: Optional specific ID; generated if not provided
 
@@ -247,12 +243,8 @@ class TypeDBClient:
                 has created-at {timestamp};
         """
 
-        if abstract:
-            query = query.rstrip(";") + f', has abstract-text "{self._escape_string(abstract)}";'
         if description:
             query = query.rstrip(";") + f', has description "{self._escape_string(description)}";'
-        if publication_date:
-            query = query.rstrip(";") + f", has publication-date {publication_date};"
         if source_uri:
             query = query.rstrip(";") + f', has source-uri "{source_uri}";'
 
@@ -281,8 +273,8 @@ class TypeDBClient:
             raise RuntimeError("Not connected to TypeDB")
 
         query = f"""
-            match $t isa research-item, has id "{thing_id}";
-            fetch $t: id, name, description, abstract-text, publication-date, source-uri;
+            match $t isa domain-thing, has id "{thing_id}";
+            fetch $t: id, name, description, source-uri;
         """
 
         with self._driver.session(self.database, SessionType.DATA) as session:
@@ -308,7 +300,7 @@ class TypeDBClient:
         query = f"""
             match
                 $c isa collection, has id "{collection_id}";
-                $m isa information-content-entity, has id "{member_id}";
+                $m isa identifiable-entity, has id "{member_id}";
             insert
                 (collection: $c, member: $m) isa collection-membership,
                     has created-at {timestamp};
@@ -374,7 +366,7 @@ class TypeDBClient:
         # Create representation relation
         rel_query = f"""
             match
-                $t isa research-item, has id "{thing_id}";
+                $t isa domain-thing, has id "{thing_id}";
                 $a isa artifact, has id "{aid}";
             insert
                 (artifact: $a, referent: $t) isa representation;
@@ -402,7 +394,7 @@ class TypeDBClient:
 
         query = f"""
             match
-                $t isa research-item, has id "{thing_id}";
+                $t isa domain-thing, has id "{thing_id}";
                 (artifact: $a, referent: $t) isa representation;
             fetch $a: id, format, source-uri, created-at;
         """
@@ -542,7 +534,7 @@ class TypeDBClient:
             rel_query = f"""
                 match
                     $n isa note, has id "{nid}";
-                    $s isa information-content-entity, has id "{subject_id}";
+                    $s isa identifiable-entity, has id "{subject_id}";
                 insert
                     (note: $n, subject: $s) isa aboutness;
             """
@@ -588,7 +580,7 @@ class TypeDBClient:
 
         query = f"""
             match
-                $s isa information-content-entity, has id "{subject_id}";
+                $s isa identifiable-entity, has id "{subject_id}";
                 (note: $n, subject: $s) isa aboutness;
             fetch $n: id, content, confidence, format, created-at;
         """
@@ -667,7 +659,7 @@ class TypeDBClient:
         # Create tagging relation
         rel_query = f"""
             match
-                $e isa information-content-entity, has id "{entity_id}";
+                $e isa identifiable-entity, has id "{entity_id}";
                 $t isa tag, has name "{tag_name}";
             insert
                 (tagged-entity: $e, tag: $t) isa tagging,
@@ -693,7 +685,7 @@ class TypeDBClient:
         if not self._driver:
             raise RuntimeError("Not connected to TypeDB")
 
-        type_constraint = entity_type or "information-content-entity"
+        type_constraint = entity_type or "identifiable-entity"
 
         query = f"""
             match
@@ -782,13 +774,13 @@ class TypeDBClient:
 
         # Build match clause for all entities
         match_clauses = [
-            f'$produced isa information-content-entity, has id "{produced_entity_id}";',
+            f'$produced isa identifiable-entity, has id "{produced_entity_id}";',
             f'$agent isa agent, has id "{agent_id}";',
         ]
 
         for i, source_id in enumerate(source_entity_ids):
             match_clauses.append(
-                f'$source{i} isa information-content-entity, has id "{source_id}";'
+                f'$source{i} isa identifiable-entity, has id "{source_id}";'
             )
 
         # Build insert clause
@@ -835,7 +827,7 @@ class TypeDBClient:
 
         query = f"""
             match
-                $e isa information-content-entity, has id "{entity_id}";
+                $e isa identifiable-entity, has id "{entity_id}";
                 $p (produced-entity: $e) isa provenance-record;
             fetch
                 $p: operation-type, operation-timestamp, operation-parameters;
@@ -961,7 +953,7 @@ class TypeDBClient:
             raise RuntimeError("Not connected to TypeDB")
 
         query = f"""
-            match $p isa research-item, has doi "{doi}";
+            match $p isa scilit-paper, has doi "{doi}";
             fetch $p: id, name, doi, pmid, pmcid, abstract-text, publication-year, journal-name;
         """
 
@@ -994,7 +986,7 @@ class TypeDBClient:
         if not self._driver:
             raise RuntimeError("Not connected to TypeDB")
 
-        match_clauses = ["$p isa research-item"]
+        match_clauses = ["$p isa scilit-paper"]
         if keyword:
             match_clauses.append(f'$p has keyword "{self._escape_string(keyword)}"')
         if year:
@@ -1030,7 +1022,7 @@ class TypeDBClient:
             match
                 $c isa collection, has id "{collection_id}";
                 (collection: $c, member: $p) isa collection-membership;
-                $p isa research-item;
+                $p isa scilit-paper;
             fetch $p: id, name, doi, pmid, abstract-text, publication-year, journal-name;
         """
 

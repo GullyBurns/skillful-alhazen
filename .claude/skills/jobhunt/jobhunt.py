@@ -822,7 +822,7 @@ def cmd_link_paper(args):
     """Link a learning resource to a paper via citation-reference.
 
     Creates a citation-reference relation where the learning resource
-    cites the paper. Both types inherit from research-item so they
+    cites the paper. Both types inherit from domain-thing so they
     can already play citing-item/cited-item roles.
     """
     with get_driver() as driver:

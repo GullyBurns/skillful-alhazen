@@ -108,11 +108,27 @@ apm-investigation-phase sub attribute, value string;  # diagnostic, therapeutic,
 
 
 # -----------------------------------------------------------------------------
-# ENTITY TYPES - APM Things (sub research-item)
+# ENTITY TYPES - APM Collections
 # -----------------------------------------------------------------------------
 
-# APM-CASE - The patient investigation (the central "case file")
-apm-case sub research-item,
+# APM-CASE-FILE - The patient investigation case file (organizes all related things/ICEs)
+apm-case-file sub collection,
+    owns apm-investigation-phase;
+
+# APM-DISEASE-FAMILY - A family of related diseases (e.g., "lysosomal storage diseases")
+# A disease family is NOT a disease — it's a set of diseases sharing a common mechanism
+apm-disease-family sub collection;
+
+# APM-PATIENT-COHORT - Patients sharing a phenotype, genotype, or clinical criteria
+apm-patient-cohort sub collection;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - APM Things (sub domain-thing)
+# -----------------------------------------------------------------------------
+
+# APM-CASE - The patient entity (distinct from the case file collection)
+apm-case sub domain-thing,
     owns apm-diagnostic-status,
     owns apm-therapeutic-status,
     owns apm-investigation-phase,
@@ -121,7 +137,7 @@ apm-case sub research-item,
     plays apm-case-has-diagnosis:case;
 
 # APM-GENE - A gene implicated in the investigation
-apm-gene sub research-item,
+apm-gene sub domain-thing,
     owns apm-gene-symbol,
     owns apm-ensembl-id,
     owns apm-entrez-id,
@@ -134,7 +150,7 @@ apm-gene sub research-item,
     plays apm-pathway-membership:member-gene;
 
 # APM-VARIANT - A specific genomic variant
-apm-variant sub research-item,
+apm-variant sub domain-thing,
     owns apm-chromosome,
     owns apm-position-start,
     owns apm-position-end,
@@ -156,7 +172,7 @@ apm-variant sub research-item,
     plays apm-mechanism-of-harm:variant;
 
 # APM-DISEASE - A disease or condition
-apm-disease sub research-item,
+apm-disease sub domain-thing,
     owns apm-omim-id,
     owns apm-orpha-id,
     owns apm-mondo-id,
@@ -169,7 +185,7 @@ apm-disease sub research-item,
     plays apm-model-for-disease:disease;
 
 # APM-PHENOTYPE - A clinical phenotype feature (canonical HPO concept)
-apm-phenotype sub research-item,
+apm-phenotype sub domain-thing,
     owns apm-hpo-id,
     owns apm-hpo-label,
     owns apm-onset-category,
@@ -178,18 +194,18 @@ apm-phenotype sub research-item,
     plays apm-phenotype-gene-association:phenotype;
 
 # APM-PROTEIN - Protein product of a gene
-apm-protein sub research-item,
+apm-protein sub domain-thing,
     owns apm-uniprot-id,
     owns apm-protein-domain,
     plays apm-gene-encodes:protein,
     plays apm-drug-target:target-protein;
 
 # APM-PATHWAY - A biological pathway
-apm-pathway sub research-item,
+apm-pathway sub domain-thing,
     plays apm-pathway-membership:pathway;
 
 # APM-DRUG - A therapeutic compound
-apm-drug sub research-item,
+apm-drug sub domain-thing,
     owns apm-drugbank-id,
     owns apm-chembl-id,
     owns apm-therapeutic-approach,
@@ -198,7 +214,7 @@ apm-drug sub research-item,
     plays apm-drug-indication:drug;
 
 # APM-DISEASE-MODEL - An experimental model system
-apm-disease-model sub research-item,
+apm-disease-model sub domain-thing,
     owns apm-model-type,
     owns apm-model-species,
     owns apm-phenotype-recapitulated,
@@ -206,7 +222,7 @@ apm-disease-model sub research-item,
     plays apm-assay-for-model:model;
 
 # APM-ASSAY - A functional test/experiment
-apm-assay sub research-item,
+apm-assay sub domain-thing,
     plays apm-assay-for-model:assay;
 
 

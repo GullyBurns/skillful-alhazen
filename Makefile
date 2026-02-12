@@ -43,6 +43,9 @@ help: ## Show this help message
 	@echo "$(GREEN)Remote Access:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'tailscale' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
+	@echo "$(GREEN)Documentation:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'docs-' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
 	@echo "$(GREEN)Development:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(test|lint|clean)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 
@@ -124,6 +127,13 @@ db-export: ## Export database to timestamped zip
 	@echo "$(BLUE)Exporting database...$(NC)"
 	uv run python $(CLAUDE_SKILLS_DIR)/typedb-notebook/typedb_notebook.py export-db --database $(TYPEDB_DATABASE)
 	@echo "$(GREEN)✓ Database exported$(NC)"
+
+.PHONY: db-migrate
+db-migrate: ## Migrate database to new schema (export, transform, reimport)
+	@echo "$(BLUE)Running schema migration...$(NC)"
+	@echo "$(YELLOW)This will drop and recreate the database. Data is backed up first.$(NC)"
+	uv run python $(TYPEDB_SCHEMAS_DIR)/migrate_schema_v2.py migrate --export-path exports/migration_data.json
+	@echo "$(GREEN)✓ Migration complete$(NC)"
 
 .PHONY: db-import
 db-import: ## Import database from zip (requires ZIP=/path/to/export.zip)
@@ -295,6 +305,20 @@ lint: ## Run ruff linter
 	uv run ruff check .
 	uv run ruff format --check .
 	@echo "$(GREEN)✓ Linting completed$(NC)"
+
+WIKI_DIR ?= $(HOME)/Documents/Coding/skillful-alhazen.wiki
+
+.PHONY: docs-schema
+docs-schema: ## Generate TypeDB schema documentation (Markdown + Mermaid)
+	@echo "$(BLUE)Generating schema documentation...$(NC)"
+	uv run python $(TYPEDB_SCHEMAS_DIR)/generate_schema_docs.py
+	@echo "$(GREEN)✓ Schema docs generated in local_resources/typedb/docs/$(NC)"
+
+.PHONY: docs-schema-wiki
+docs-schema-wiki: ## Generate schema docs + copy to wiki
+	@echo "$(BLUE)Generating schema documentation + wiki pages...$(NC)"
+	uv run python $(TYPEDB_SCHEMAS_DIR)/generate_schema_docs.py --wiki "$(WIKI_DIR)"
+	@echo "$(GREEN)✓ Schema docs generated in local_resources/typedb/docs/ and wiki$(NC)"
 
 .PHONY: clean
 clean: ## Clean generated files

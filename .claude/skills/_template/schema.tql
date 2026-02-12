@@ -33,12 +33,12 @@ define
 # -----------------------------------------------------------------------------
 
 # TODO: Define your primary entity types
-# Pattern: domain-thing sub research-item,
+# Pattern: domain-thing sub domain-thing,
 #     owns domain-attribute,
 #     plays domain-relation:role;
 
 # DOMAIN-ENTITY - Primary thing you track
-# domain-entity sub research-item,
+# domain-entity sub domain-thing,
 #     owns domain-url,
 #     owns domain-status,
 #     plays domain-relation:role1;

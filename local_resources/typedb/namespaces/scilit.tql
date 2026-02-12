@@ -52,11 +52,21 @@ usage-type sub attribute, value string;
 
 
 # -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Collections
+# -----------------------------------------------------------------------------
+
+# SCILIT-CORPUS - A literature corpus (set of papers on a topic)
+scilit-corpus sub collection;
+
+
+# -----------------------------------------------------------------------------
 # ENTITY TYPES - Scientific Literature Things
 # -----------------------------------------------------------------------------
 
 # SCILIT-PAPER - A scientific publication
-scilit-paper sub research-item,
+scilit-paper sub domain-thing,
+    owns abstract-text,
+    owns publication-date,
     owns doi,
     owns pmid,
     owns pmcid,
@@ -70,7 +80,8 @@ scilit-paper sub research-item,
 
 
 # SCILIT-DATASET - A scientific dataset
-scilit-dataset sub research-item,
+scilit-dataset sub domain-thing,
+    owns abstract-text,
     owns doi,
     owns dataset-url,
     owns dataset-format,
@@ -78,7 +89,9 @@ scilit-dataset sub research-item,
 
 
 # SCILIT-PREPRINT - A preprint publication
-scilit-preprint sub research-item,
+scilit-preprint sub domain-thing,
+    owns abstract-text,
+    owns publication-date,
     owns doi,
     owns arxiv-id;
 
@@ -88,7 +101,9 @@ scilit-review sub scilit-paper;
 
 
 # SCILIT-BOOK - A book or book chapter
-scilit-book sub research-item,
+scilit-book sub domain-thing,
+    owns abstract-text,
+    owns publication-date,
     owns isbn,
     owns doi;
 
@@ -212,7 +227,7 @@ supplementary-material sub relation,
     relates paper,
     relates supplement;
 
-scilit-paper sub research-item,
+scilit-paper sub domain-thing,
     plays supplementary-material:paper;
 
 
@@ -237,10 +252,10 @@ dataset-usage sub relation,
     relates paper-entity,
     relates dataset-entity;
 
-scilit-paper sub research-item,
+scilit-paper sub domain-thing,
     plays dataset-usage:paper-entity;
 
-scilit-dataset sub research-item,
+scilit-dataset sub domain-thing,
     plays dataset-usage:dataset-entity;
 
 

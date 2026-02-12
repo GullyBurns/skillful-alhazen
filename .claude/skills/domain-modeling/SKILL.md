@@ -299,7 +299,7 @@ What properties do your entities have?
 # Pattern: domain-entity sub base-type,
 #     owns domain-specific-attribute;
 
-jobhunt-position sub research-item,
+jobhunt-position sub domain-thing,
     owns job-url,
     owns salary-range,
     owns location,
@@ -382,7 +382,7 @@ domain-attr-2 sub attribute, value datetime;
 # ENTITIES - Things
 # =============================================================================
 
-domain-thing sub research-item,
+domain-thing sub domain-thing,
     owns domain-attr-1,
     plays domain-relation:role;
 

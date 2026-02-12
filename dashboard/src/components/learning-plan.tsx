@@ -15,7 +15,9 @@ import {
   CheckCircle,
   PlayCircle,
   Circle,
+  Library,
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface LearningResource {
   id: string;
@@ -26,8 +28,17 @@ interface LearningResource {
   status: string;
 }
 
+export interface LearningCollection {
+  id: string;
+  name: string;
+  description: string;
+  skills: string[];
+  paperCount?: number;
+}
+
 interface LearningPlanProps {
   resources: LearningResource[];
+  collections?: LearningCollection[];
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -50,7 +61,7 @@ const STATUS_COLORS: Record<string, string> = {
   'not-started': 'bg-gray-100 text-gray-800',
 };
 
-export function LearningPlan({ resources }: LearningPlanProps) {
+export function LearningPlan({ resources, collections = [] }: LearningPlanProps) {
   // Calculate stats
   const totalHours = resources.reduce((sum, r) => sum + (r.hours || 0), 0);
   const completed = resources.filter((r) => r.status === 'completed').length;
@@ -170,7 +181,61 @@ export function LearningPlan({ resources }: LearningPlanProps) {
         </Card>
       ))}
 
-      {resources.length === 0 && (
+      {/* Reading Lists (Paper Collections) */}
+      {collections.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Library className="w-4 h-4" />
+              Reading Lists
+              <Badge variant="secondary">{collections.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {collections.map((collection) => (
+                <div
+                  key={collection.id}
+                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                >
+                  <div className="flex-1">
+                    <Link
+                      href={`/collection/${collection.id}`}
+                      className="font-medium text-sm text-primary hover:underline"
+                    >
+                      {collection.name}
+                    </Link>
+                    {collection.description && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {collection.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {collection.skills.map((skill) => (
+                        <Badge key={skill} variant="outline" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                      {collection.paperCount != null && (
+                        <span className="text-xs text-muted-foreground">
+                          {collection.paperCount} papers
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Link href={`/collection/${collection.id}`}>
+                    <Button variant="ghost" size="sm">
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {resources.length === 0 && collections.length === 0 && (
         <Card>
           <CardContent className="py-8">
             <div className="text-center text-muted-foreground">

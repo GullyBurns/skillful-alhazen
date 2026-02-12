@@ -151,7 +151,7 @@ def insert_note(args):
 
             # Create aboutness relation
             with session.transaction(TransactionType.WRITE) as tx:
-                rel_query = f'match $s isa information-content-entity, has id "{args.subject}"; $n isa note, has id "{nid}"; insert (note: $n, subject: $s) isa aboutness;'
+                rel_query = f'match $s isa identifiable-entity, has id "{args.subject}"; $n isa note, has id "{nid}"; insert (note: $n, subject: $s) isa aboutness;'
                 tx.query.insert(rel_query)
                 tx.commit()
 
@@ -218,7 +218,7 @@ def query_notes(args):
     with get_driver() as driver:
         with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
             with session.transaction(TransactionType.READ) as tx:
-                query = f'match $s isa information-content-entity, has id "{args.subject}"; (note: $n, subject: $s) isa aboutness; fetch $n: id, name, content, confidence;'
+                query = f'match $s isa identifiable-entity, has id "{args.subject}"; (note: $n, subject: $s) isa aboutness; fetch $n: id, name, content, confidence;'
                 results = list(tx.query.fetch(query))
 
                 print(
@@ -250,7 +250,7 @@ def tag_entity(args):
             # Create tagging relation
             with session.transaction(TransactionType.WRITE) as tx:
                 tx.query.insert(
-                    f'match $e isa information-content-entity, has id "{args.entity}"; $t isa tag, has name "{args.tag}"; insert (tagged-entity: $e, tag: $t) isa tagging;'
+                    f'match $e isa identifiable-entity, has id "{args.entity}"; $t isa tag, has name "{args.tag}"; insert (tagged-entity: $e, tag: $t) isa tagging;'
                 )
                 tx.commit()
 

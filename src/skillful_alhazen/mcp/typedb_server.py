@@ -74,20 +74,20 @@ def insert_collection(
 @mcp.tool()
 def insert_thing(
     name: str,
-    thing_type: str = "research-item",
+    thing_type: str = "domain-thing",
     collection_id: str | None = None,
-    abstract: str | None = None,
+    description: str | None = None,
     source_uri: str | None = None,
 ) -> str:
     """
-    Add a new research item (paper, dataset, etc.) to the knowledge graph.
-    Use this when you encounter a new paper or resource worth remembering.
+    Add a new domain object (paper, position, gene, etc.) to the knowledge graph.
+    Use this when you encounter a new item worth remembering.
 
     Args:
         name: Title or name of the item
-        thing_type: Type of thing: research-item, scilit-paper, scilit-dataset, scilit-preprint
+        thing_type: Type of thing: domain-thing, scilit-paper, jobhunt-position, apm-gene, etc.
         collection_id: Optional collection ID to add this to
-        abstract: Abstract or summary text
+        description: Description text
         source_uri: URL or URI where this was found
 
     Returns:
@@ -99,7 +99,7 @@ def insert_thing(
                 name=name,
                 thing_type=thing_type,
                 collection_id=collection_id,
-                abstract=abstract,
+                description=description,
                 source_uri=source_uri,
             )
             return json.dumps(
@@ -318,7 +318,7 @@ def search_by_tag(tag_name: str, entity_type: str | None = None) -> str:
 
     Args:
         tag_name: Tag to search for
-        entity_type: Optional type filter: research-item, note, collection, etc.
+        entity_type: Optional type filter: domain-thing, note, collection, scilit-paper, etc.
 
     Returns:
         JSON with matching entities

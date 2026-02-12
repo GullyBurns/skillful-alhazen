@@ -62,15 +62,22 @@ last-updated sub attribute, value datetime;
 
 
 # -----------------------------------------------------------------------------
+# ENTITY TYPES - Job Hunting Collections
+# -----------------------------------------------------------------------------
+
+# JOBHUNT-SEARCH - A job search campaign (set of positions being tracked together)
+jobhunt-search sub collection;
+
+
+# -----------------------------------------------------------------------------
 # ENTITY TYPES - Your Profile
 # -----------------------------------------------------------------------------
 
 # YOUR-SKILL - Your personal skill/capability for gap analysis
-your-skill sub entity,
+your-skill sub domain-thing,
     owns skill-name,
     owns skill-level,     # strong/some/none/learning
-    owns last-updated,
-    owns description;
+    owns last-updated;
 
 
 # -----------------------------------------------------------------------------
@@ -78,7 +85,7 @@ your-skill sub entity,
 # -----------------------------------------------------------------------------
 
 # JOBHUNT-COMPANY - An organization/employer
-jobhunt-company sub research-item,
+jobhunt-company sub domain-thing,
     owns company-url,
     owns linkedin-url,
     owns location,
@@ -86,7 +93,7 @@ jobhunt-company sub research-item,
     plays works-at:employer;
 
 # JOBHUNT-POSITION - A specific role/job posting
-jobhunt-position sub research-item,
+jobhunt-position sub domain-thing,
     owns job-url,
     owns short-name,
     owns salary-range,
@@ -99,7 +106,7 @@ jobhunt-position sub research-item,
     plays requirement-for:position;
 
 # JOBHUNT-LEARNING-RESOURCE - Course, tutorial, book, etc.
-jobhunt-learning-resource sub research-item,
+jobhunt-learning-resource sub domain-thing,
     owns resource-type,
     owns resource-url,
     owns estimated-hours,

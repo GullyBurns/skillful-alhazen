@@ -72,32 +72,23 @@ evidence-type-attr sub attribute, value string;
 # ENTITY TYPES - Core Ontology (Alhazen's Notebook Model)
 # -----------------------------------------------------------------------------
 
-# Root type for all information-bearing entities
-information-content-entity sub entity,
+# Shared abstract root for all identifiable entities
+# Provides identity, metadata, and cross-cutting concerns (tagging, classification, provenance)
+identifiable-entity sub entity,
     abstract,
     owns id @key,
     owns name,
     owns description,
     owns iri,
-    owns content,
-    owns content-hash,
-    owns format,
-    owns token-count,
-    owns cache-path,
-    owns mime-type,
-    owns file-size,
     owns created-at,
     owns updated-at,
     owns provenance,
     owns source-uri,
     owns license,
-    plays authorship:work,
     plays classification:classified-entity,
     plays tagging:tagged-entity,
     plays aboutness:subject,
     plays collection-membership:member,
-    plays derivation:derived-from-source,
-    plays derivation:derivative,
     plays provenance-record:produced-entity,
     plays provenance-record:source-entity,
     plays property-assertion:subject-entity,
@@ -105,8 +96,18 @@ information-content-entity sub entity,
     plays semantic-triple:triple-object;
 
 
+# THING - Domain objects (papers, genes, diseases, jobs, etc.)
+# Concrete base type for real-world entities that are NOT information content
+domain-thing sub identifiable-entity,
+    plays representation:referent,
+    plays authorship:authored-work,
+    plays citation-reference:citing-item,
+    plays citation-reference:cited-item;
+
+
 # COLLECTION - Organized groupings of Things
-collection sub information-content-entity,
+# Typed per domain namespace (scilit-corpus, jobhunt-search, apm-case-file, etc.)
+collection sub identifiable-entity,
     owns logical-query,
     owns is-extensional,
     plays collection-membership:collection,
@@ -114,14 +115,20 @@ collection sub information-content-entity,
     plays collection-nesting:child-collection;
 
 
-# THING - Primary research objects (papers, datasets, etc.)
-research-item sub information-content-entity,
-    owns abstract-text,
-    owns publication-date,
-    plays representation:referent,
-    plays authorship:authored-work,
-    plays citation-reference:citing-item,
-    plays citation-reference:cited-item;
+# INFORMATION-CONTENT-ENTITY - Content-bearing entities (artifacts, fragments, notes)
+# Only ICEs carry actual content, cache paths, formats, etc.
+information-content-entity sub identifiable-entity,
+    abstract,
+    owns content,
+    owns content-hash,
+    owns format,
+    owns token-count,
+    owns cache-path,
+    owns mime-type,
+    owns file-size,
+    plays authorship:work,
+    plays derivation:derived-from-source,
+    plays derivation:derivative;
 
 
 # ARTIFACT - Specific representations of Things
@@ -150,11 +157,11 @@ note sub information-content-entity,
 
 
 # USER-QUESTION - Questions/instructions from users
-user-question sub information-content-entity;
+user-question sub identifiable-entity;
 
 
 # INFORMATION-RESOURCE - Databases, knowledgebases, APIs
-information-resource sub information-content-entity;
+information-resource sub identifiable-entity;
 
 
 # -----------------------------------------------------------------------------

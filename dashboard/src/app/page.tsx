@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { PipelineBoard } from '@/components/pipeline-board';
 import { SkillsMatrix } from '@/components/skills-matrix';
-import { LearningPlan } from '@/components/learning-plan';
+import { LearningPlan, LearningCollection } from '@/components/learning-plan';
 import { StatsOverview } from '@/components/stats-overview';
 import {
   RefreshCw,
@@ -57,6 +57,7 @@ export default function Dashboard() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [skillGaps, setSkillGaps] = useState<SkillGap[]>([]);
   const [learningResources, setLearningResources] = useState<LearningResource[]>([]);
+  const [learningCollections, setLearningCollections] = useState<LearningCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -92,6 +93,26 @@ export default function Dashboard() {
       setPositions(pipelineData.positions || []);
       setSkillGaps(gapsData.skill_gaps || []);
       setLearningResources(learningData.learning_plan || []);
+
+      // Deduplicate collections: group by ID, aggregate skill names
+      const rawCollections = learningData.collections || [];
+      const collectionMap = new Map<string, LearningCollection>();
+      for (const c of rawCollections) {
+        const existing = collectionMap.get(c.id);
+        if (existing) {
+          if (c.skill_name && !existing.skills.includes(c.skill_name)) {
+            existing.skills.push(c.skill_name);
+          }
+        } else {
+          collectionMap.set(c.id, {
+            id: c.id,
+            name: c.name,
+            description: c.description || '',
+            skills: c.skill_name ? [c.skill_name] : [],
+          });
+        }
+      }
+      setLearningCollections(Array.from(collectionMap.values()));
     } catch (err) {
       console.error('Fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -262,7 +283,7 @@ export default function Dashboard() {
                 <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <LearningPlan resources={learningResources} />
+              <LearningPlan resources={learningResources} collections={learningCollections} />
             )}
           </TabsContent>
         </Tabs>

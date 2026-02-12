@@ -310,7 +310,7 @@ def insert_paper_to_typedb(driver, paper: dict, collection_id: str | None = None
     with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
         # Check if paper already exists
         with session.transaction(TransactionType.READ) as tx:
-            check_query = f'match $p isa research-item, has doi "{paper["doi"]}"; fetch $p: id;'
+            check_query = f'match $p isa scilit-paper, has doi "{paper["doi"]}"; fetch $p: id;'
             existing = list(tx.query.fetch(check_query))
             if existing:
                 # Paper already exists, return existing ID
@@ -336,7 +336,7 @@ def insert_paper_to_typedb(driver, paper: dict, collection_id: str | None = None
         # Link artifact to paper
         with session.transaction(TransactionType.WRITE) as tx:
             rel_query = f'''match
-                $p isa research-item, has id "{paper_id}";
+                $p isa scilit-paper, has id "{paper_id}";
                 $a isa artifact, has id "{artifact_id}";
             insert (artifact: $a, referent: $p) isa representation;'''
             tx.query.insert(rel_query)
@@ -394,7 +394,7 @@ def insert_paper_to_typedb(driver, paper: dict, collection_id: str | None = None
             with session.transaction(TransactionType.WRITE) as tx:
                 coll_query = f'''match
                     $c isa collection, has id "{collection_id}";
-                    $p isa research-item, has id "{paper_id}";
+                    $p isa scilit-paper, has id "{paper_id}";
                 insert (collection: $c, member: $p) isa collection-membership,
                     has created-at {timestamp};'''
                 tx.query.insert(coll_query)
@@ -417,7 +417,7 @@ def insert_paper_to_typedb(driver, paper: dict, collection_id: str | None = None
 
             with session.transaction(TransactionType.WRITE) as tx:
                 tx.query.insert(f'''match
-                    $p isa research-item, has id "{paper_id}";
+                    $p isa scilit-paper, has id "{paper_id}";
                     $t isa tag, has name "{tag_name}";
                 insert (tagged-entity: $p, tag: $t) isa tagging,
                     has created-at {timestamp};''')

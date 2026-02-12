@@ -1,0 +1,217 @@
+{
+  "core": [
+    {
+      "title": "Collection Management",
+      "description": "Creating, querying, and managing collections of research items.",
+      "examples": [
+        {
+          "title": "Create a collection",
+          "command": "typedb_notebook.py insert-collection",
+          "query": "insert $c isa collection,\n    has id \"my-collection-id\",\n    has name \"My Collection\",\n    has description \"A curated set of papers\",\n    has created-at 2025-01-15T10:30:00;"
+        },
+        {
+          "title": "Fetch collection details",
+          "command": "typedb_notebook.py query-collection",
+          "query": "match $c isa collection, has id \"my-collection-id\";\nfetch $c: id, name, description;"
+        },
+        {
+          "title": "List collection members",
+          "command": "typedb_notebook.py query-collection",
+          "query": "match\n    $c isa collection, has id \"my-collection-id\";\n    (collection: $c, member: $m) isa collection-membership;\nfetch $m: id, name;"
+        },
+        {
+          "title": "Add member to collection",
+          "command": "typedb_notebook.py insert-paper",
+          "query": "match\n    $c isa collection, has id \"my-collection-id\";\n    $p isa research-item, has id \"paper-id\";\ninsert\n    (collection: $c, member: $p) isa collection-membership;"
+        }
+      ]
+    },
+    {
+      "title": "Notes and Aboutness",
+      "description": "Creating notes and linking them to entities via the aboutness relation.",
+      "examples": [
+        {
+          "title": "Create a note about an entity",
+          "query": "insert $n isa note,\n    has id \"note-abc123\",\n    has name \"Key finding\",\n    has content \"This paper demonstrates...\",\n    has confidence 0.9,\n    has created-at 2025-01-15T10:30:00;"
+        },
+        {
+          "title": "Link note to subject via aboutness",
+          "query": "match\n    $n isa note, has id \"note-abc123\";\n    $s isa entity, has id \"paper-id\";\ninsert\n    (note: $n, subject: $s) isa aboutness;"
+        },
+        {
+          "title": "Fetch notes about an entity",
+          "query": "match\n    $e isa entity, has id \"paper-id\";\n    (note: $n, subject: $e) isa aboutness;\nfetch $n: id, name, content;"
+        }
+      ]
+    },
+    {
+      "title": "Tagging",
+      "description": "Lightweight classification using tags.",
+      "examples": [
+        {
+          "title": "Create and apply a tag",
+          "command": "jobhunt.py tag",
+          "query": "insert $t isa tag,\n    has id \"tag-ml\",\n    has name \"machine-learning\";"
+        },
+        {
+          "title": "Tag an entity",
+          "query": "match\n    $e isa entity, has id \"paper-id\";\n    $t isa tag, has name \"machine-learning\";\ninsert\n    (tagged-entity: $e, tag: $t) isa tagging;"
+        },
+        {
+          "title": "Search by tag",
+          "command": "jobhunt.py search-tag",
+          "query": "match\n    $t isa tag, has name \"machine-learning\";\n    (tagged-entity: $e, tag: $t) isa tagging;\n    $e has id $id, has name $name;\nfetch $e: id, name;"
+        }
+      ]
+    }
+  ],
+  "scilit": [
+    {
+      "title": "Paper Search & Retrieval",
+      "description": "Working with scientific papers, collections, and metadata.",
+      "examples": [
+        {
+          "title": "Insert a paper with identifiers",
+          "command": "epmc_search.py (insert_paper_to_typedb)",
+          "query": "insert $p isa scilit-paper,\n    has id \"paper-abc123\",\n    has name \"A Novel Approach to CRISPR\",\n    has doi \"10.1234/example\",\n    has pmid \"12345678\",\n    has abstract-text \"We present a novel...\",\n    has publication-year 2024,\n    has created-at 2025-01-15T10:30:00;"
+        },
+        {
+          "title": "List papers in a collection",
+          "command": "epmc_search.py list-papers",
+          "query": "match\n    $c isa collection, has id \"crispr-papers\";\n    (collection: $c, member: $p) isa collection-membership;\n    $p isa scilit-paper;\nfetch $p: id, name, doi, publication-year;"
+        },
+        {
+          "title": "Find papers by keyword",
+          "query": "match\n    $p isa scilit-paper,\n        has keyword $kw;\n    $kw contains \"CRISPR\";\nfetch $p: id, name, doi;"
+        },
+        {
+          "title": "List collections with their queries",
+          "command": "epmc_search.py list-collections",
+          "query": "match\n    $c isa collection, has logical-query $q;\nfetch $c: id, name, description, logical-query;"
+        }
+      ]
+    },
+    {
+      "title": "Artifacts & Fragments",
+      "description": "Working with paper representations and extracted sections.",
+      "examples": [
+        {
+          "title": "Link artifact to paper (representation)",
+          "query": "match\n    $p isa scilit-paper, has id \"paper-abc123\";\ninsert\n    $a isa scilit-citation-record,\n        has id \"cite-rec-001\",\n        has name \"Citation record for paper\",\n        has content \"...\",\n        has created-at 2025-01-15T10:30:00;\n    (artifact: $a, referent: $p) isa representation;"
+        },
+        {
+          "title": "Create a section fragment",
+          "query": "match\n    $a isa scilit-jats-fulltext, has id \"fulltext-001\";\ninsert\n    $f isa scilit-section,\n        has id \"section-methods\",\n        has name \"Methods\",\n        has section-type \"methods\",\n        has heading-level 1,\n        has created-at 2025-01-15T10:30:00;\n    (whole: $a, part: $f) isa fragmentation;"
+        }
+      ]
+    }
+  ],
+  "jobhunt": [
+    {
+      "title": "Position & Company Management",
+      "description": "Creating and linking job positions and companies.",
+      "examples": [
+        {
+          "title": "Insert a company",
+          "command": "jobhunt.py add-company",
+          "query": "insert $c isa jobhunt-company,\n    has id \"company-anthropic\",\n    has name \"Anthropic\",\n    has company-url \"https://anthropic.com\",\n    has location \"San Francisco, CA\",\n    has description \"AI safety company\",\n    has created-at 2025-01-15T10:30:00;"
+        },
+        {
+          "title": "Insert a position and link to company",
+          "command": "jobhunt.py add-position",
+          "query": "match\n    $c isa jobhunt-company, has id \"company-anthropic\";\ninsert\n    $p isa jobhunt-position,\n        has id \"pos-ml-eng\",\n        has name \"ML Engineer\",\n        has job-url \"https://anthropic.com/jobs/ml-eng\",\n        has location \"San Francisco\",\n        has remote-policy \"hybrid\",\n        has priority-level \"high\",\n        has created-at 2025-01-15T10:30:00;\n    (position: $p, employer: $c) isa position-at-company;"
+        },
+        {
+          "title": "Show position with company",
+          "command": "jobhunt.py show-position",
+          "query": "match\n    $p isa jobhunt-position, has id \"pos-ml-eng\";\n    (position: $p, employer: $c) isa position-at-company;\nfetch\n    $p: id, name, job-url, location, remote-policy,\n        salary-range, team-size, priority-level;\n    $c: id, name;"
+        }
+      ]
+    },
+    {
+      "title": "Application Tracking",
+      "description": "Tracking application status through the pipeline.",
+      "examples": [
+        {
+          "title": "Set application status",
+          "command": "jobhunt.py update-status",
+          "query": "match\n    $p isa jobhunt-position, has id \"pos-ml-eng\";\ninsert\n    $n isa jobhunt-application-note,\n        has id \"appnote-001\",\n        has name \"Application Status\",\n        has content \"Applied on 2025-01-15\",\n        has application-status \"applied\",\n        has applied-date 2025-01-15T00:00:00,\n        has created-at 2025-01-15T10:30:00;\n    (note: $n, subject: $p) isa aboutness;"
+        },
+        {
+          "title": "List pipeline (positions with status)",
+          "command": "jobhunt.py list-pipeline",
+          "query": "match\n    $p isa jobhunt-position;\n    (note: $n, subject: $p) isa aboutness;\n    $n isa jobhunt-application-note,\n        has application-status $status;\nfetch\n    $p: id, name, short-name, job-url, location,\n        remote-policy, salary-range, priority-level;\n    $n: application-status;"
+        },
+        {
+          "title": "Delete old status before update",
+          "command": "jobhunt.py update-status",
+          "query": "match\n    $n isa jobhunt-application-note, has id \"appnote-001\";\n    (note: $n, subject: $s) isa aboutness;\n    $a isa aboutness;\ndelete\n    $a isa aboutness;\n    $n isa note;"
+        }
+      ]
+    },
+    {
+      "title": "Skill Gaps & Learning",
+      "description": "Analyzing skill gaps across positions and tracking learning resources.",
+      "examples": [
+        {
+          "title": "Add requirement to position",
+          "command": "jobhunt.py add-requirement",
+          "query": "match\n    $p isa jobhunt-position, has id \"pos-ml-eng\";\ninsert\n    $r isa jobhunt-requirement,\n        has id \"req-pytorch\",\n        has name \"PyTorch expertise\",\n        has skill-name \"PyTorch\",\n        has skill-level \"required\",\n        has your-level \"strong\",\n        has created-at 2025-01-15T10:30:00;\n    (position: $p, requirement: $r) isa requirement-for;"
+        },
+        {
+          "title": "Show skill gaps (excluding rejected/withdrawn)",
+          "command": "jobhunt.py show-gaps",
+          "query": "match\n    $r isa jobhunt-requirement,\n        has skill-name $skill;\n    (requirement: $r, position: $p) isa requirement-for;\n    (note: $n, subject: $p) isa aboutness;\n    $n isa jobhunt-application-note,\n        has application-status $status;\n    not { $status = \"rejected\"; };\n    not { $status = \"withdrawn\"; };\nfetch\n    $r: skill-name, skill-level, your-level;\n    $p: id, name;"
+        },
+        {
+          "title": "Link collection to skill requirement",
+          "command": "jobhunt.py link-collection",
+          "query": "match\n    $c isa collection, has id \"rag-papers\";\n    $req isa jobhunt-requirement, has id \"req-rag\";\ninsert\n    (resource: $c, requirement: $req)\n        isa addresses-requirement;"
+        },
+        {
+          "title": "Get learning resources with requirements",
+          "command": "jobhunt.py learning-plan",
+          "query": "match\n    $r isa jobhunt-learning-resource;\n    (resource: $r, requirement: $req)\n        isa addresses-requirement;\n    $req has skill-name $skill;\nfetch\n    $r: id, name, resource-type, resource-url,\n        estimated-hours, completion-status;\n    $req: skill-name;"
+        }
+      ]
+    }
+  ],
+  "apm": [
+    {
+      "title": "Diagnostic Phase",
+      "description": "Tracking patient phenotypes, variants, and diagnosis.",
+      "examples": [
+        {
+          "title": "Create a case with phenotypes",
+          "query": "insert\n    $case isa apm-case,\n        has id \"case-001\",\n        has name \"Patient X Investigation\",\n        has apm-diagnostic-status \"unsolved\",\n        has apm-investigation-phase \"diagnostic\",\n        has created-at 2025-01-15T10:30:00;\n    $pheno isa apm-phenotype,\n        has id \"pheno-seizures\",\n        has name \"Seizures\",\n        has apm-hpo-id \"HP:0001250\",\n        has apm-hpo-label \"Seizures\",\n        has apm-onset-category \"infantile\";\n    (case: $case, phenotype: $pheno)\n        isa apm-case-has-phenotype,\n        has apm-onset-category \"infantile\",\n        has apm-severity \"severe\";"
+        },
+        {
+          "title": "Record variant finding",
+          "query": "match\n    $case isa apm-case, has id \"case-001\";\n    $gene isa apm-gene, has apm-gene-symbol \"NGLY1\";\ninsert\n    $v isa apm-variant,\n        has id \"var-ngly1-001\",\n        has name \"NGLY1 c.1201A>T\",\n        has apm-hgvs-c \"c.1201A>T\",\n        has apm-hgvs-p \"p.Arg401Ter\",\n        has apm-chromosome \"chr1\",\n        has apm-genome-build \"GRCh38\",\n        has apm-acmg-class \"pathogenic\",\n        has apm-acmg-criteria \"PVS1,PM2,PP3\";\n    (case: $case, variant: $v)\n        isa apm-case-has-variant,\n        has apm-zygosity \"homozygous\";\n    (variant: $v, gene: $gene)\n        isa apm-variant-in-gene;"
+        },
+        {
+          "title": "Establish diagnosis",
+          "query": "match\n    $case isa apm-case, has id \"case-001\";\n    $disease isa apm-disease, has id \"disease-ngly1-def\";\ninsert\n    (case: $case, disease: $disease)\n        isa apm-case-has-diagnosis,\n        has apm-diagnostic-status \"confirmed\",\n        has confidence 0.95;"
+        }
+      ]
+    },
+    {
+      "title": "Therapeutic Phase",
+      "description": "From mechanism of harm to treatment candidates.",
+      "examples": [
+        {
+          "title": "Record mechanism of harm",
+          "query": "match\n    $v isa apm-variant, has id \"var-ngly1-001\";\n    $g isa apm-gene, has apm-gene-symbol \"NGLY1\";\ninsert\n    (variant: $v, gene: $g)\n        isa apm-mechanism-of-harm,\n        has apm-mechanism-type \"total-loss\",\n        has apm-functional-impact \"absence\",\n        has confidence 0.9;"
+        },
+        {
+          "title": "Link drug to target",
+          "query": "match\n    $drug isa apm-drug, has id \"drug-001\";\n    $gene isa apm-gene, has apm-gene-symbol \"NGLY1\";\n    $protein isa apm-protein, has id \"prot-ngly1\";\ninsert\n    (drug: $drug, target-gene: $gene,\n     target-protein: $protein)\n        isa apm-drug-target,\n        has apm-therapeutic-approach \"activator\";"
+        },
+        {
+          "title": "Query full diagnostic chain",
+          "query": "match\n    $case isa apm-case, has id $cid;\n    (case: $case, phenotype: $ph)\n        isa apm-case-has-phenotype;\n    (case: $case, variant: $v)\n        isa apm-case-has-variant;\n    (variant: $v, gene: $g)\n        isa apm-variant-in-gene;\n    (case: $case, disease: $d)\n        isa apm-case-has-diagnosis;\nfetch\n    $case: id, name, apm-diagnostic-status;\n    $ph: apm-hpo-label;\n    $v: apm-hgvs-p, apm-acmg-class;\n    $g: apm-gene-symbol;\n    $d: name;"
+        }
+      ]
+    }
+  ]
+}
