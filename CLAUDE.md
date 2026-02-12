@@ -134,16 +134,26 @@ When TypeDB 3.0 drivers reach stable, migration will require:
 - `local_resources/typedb/alhazen_notebook.tql` - Core notebook schema
 - `local_resources/typedb/namespaces/scilit.tql` - Scientific literature extensions
 - `local_resources/typedb/namespaces/jobhunt.tql` - Job hunting extensions
-- `local_resources/typedb/agent-memory-typedb-schema.md` - Documentation
+- `local_resources/typedb/namespaces/apm.tql` - Precision medicine extensions
+- `local_resources/typedb/docs/` - Generated schema documentation
 
 ### Alhazen's Notebook Model
 
-The data model uses five core entity types in TypeDB:
-- **Collection** - A named group of Things (papers, documents, etc.)
-- **Thing** - Any recorded item (typically a scientific publication)
-- **Artifact** - A specific representation of a Thing (e.g., PDF, JATS XML, citation record)
-- **Fragment** - A selected portion of an Artifact (section, paragraph, etc.)
-- **Note** - A structured annotation about any entity
+The data model uses a three-branch hierarchy rooted at `identifiable-entity`:
+
+```
+identifiable-entity (abstract)         — id, name, description, provenance
+├── domain-thing                       — real-world objects (papers, genes, jobs)
+├── collection                         — typed sets (corpora, searches, case files)
+└── information-content-entity (abstract) — content, format, cache-path
+    ├── artifact                       — raw captured content (PDF, HTML, API response)
+    ├── fragment                       — extracted piece of an artifact
+    └── note                           — Claude's analysis or annotation
+```
+
+- **domain-thing** is the base for all domain objects. Namespace subtypes (e.g., `scilit-paper`, `jobhunt-position`, `apm-gene`) inherit from it.
+- **collection** is typed per namespace: `scilit-corpus`, `jobhunt-search`, `apm-case-file`, `apm-disease-family`, `apm-patient-cohort`.
+- **information-content-entity** is only for content-bearing entities that own `content`, `cache-path`, `format`, etc.
 
 ### MCP Server
 - `src/skillful_alhazen/mcp/typedb_client.py` - TypeDB client library
