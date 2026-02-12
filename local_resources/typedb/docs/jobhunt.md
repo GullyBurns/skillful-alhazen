@@ -108,18 +108,18 @@ classDiagram
         +valid-from
         +valid-until
     }
-    class fragment
-    <<core>> fragment
-    class domain_thing
-    <<core>> domain_thing
-    class artifact
-    <<core>> artifact
     class collection
     <<core>> collection
+    class domain_thing
+    <<core>> domain_thing
     class agent
     <<core>> agent
     class note_t
     <<core>> note_t
+    class artifact
+    <<core>> artifact
+    class fragment
+    <<core>> fragment
 ```
 
 ## Relationships
