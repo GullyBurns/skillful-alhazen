@@ -4,7 +4,7 @@
 
 Job hunting and career management: positions, companies, skill gaps, learning resources, and application tracking.
 
-**Summary:** 20 entities, 4 relations, 28 attributes
+**Summary:** 22 entities, 5 relations, 37 attributes
 
 ## Contents
 
@@ -26,6 +26,14 @@ classDiagram
         +response-date
     }
     note_t <|-- jobhunt_application_note
+    class jobhunt_candidate {
+        +job-url
+        +external-job-id
+        +location
+        +discovered-at
+        +relevance-score
+    }
+    domain_thing <|-- jobhunt_candidate
     class jobhunt_company {
         +company-url
         +linkedin-url
@@ -89,6 +97,14 @@ classDiagram
     artifact <|-- jobhunt_resume
     class jobhunt_search
     collection <|-- jobhunt_search
+    class jobhunt_search_source {
+        +board-token
+        +board-platform
+        +company-url
+        +search-query
+        +search-location
+    }
+    domain_thing <|-- jobhunt_search_source
     class jobhunt_skill_gap_note
     note_t <|-- jobhunt_skill_gap_note
     class jobhunt_strategy_note
@@ -104,22 +120,23 @@ classDiagram
     }
     class position_at_company
     class requirement_for
+    class source_provides
     class works_at {
         +valid-from
         +valid-until
     }
-    class agent
-    <<core>> agent
-    class fragment
-    <<core>> fragment
-    class collection
-    <<core>> collection
     class domain_thing
     <<core>> domain_thing
-    class note_t
-    <<core>> note_t
     class artifact
     <<core>> artifact
+    class note_t
+    <<core>> note_t
+    class agent
+    <<core>> agent
+    class collection
+    <<core>> collection
+    class fragment
+    <<core>> fragment
 ```
 
 ## Relationships
@@ -131,6 +148,7 @@ erDiagram
     jobhunt_learning_resource }|--o{ jobhunt_requirement : addresses_requirement
     jobhunt_position }|--o{ jobhunt_company : position_at_company
     jobhunt_requirement }|--o{ jobhunt_position : requirement_for
+    jobhunt_search_source }|--o{ jobhunt_candidate : source_provides
     jobhunt_contact }|--o{ jobhunt_company : works_at
 ```
 
@@ -140,12 +158,17 @@ erDiagram
 |-----------|-----------|-------------|
 | `application-status` | `string` | Application tracking |
 | `applied-date` | `datetime` |  |
+| `board-platform` | `string` |  |
+| `board-token` | `string` | Forager attributes (automated job discovery) |
+| `candidate-status` | `string` |  |
 | `company-url` | `string` |  |
 | `completion-status` | `string` |  |
 | `contact-email` | `string` |  |
 | `contact-role` | `string` | Contact attributes |
 | `deadline` | `datetime` |  |
+| `discovered-at` | `datetime` |  |
 | `estimated-hours` | `long` |  |
+| `external-job-id` | `string` |  |
 | `fit-score` | `double` | Fit analysis |
 | `fit-summary` | `string` |  |
 | `interaction-date` | `datetime` |  |
@@ -156,15 +179,19 @@ erDiagram
 | `linkedin-url` | `string` |  |
 | `location` | `string` |  |
 | `priority-level` | `string` | Priority |
+| `relevance-score` | `double` |  |
 | `remote-policy` | `string` |  |
 | `resource-type` | `string` | Learning resource attributes |
 | `resource-url` | `string` |  |
 | `response-date` | `datetime` |  |
 | `salary-range` | `string` |  |
+| `search-location` | `string` |  |
+| `search-query` | `string` |  |
 | `short-name` | `string` | Position attributes |
 | `skill-level` | `string` |  |
 | `skill-name` | `string` | Skill/requirement attributes |
 | `team-size` | `string` |  |
+| `triage-reason` | `string` |  |
 | `your-level` | `string` |  |
 
 ## Entity Types
@@ -214,6 +241,54 @@ erDiagram
 | `authorship` | `work` | *information-content-entity* (inherited) |
 | `derivation` | `derived-from-source` | *information-content-entity* (inherited) |
 | `derivation` | `derivative` | *information-content-entity* (inherited) |
+| `classification` | `classified-entity` | *identifiable-entity* (inherited) |
+| `tagging` | `tagged-entity` | *identifiable-entity* (inherited) |
+| `aboutness` | `subject` | *identifiable-entity* (inherited) |
+| `collection-membership` | `member` | *identifiable-entity* (inherited) |
+| `provenance-record` | `produced-entity` | *identifiable-entity* (inherited) |
+| `provenance-record` | `source-entity` | *identifiable-entity* (inherited) |
+| `property-assertion` | `subject-entity` | *identifiable-entity* (inherited) |
+| `semantic-triple` | `triple-subject` | *identifiable-entity* (inherited) |
+| `semantic-triple` | `triple-object` | *identifiable-entity* (inherited) |
+
+### `jobhunt-candidate`
+
+> JOBHUNT-CANDIDATE - A discovered job posting (forager, lightweight)
+
+- **Kind:** Entity
+- **Parent:** `domain-thing`
+- **Defined in:** `jobhunt`
+
+**Attributes (owns):**
+
+| Attribute | Key? | Defined In |
+|-----------|------|------------|
+| `job-url` |  | jobhunt |
+| `external-job-id` |  | jobhunt |
+| `location` |  | jobhunt |
+| `discovered-at` |  | jobhunt |
+| `relevance-score` |  | jobhunt |
+| `candidate-status` |  | jobhunt |
+| `triage-reason` |  | jobhunt |
+| `id` | @key | *identifiable-entity* (inherited) |
+| `name` |  | *identifiable-entity* (inherited) |
+| `description` |  | *identifiable-entity* (inherited) |
+| `iri` |  | *identifiable-entity* (inherited) |
+| `created-at` |  | *identifiable-entity* (inherited) |
+| `updated-at` |  | *identifiable-entity* (inherited) |
+| `provenance` |  | *identifiable-entity* (inherited) |
+| `source-uri` |  | *identifiable-entity* (inherited) |
+| `license` |  | *identifiable-entity* (inherited) |
+
+**Roles (plays):**
+
+| Relation | Role | Defined In |
+|----------|------|------------|
+| `source-provides` | `candidate` | jobhunt |
+| `representation` | `referent` | *domain-thing* (inherited) |
+| `authorship` | `authored-work` | *domain-thing* (inherited) |
+| `citation-reference` | `citing-item` | *domain-thing* (inherited) |
+| `citation-reference` | `cited-item` | *domain-thing* (inherited) |
 | `classification` | `classified-entity` | *identifiable-entity* (inherited) |
 | `tagging` | `tagged-entity` | *identifiable-entity* (inherited) |
 | `aboutness` | `subject` | *identifiable-entity* (inherited) |
@@ -999,6 +1074,52 @@ erDiagram
 | `semantic-triple` | `triple-subject` | *identifiable-entity* (inherited) |
 | `semantic-triple` | `triple-object` | *identifiable-entity* (inherited) |
 
+### `jobhunt-search-source`
+
+> JOBHUNT-SEARCH-SOURCE - A company job board to search (forager)
+
+- **Kind:** Entity
+- **Parent:** `domain-thing`
+- **Defined in:** `jobhunt`
+
+**Attributes (owns):**
+
+| Attribute | Key? | Defined In |
+|-----------|------|------------|
+| `board-token` |  | jobhunt |
+| `board-platform` |  | jobhunt |
+| `company-url` |  | jobhunt |
+| `search-query` |  | jobhunt |
+| `search-location` |  | jobhunt |
+| `id` | @key | *identifiable-entity* (inherited) |
+| `name` |  | *identifiable-entity* (inherited) |
+| `description` |  | *identifiable-entity* (inherited) |
+| `iri` |  | *identifiable-entity* (inherited) |
+| `created-at` |  | *identifiable-entity* (inherited) |
+| `updated-at` |  | *identifiable-entity* (inherited) |
+| `provenance` |  | *identifiable-entity* (inherited) |
+| `source-uri` |  | *identifiable-entity* (inherited) |
+| `license` |  | *identifiable-entity* (inherited) |
+
+**Roles (plays):**
+
+| Relation | Role | Defined In |
+|----------|------|------------|
+| `source-provides` | `source` | jobhunt |
+| `representation` | `referent` | *domain-thing* (inherited) |
+| `authorship` | `authored-work` | *domain-thing* (inherited) |
+| `citation-reference` | `citing-item` | *domain-thing* (inherited) |
+| `citation-reference` | `cited-item` | *domain-thing* (inherited) |
+| `classification` | `classified-entity` | *identifiable-entity* (inherited) |
+| `tagging` | `tagged-entity` | *identifiable-entity* (inherited) |
+| `aboutness` | `subject` | *identifiable-entity* (inherited) |
+| `collection-membership` | `member` | *identifiable-entity* (inherited) |
+| `provenance-record` | `produced-entity` | *identifiable-entity* (inherited) |
+| `provenance-record` | `source-entity` | *identifiable-entity* (inherited) |
+| `property-assertion` | `subject-entity` | *identifiable-entity* (inherited) |
+| `semantic-triple` | `triple-subject` | *identifiable-entity* (inherited) |
+| `semantic-triple` | `triple-object` | *identifiable-entity* (inherited) |
+
 ### `jobhunt-skill-gap-note`
 
 > JOBHUNT-SKILL-GAP-NOTE - What you need to learn
@@ -1198,6 +1319,21 @@ erDiagram
 |------|
 | `requirement` |
 | `position` |
+
+### `source-provides`
+
+> SOURCE-PROVIDES - Links forager candidates to their search source
+
+- **Kind:** Relation
+- **Parent:** relation
+- **Defined in:** `jobhunt`
+
+**Roles (relates):**
+
+| Role |
+|------|
+| `source` |
+| `candidate` |
 
 ### `works-at`
 

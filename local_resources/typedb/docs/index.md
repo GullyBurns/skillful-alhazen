@@ -8,7 +8,7 @@ The Alhazen Notebook Model is a TypeDB knowledge graph schema for agent memory s
 It uses a three-branch hierarchy rooted at `identifiable-entity`: **domain-thing** (real-world objects),
 **collection** (typed sets), and **information-content-entity** (content-bearing artifacts, fragments, notes).
 
-**Total types:** 96 entities, 41 relations, 136 attributes
+**Total types:** 98 entities, 42 relations, 145 attributes
 
 ## Core Model
 
@@ -61,7 +61,7 @@ classDiagram
 |-----------|-------------|----------|-----------|------------|------|
 | **Core Schema** | The foundational Alhazen Notebook Model — identifiable-entit... | 16 | 20 | 36 | [core.md](core.md) |
 | **Scientific Literature (scilit)** | Domain-specific subtypes for scientific literature analysis:... | 25 | 4 | 25 | [scilit.md](scilit.md) |
-| **Job Hunting (jobhunt)** | Job hunting and career management: positions, companies, ski... | 20 | 4 | 28 | [jobhunt.md](jobhunt.md) |
+| **Job Hunting (jobhunt)** | Job hunting and career management: positions, companies, ski... | 22 | 5 | 37 | [jobhunt.md](jobhunt.md) |
 | **Algorithm for Precision Medicine (apm)** | Rare disease investigation following Matt Might's APM: diagn... | 35 | 13 | 47 | [apm.md](apm.md) |
 
 ## Agent & Classification Subsystem
