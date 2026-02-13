@@ -24,6 +24,9 @@ import {
   Filter,
   ArrowLeft,
   Search,
+  List,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface Position {
@@ -55,6 +58,8 @@ interface LearningResource {
   status: string;
 }
 
+const ALL_TRIAGED_PAGE_SIZE = 25;
+
 export default function Dashboard() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [skillGaps, setSkillGaps] = useState<SkillGap[]>([]);
@@ -66,6 +71,13 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // All Triaged state
+  const [allTriaged, setAllTriaged] = useState<Candidate[]>([]);
+  const [allTriagedLoading, setAllTriagedLoading] = useState(false);
+  const [allTriagedPage, setAllTriagedPage] = useState(0);
+  const [allTriagedTotal, setAllTriagedTotal] = useState(0);
+  const [allTriagedLoaded, setAllTriagedLoaded] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -139,6 +151,26 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchAllTriaged = useCallback(async (page: number) => {
+    setAllTriagedLoading(true);
+    try {
+      const offset = page * ALL_TRIAGED_PAGE_SIZE;
+      const res = await fetch(
+        `/api/jobhunt/candidates?all_triaged=true&limit=${ALL_TRIAGED_PAGE_SIZE}&offset=${offset}`
+      );
+      if (!res.ok) throw new Error('Failed to fetch all triaged candidates');
+      const data = await res.json();
+      setAllTriaged(data.candidates || []);
+      setAllTriagedTotal(data.total ?? (data.candidates || []).length);
+      setAllTriagedPage(page);
+      setAllTriagedLoaded(true);
+    } catch (err) {
+      console.error('All triaged fetch error:', err);
+    } finally {
+      setAllTriagedLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -163,6 +195,46 @@ export default function Dashboard() {
       console.error('Status update error:', err);
     }
   };
+
+  const handleCandidateAction = async (candidateId: string, action: 'promote' | 'dismiss') => {
+    try {
+      const res = await fetch('/api/jobhunt/candidates/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidateId, action }),
+      });
+
+      if (res.ok) {
+        // Optimistic removal from reviewed list
+        setCandidates((prev) => prev.filter((c) => c.id !== candidateId));
+        // If promoted, refresh pipeline to show new position
+        if (action === 'promote') {
+          fetchData();
+        }
+      }
+    } catch (err) {
+      console.error('Candidate action error:', err);
+    }
+  };
+
+  const handlePromote = async (id: string) => {
+    await handleCandidateAction(id, 'promote');
+  };
+
+  const handleDismiss = async (id: string) => {
+    await handleCandidateAction(id, 'dismiss');
+  };
+
+  const handleTabChange = (value: string) => {
+    if (value === 'candidates' && candidates.length === 0) {
+      fetchCandidates();
+    }
+    if (value === 'all-triaged' && !allTriagedLoaded) {
+      fetchAllTriaged(0);
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(allTriagedTotal / ALL_TRIAGED_PAGE_SIZE));
 
   return (
     <div className="min-h-screen">
@@ -256,7 +328,7 @@ export default function Dashboard() {
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="pipeline" className="space-y-4" onValueChange={(v) => { if (v === 'candidates' && candidates.length === 0) fetchCandidates(); }}>
+        <Tabs defaultValue="pipeline" className="space-y-4" onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="pipeline" className="flex items-center gap-2">
               <Kanban className="w-4 h-4" />
@@ -273,6 +345,10 @@ export default function Dashboard() {
             <TabsTrigger value="candidates" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
               Candidates
+            </TabsTrigger>
+            <TabsTrigger value="all-triaged" className="flex items-center gap-2">
+              <List className="w-4 h-4" />
+              All Triaged
             </TabsTrigger>
           </TabsList>
 
@@ -315,7 +391,49 @@ export default function Dashboard() {
                 <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <CandidatesTable candidates={candidates} />
+              <CandidatesTable
+                candidates={candidates}
+                onPromote={handlePromote}
+                onDismiss={handleDismiss}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="all-triaged">
+            {allTriagedLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <CandidatesTable candidates={allTriaged} />
+                {/* Pagination Controls */}
+                {allTriagedLoaded && (
+                  <div className="flex items-center justify-center gap-4 py-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchAllTriaged(allTriagedPage - 1)}
+                      disabled={allTriagedPage === 0 || allTriagedLoading}
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Prev
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {allTriagedPage + 1} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchAllTriaged(allTriagedPage + 1)}
+                      disabled={allTriagedPage + 1 >= totalPages || allTriagedLoading}
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
           </TabsContent>
         </Tabs>

@@ -36,6 +36,7 @@ const STATUS_ORDER = [
   'phone-screen',
   'interviewing',
   'offer',
+  'rejected',
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -147,7 +148,7 @@ export function PipelineBoard({ positions, onStatusChange }: PipelineBoardProps)
   }, {} as Record<string, Position[]>);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
       {STATUS_ORDER.map((status) => (
         <div key={status} className="min-w-0">
           <Card>

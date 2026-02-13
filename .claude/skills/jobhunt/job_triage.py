@@ -48,35 +48,48 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.getenv("TRIAGE_MODEL", "qwen3:8b")
 
 # Candidate profile for triage prompt
-CANDIDATE_PROFILE = """You are triaging job postings for a senior scientist/engineer with this background:
-- 20+ years in scientific knowledge engineering, biomedical informatics, NLP
-- Strong: Python, knowledge graphs, biomedical ontologies, scientific writing, AI/ML systems, agentic AI
-- Some: machine learning, LLM evaluation, bioinformatics, experimental neuroscience
-- Built AI systems for scientific literature analysis at scale (Chan Zuckerberg Initiative)
-- Currently building TypeDB-powered scientific knowledge notebooks with Claude Code
-- Looking for: research scientist, applied AI, knowledge engineering, AI for science roles
-- Location: San Francisco Bay Area (in-person or hybrid preferred, remote OK)
-- Level: Senior/Staff/Principal (not junior, not intern)
+CANDIDATE_PROFILE = """You are triaging job postings for a very specific candidate. ONLY pass jobs where the ROLE ITSELF is about biology, science, or AI evaluation. Not just the company.
+
+CRITICAL RULE: Working at an AI company does NOT make a role science-focused.
+- "Frontend Engineer @ Edison Scientific" → SKIP (it's frontend work, not science)
+- "Member of Technical Staff @ xAI" → SKIP (generic AI lab role, not biology/science)
+- "GenAI Research Scientist @ Databricks" → SKIP (data platform research, not science)
+- "Fullstack Engineer @ Inflection AI" → SKIP (generic SWE at an AI company)
+
+ONLY PASS if the JOB TITLE or DEPARTMENT explicitly involves:
+- Biology, biomedicine, life sciences, drug discovery, health AI
+- Scientific knowledge engineering, scientific literature, ontologies
+- AI evaluation, benchmarks, model evals (not generic QA)
+- AI for scientific research/discovery (must say "science" or "research" in a scientific context)
+
+Examples of RELEVANT jobs (score >= 0.5):
+- "Research Engineer, AI for Science" — explicitly science
+- "Researcher, Health AI" — explicitly health/biology
+- "Senior Knowledge Engineer, Biomedical Ontologies" — biomedical
+- "Member of Technical Staff - Computational Biology" — biology
+- "Staff Engineer, LLM Evaluation & Benchmarks" — evals
+- "Biological Safety Research Scientist" — biology
+
+Examples of SKIP jobs (score < 0.5):
+- ANY "Frontend/Fullstack/Backend Engineer" even at science companies
+- ANY "Member of Technical Staff" without biology/science/evals in the title
+- "GenAI Research Scientist" at a tech company (not applied to science)
+- "Forward Deployed Engineer" (consulting/deployment, not science)
+- "Developer Advocate" (evangelism, not science)
+- "Staff Data Scientist" at any tech company
+- "Research Engineer, Discovery" (too vague — could be anything)
+- "Research Engineering Manager" (management, not science IC work)
+- "AI Architect" (architecture, not science)
+- "Coding Agents" / "X Search" / "Macrohard" (product engineering)
+
+The bar is VERY HIGH. 90%+ of jobs should be SKIP. When in doubt, SKIP.
 """
 
 TRIAGE_PROMPT = """{profile}
-
-The candidate is NOT:
-- A general software engineer or full-stack developer
-- A data analyst or business intelligence professional
-- A DevOps/SRE/infrastructure engineer
-- A product manager or designer
-- A junior/entry-level candidate
-
-Score this job posting from 0.0 to 1.0 based on how well it matches the candidate.
-A score of 0.5 is the hit/miss boundary: >= 0.5 means worth reviewing, < 0.5 means skip.
-
-Scoring guide:
-- 0.9-1.0: Perfect fit — scientific AI, knowledge engineering, biomedical informatics at the right level
-- 0.7-0.9: Strong match — senior AI/ML at science-focused companies, NLP for science, AI agents for research
-- 0.5-0.7: Moderate hit — related AI/ML role that partially overlaps with expertise
-- 0.3-0.5: Weak miss — some AI relevance but wrong domain, level, or focus
-- 0.0-0.3: Clear miss — generic engineering, unrelated domain, wrong level, no match
+Score this job from 0.0 to 1.0:
+- 0.8-1.0: AI for biology/science, evals, agentic AI for research, knowledge engineering for science
+- 0.5-0.7: Borderline — science-adjacent AI role, might be relevant
+- 0.0-0.4: Not science/biology AI — skip regardless of seniority or company prestige
 
 Job Title: {title}
 Company/Source: {source}
@@ -84,8 +97,8 @@ Location: {location}
 Department: {department}
 Description snippet: {snippet}
 
-Respond with ONLY a JSON object (no markdown, no explanation):
-{{"score": 0.85, "reason": "one short sentence"}}"""
+Respond with ONLY a JSON object:
+{{"score": <number>, "reason": "one short sentence"}}"""
 
 
 def get_driver():
@@ -163,15 +176,17 @@ def ollama_score(title: str, source: str, location: str,
     )
 
     try:
-        # Use chat API with /no_think to disable Qwen3's thinking mode
+        # Use chat API with think=false to disable Qwen3's thinking mode
         resp = requests.post(
             f"{OLLAMA_URL}/api/chat",
             json={
                 "model": model,
-                "messages": [{"role": "user", "content": prompt + " /no_think"}],
+                "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
+                "think": False,
                 "options": {
                     "temperature": 0.1,
+                    "num_predict": 200,
                 },
             },
             timeout=60,

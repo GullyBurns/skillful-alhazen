@@ -1594,10 +1594,21 @@ def cmd_list_candidates(args):
     # Sort by relevance descending
     candidates.sort(key=lambda x: x.get("relevance") or 0, reverse=True)
 
+    total = len(candidates)
+
+    # Apply limit/offset after sort
+    offset = getattr(args, 'offset', None)
+    limit = getattr(args, 'limit', None)
+    if offset is not None and offset > 0:
+        candidates = candidates[offset:]
+    if limit is not None and limit > 0:
+        candidates = candidates[:limit]
+
     print(json.dumps({
         "success": True,
         "candidates": candidates,
         "count": len(candidates),
+        "total": total,
     }, indent=2))
 
 
@@ -1769,6 +1780,8 @@ def main():
     p = subparsers.add_parser("list-candidates", help="List discovered candidates")
     p.add_argument("--status", choices=["new", "reviewed", "promoted", "dismissed"], help="Filter by status")
     p.add_argument("--source", help="Filter by source board-token")
+    p.add_argument("--limit", type=int, default=None, help="Max candidates to return")
+    p.add_argument("--offset", type=int, default=None, help="Skip first N candidates (after sort)")
 
     # triage
     p = subparsers.add_parser("triage", help="Mark candidate as reviewed/dismissed")

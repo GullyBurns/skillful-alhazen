@@ -40,10 +40,20 @@ async function runForager(args: string[]): Promise<unknown> {
   return JSON.parse(stdout);
 }
 
-export async function listCandidates(status?: string) {
+export async function listCandidates(status?: string, limit?: number, offset?: number) {
   const args = ['list-candidates'];
   if (status) args.push('--status', status);
+  if (limit !== undefined) args.push('--limit', String(limit));
+  if (offset !== undefined) args.push('--offset', String(offset));
   return runForager(args);
+}
+
+export async function triageCandidate(id: string, action: 'dismissed') {
+  return runForager(['triage', '--id', id, '--action', action]);
+}
+
+export async function promoteCandidate(id: string) {
+  return runForager(['promote', '--id', id]);
 }
 
 export async function listPipeline(filters?: {
