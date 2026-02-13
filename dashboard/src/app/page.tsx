@@ -15,6 +15,7 @@ import { PipelineBoard } from '@/components/pipeline-board';
 import { SkillsMatrix } from '@/components/skills-matrix';
 import { LearningPlan, LearningCollection } from '@/components/learning-plan';
 import { StatsOverview } from '@/components/stats-overview';
+import { CandidatesTable, Candidate } from '@/components/candidates-table';
 import {
   RefreshCw,
   Kanban,
@@ -22,6 +23,7 @@ import {
   Target,
   Filter,
   ArrowLeft,
+  Search,
 } from 'lucide-react';
 
 interface Position {
@@ -58,6 +60,8 @@ export default function Dashboard() {
   const [skillGaps, setSkillGaps] = useState<SkillGap[]>([]);
   const [learningResources, setLearningResources] = useState<LearningResource[]>([]);
   const [learningCollections, setLearningCollections] = useState<LearningCollection[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -120,6 +124,20 @@ export default function Dashboard() {
       setLoading(false);
     }
   }, [priorityFilter, statusFilter]);
+
+  const fetchCandidates = useCallback(async () => {
+    setCandidatesLoading(true);
+    try {
+      const res = await fetch('/api/jobhunt/candidates?status=reviewed');
+      if (!res.ok) throw new Error('Failed to fetch candidates');
+      const data = await res.json();
+      setCandidates(data.candidates || []);
+    } catch (err) {
+      console.error('Candidates fetch error:', err);
+    } finally {
+      setCandidatesLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -238,7 +256,7 @@ export default function Dashboard() {
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="pipeline" className="space-y-4">
+        <Tabs defaultValue="pipeline" className="space-y-4" onValueChange={(v) => { if (v === 'candidates' && candidates.length === 0) fetchCandidates(); }}>
           <TabsList>
             <TabsTrigger value="pipeline" className="flex items-center gap-2">
               <Kanban className="w-4 h-4" />
@@ -251,6 +269,10 @@ export default function Dashboard() {
             <TabsTrigger value="learning" className="flex items-center gap-2">
               <GraduationCap className="w-4 h-4" />
               Learning Plan
+            </TabsTrigger>
+            <TabsTrigger value="candidates" className="flex items-center gap-2">
+              <Search className="w-4 h-4" />
+              Candidates
             </TabsTrigger>
           </TabsList>
 
@@ -284,6 +306,16 @@ export default function Dashboard() {
               </div>
             ) : (
               <LearningPlan resources={learningResources} collections={learningCollections} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="candidates">
+            {candidatesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <CandidatesTable candidates={candidates} />
             )}
           </TabsContent>
         </Tabs>

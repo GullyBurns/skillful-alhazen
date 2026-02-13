@@ -435,6 +435,131 @@ The `show-gaps` and `learning-plan` commands now include linked collections and 
 
 ---
 
+## Automated Foraging (Job Forager)
+
+The **Job Forager** automates the discovery phase by searching company job boards and aggregator platforms, then filtering results by your skill profile.
+
+**Two types of sources:**
+- **Company boards** (greenhouse, lever) — Search one company's board via `--token`
+- **Aggregators** (linkedin, remotive, adzuna) — Search across companies via `--query`
+
+### Setup: Add Search Sources
+
+```bash
+# Company board sources (require --token)
+uv run python .claude/skills/jobhunt/job_forager.py add-source \
+    --name "Anthropic" --platform greenhouse --token anthropic
+uv run python .claude/skills/jobhunt/job_forager.py add-source \
+    --name "Netflix" --platform lever --token netflix
+
+# Aggregator sources (require --query, optional --location)
+uv run python .claude/skills/jobhunt/job_forager.py add-source \
+    --name "ML Jobs" --platform linkedin --query "machine learning" --location "San Francisco"
+uv run python .claude/skills/jobhunt/job_forager.py add-source \
+    --name "Remote ML" --platform remotive --query "machine learning"
+uv run python .claude/skills/jobhunt/job_forager.py add-source \
+    --name "AI Jobs US" --platform adzuna --query "artificial intelligence" --location "San Francisco"
+
+# List configured sources
+uv run python .claude/skills/jobhunt/job_forager.py list-sources
+
+# Get suggestions based on your existing positions
+uv run python .claude/skills/jobhunt/job_forager.py suggest-sources
+```
+
+### Search and Heartbeat
+
+```bash
+# Search a single source (by name, token, or ID)
+uv run python .claude/skills/jobhunt/job_forager.py search-source --source "ML Jobs"
+
+# Run full heartbeat: search all sources, filter, dedup, store
+uv run python .claude/skills/jobhunt/job_forager.py heartbeat --min-relevance 0.1
+
+# Heartbeat with email digest (requires SMTP env vars)
+SMTP_USER=you@gmail.com SMTP_PASSWORD=app-password DIGEST_TO=you@gmail.com \
+    uv run python .claude/skills/jobhunt/job_forager.py heartbeat --min-relevance 0.1
+```
+
+### Triage Candidates
+
+```bash
+# List new candidates
+uv run python .claude/skills/jobhunt/job_forager.py list-candidates --status new
+
+# Mark as reviewed or dismissed
+uv run python .claude/skills/jobhunt/job_forager.py triage --id candidate-abc123 --action reviewed
+uv run python .claude/skills/jobhunt/job_forager.py triage --id candidate-abc123 --action dismissed
+
+# Promote to full position (enters the pipeline)
+uv run python .claude/skills/jobhunt/job_forager.py promote --id candidate-abc123
+```
+
+### Forager Data Flow
+
+```
+heartbeat
+  ├── 1. Load your-skill entities (profile)
+  ├── 2. Load jobhunt-search-source entities
+  ├── 3. For each source:
+  │     ├── Query API (Greenhouse/Lever/LinkedIn/Remotive/Adzuna)
+  │     ├── Score by profile skills (relevance 0.0-1.0)
+  │     └── Deduplicate against positions + existing candidates
+  ├── 4. Store new results as jobhunt-candidate entities
+  ├── 5. Send email digest (if SMTP configured)
+  └── 6. Output summary JSON
+```
+
+### Forager Command Reference
+
+| Command | Description | Key Args |
+|---------|-------------|----------|
+| `add-source` | Add a search source | `--name`, `--platform`, `--token`/`--query`, `--location` |
+| `list-sources` | List search sources | |
+| `remove-source` | Remove a source | `--id`, `--token`, or `--name` |
+| `suggest-sources` | Profile-driven suggestions | |
+| `search-source` | Search one source | `--source` (name/token/id), `--min-relevance` |
+| `heartbeat` | Full discovery cycle | `--min-relevance` |
+| `list-candidates` | List candidates | `--status`, `--source` |
+| `triage` | Review/dismiss candidate | `--id`, `--action` |
+| `promote` | Promote to position | `--id` |
+
+### Platform Details
+
+| Platform | Type | Auth | Args | Notes |
+|----------|------|------|------|-------|
+| `greenhouse` | Company board | None | `--token` (slug) | Per-company board |
+| `lever` | Company board | None | `--token` (slug) | Per-company board |
+| `ashby` | Company board | None | `--token` (slug) | GraphQL API, includes team/dept info |
+| `linkedin` | Aggregator | None | `--query`, `--location` | Guest API, last 24h, rate-limited |
+| `remotive` | Aggregator | None | `--query`, `--location` | Remote jobs only |
+| `adzuna` | Aggregator | API key | `--query`, `--location` | Requires `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` env vars |
+
+### Environment Variables (Forager)
+
+```bash
+# Adzuna API (optional, free tier: 250 req/day)
+ADZUNA_APP_ID=your_app_id
+ADZUNA_APP_KEY=your_app_key
+```
+
+### SMTP Configuration (Optional)
+
+Set these environment variables for email digest:
+
+```bash
+SMTP_HOST=smtp.gmail.com        # default
+SMTP_PORT=587                   # default
+SMTP_USER=you@gmail.com
+SMTP_PASSWORD=app-specific-password
+DIGEST_TO=you@gmail.com
+DIGEST_FROM=alhazen-forager@gmail.com
+```
+
+If SMTP is not configured, the heartbeat still runs and outputs JSON to stdout.
+
+---
+
 ## Data Model
 
 ### Entity Types
@@ -446,6 +571,8 @@ The `show-gaps` and `learning-plan` commands now include linked collections and 
 | `jobhunt-position` | A specific job posting |
 | `jobhunt-learning-resource` | Course, book, tutorial |
 | `jobhunt-contact` | Person at a company |
+| `jobhunt-search-source` | Company board for forager |
+| `jobhunt-candidate` | Discovered posting (forager) |
 
 ### Artifact Types
 

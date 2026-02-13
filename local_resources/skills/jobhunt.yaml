@@ -4,14 +4,16 @@ license: Apache-2.0
 compatibility: "Requires uv, docker, TypeDB 2.x running, and internet access for job posting URLs"
 
 # Core files
-script: jobhunt.py
+scripts:
+  - jobhunt.py
+  - job_forager.py
 schema: jobhunt.tql
 
 # Dependencies
 requires:
   bins: [uv, docker]
   env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
-  optional_env: [ALHAZEN_CACHE_DIR]
+  optional_env: [ALHAZEN_CACHE_DIR, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, DIGEST_TO, DIGEST_FROM]
 
 # TypeDB namespaces
 namespaces:
@@ -56,6 +58,17 @@ operations:
   - tag
   - search-tag
 
+  # Automated foraging (job_forager.py)
+  - add-source
+  - list-sources
+  - remove-source
+  - suggest-sources
+  - search-source
+  - heartbeat
+  - list-candidates
+  - triage
+  - promote
+
 # Entity types
 entities:
   things:
@@ -64,6 +77,8 @@ entities:
     - jobhunt-position
     - jobhunt-learning-resource
     - jobhunt-contact
+    - jobhunt-search-source
+    - jobhunt-candidate
   artifacts:
     - jobhunt-job-description
     - jobhunt-resume

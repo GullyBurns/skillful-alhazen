@@ -7,6 +7,7 @@ const execFileAsync = promisify(execFile);
 const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '../../..');
 const JOBHUNT_SCRIPT = path.join(PROJECT_ROOT, '.claude/skills/jobhunt/jobhunt.py');
 const NOTEBOOK_SCRIPT = path.join(PROJECT_ROOT, '.claude/skills/typedb-notebook/typedb_notebook.py');
+const FORAGER_SCRIPT = path.join(PROJECT_ROOT, '.claude/skills/jobhunt/job_forager.py');
 
 async function runJobhunt(args: string[]): Promise<unknown> {
   const { stdout } = await execFileAsync(
@@ -28,6 +29,21 @@ async function runNotebook(args: string[]): Promise<unknown> {
     }
   );
   return JSON.parse(stdout);
+}
+
+async function runForager(args: string[]): Promise<unknown> {
+  const { stdout } = await execFileAsync(
+    'uv',
+    ['run', 'python', FORAGER_SCRIPT, ...args],
+    { cwd: PROJECT_ROOT, maxBuffer: 10 * 1024 * 1024 }
+  );
+  return JSON.parse(stdout);
+}
+
+export async function listCandidates(status?: string) {
+  const args = ['list-candidates'];
+  if (status) args.push('--status', status);
+  return runForager(args);
 }
 
 export async function listPipeline(filters?: {

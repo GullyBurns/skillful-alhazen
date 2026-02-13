@@ -162,13 +162,12 @@ deploy-claude: ## Copy/update skills to .claude/skills/ (for Claude Code)
 	fi
 
 .PHONY: deploy-openclaw
-deploy-openclaw: ## Symlink skills to OpenClaw + configure
+deploy-openclaw: deploy-openclaw-skills deploy-openclaw-config deploy-openclaw-docs ## Symlink skills + configure OpenClaw + update workspace docs
+
+.PHONY: deploy-openclaw-skills
+deploy-openclaw-skills: ## Symlink skills to OpenClaw workspace
 	@echo "$(BLUE)Deploying skills to OpenClaw...$(NC)"
-	
-	# Create OpenClaw skills directory if it doesn't exist
 	@mkdir -p $(OPENCLAW_SKILLS_DIR)
-	
-	# Create symlinks for each skill
 	@for skill_dir in $(CLAUDE_SKILLS_DIR)/*/; do \
 		if [ -d "$$skill_dir" ] && [ "$$(basename $$skill_dir)" != "_template" ]; then \
 			skill_name=$$(basename $$skill_dir); \
@@ -185,28 +184,119 @@ deploy-openclaw: ## Symlink skills to OpenClaw + configure
 			ln -s "$$skill_dir" "$$target_dir"; \
 		fi; \
 	done
-	
-	# Generate OpenClaw configuration patch
-	@echo "$(BLUE)Generating OpenClaw configuration...$(NC)"
-	@echo "$(YELLOW)Add the following to your $(OPENCLAW_CONFIG):$(NC)"
-	@echo
-	@echo "{"
-	@echo "  \"skills\": {"
-	@echo "    \"entries\": {"
-	@for skill_yaml in $(SKILLS_MANIFEST_DIR)/*.yaml; do \
-		skill_name=$$(basename $$skill_yaml .yaml); \
-		echo "      \"$$skill_name\": {"; \
-		echo "        \"env\": {"; \
-		echo "          \"ALHAZEN_PROJECT_ROOT\": \"$(PROJECT_ROOT)\""; \
-		echo "        }"; \
-		echo "      },"; \
-	done
-	@echo "    }"
-	@echo "  }"
-	@echo "}"
-	@echo
 	@echo "$(GREEN)✓ Skills symlinked to OpenClaw$(NC)"
-	@echo "$(YELLOW)→ Manually apply the JSON configuration above$(NC)"
+
+.PHONY: deploy-openclaw-config
+deploy-openclaw-config: ## Merge skills.entries into openclaw.json (requires jq)
+	@echo "$(BLUE)Updating OpenClaw configuration...$(NC)"
+	@if ! command -v jq &>/dev/null; then \
+		echo "$(RED)✗ jq is required. Install with: brew install jq$(NC)"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(OPENCLAW_CONFIG)" ]; then \
+		echo "$(RED)✗ OpenClaw config not found: $(OPENCLAW_CONFIG)$(NC)"; \
+		exit 1; \
+	fi
+	@# Build the skills.entries object from skill manifests
+	@patch=$$(echo '{}'); \
+	for skill_yaml in $(SKILLS_MANIFEST_DIR)/*.yaml; do \
+		skill_name=$$(basename $$skill_yaml .yaml); \
+		patch=$$(echo "$$patch" | jq --arg name "$$skill_name" --arg root "$(PROJECT_ROOT)" \
+			'. + {($$name): {"env": {"ALHAZEN_PROJECT_ROOT": $$root, "TYPEDB_DATABASE": "alhazen_notebook"}}}'); \
+	done; \
+	jq --argjson entries "$$patch" '.skills.entries = $$entries' "$(OPENCLAW_CONFIG)" > "$(OPENCLAW_CONFIG).tmp" && \
+		mv "$(OPENCLAW_CONFIG).tmp" "$(OPENCLAW_CONFIG)"
+	@echo "$(GREEN)✓ Updated skills.entries in $(OPENCLAW_CONFIG)$(NC)"
+	@# Ensure heartbeat is configured (idempotent — only adds if missing)
+	@if jq -e '.agents.defaults.heartbeat' "$(OPENCLAW_CONFIG)" >/dev/null 2>&1; then \
+		echo "  $(YELLOW)→ Heartbeat already configured — skipping$(NC)"; \
+	else \
+		jq '.agents.defaults.heartbeat = {"every": "2h", "target": "last", "activeHours": {"start": "08:00", "end": "22:00", "timezone": "America/Los_Angeles"}}' \
+			"$(OPENCLAW_CONFIG)" > "$(OPENCLAW_CONFIG).tmp" && \
+			mv "$(OPENCLAW_CONFIG).tmp" "$(OPENCLAW_CONFIG)"; \
+		echo "$(GREEN)✓ Added heartbeat config (every 2h, 08:00-22:00 PT)$(NC)"; \
+	fi
+
+# Python script: update CLAUDE.md skills table
+# Args: sys.argv[1]=skills_dir sys.argv[2]=claude_md_path
+define UPDATE_CLAUDE_MD_PY
+import os, glob, re, sys
+skills_dir = sys.argv[1]
+lines = ['| Skill | Description | Script(s) |', '|-------|-------------|-----------|']
+for d in sorted(glob.glob(os.path.join(skills_dir, '*'))):
+    name = os.path.basename(d)
+    if name == '_template' or not os.path.isdir(d):
+        continue
+    scripts = [f for f in os.listdir(d) if f.endswith('.py')]
+    desc = ''
+    skill_md = os.path.join(d, 'SKILL.md')
+    if os.path.exists(skill_md):
+        for line in open(skill_md):
+            if line.startswith('description:'):
+                desc = line.split(':', 1)[1].strip().strip('"')
+                break
+    script_str = ', '.join(sorted(scripts)) if scripts else '(no script)'
+    lines.append(f'| {name} | {desc} | `{script_str}` |')
+table = '\n'.join(lines)
+path = sys.argv[2]
+content = open(path).read()
+pattern = r'(\| Skill \|.*?\n(?:\|.*\n)*)'
+if re.search(pattern, content):
+    content = re.sub(pattern, table + '\n', content, count=1)
+    open(path, 'w').write(content)
+    print('  Updated skills table in CLAUDE.md')
+else:
+    print('  Skills table marker not found in CLAUDE.md -- skipping')
+endef
+export UPDATE_CLAUDE_MD_PY
+
+# Python script: update HEARTBEAT.md with forager task
+# Args: sys.argv[1]=heartbeat_path sys.argv[2]=project_root
+define UPDATE_HEARTBEAT_PY
+import os, sys
+path = sys.argv[1]
+project_root = sys.argv[2]
+forager_block = f"""# HEARTBEAT.md
+
+## Job Forager (daily)
+
+Run the job forager heartbeat to discover new postings from configured sources.
+Only run once per day -- check memory/heartbeat-state.json for last run time.
+
+```bash
+uv run --project {project_root} python {project_root}/.claude/skills/jobhunt/job_forager.py heartbeat --min-relevance 0.1
+```
+
+After running:
+- If new candidates found, summarize them to the user (titles, companies, relevance scores)
+- Update memory/heartbeat-state.json with timestamp: {{"job_forager": "YYYY-MM-DDTHH:MM:SS"}}
+- If no sources configured yet, suggest running suggest-sources and mention add-source
+"""
+if os.path.exists(path):
+    content = open(path).read()
+    if 'Job Forager' in content:
+        print('  HEARTBEAT.md already has Job Forager section -- skipping')
+    else:
+        open(path, 'w').write(forager_block)
+        print('  Updated HEARTBEAT.md with Job Forager task')
+else:
+    open(path, 'w').write(forager_block)
+    print('  Created HEARTBEAT.md with Job Forager task')
+endef
+export UPDATE_HEARTBEAT_PY
+
+.PHONY: deploy-openclaw-docs
+deploy-openclaw-docs: ## Update CLAUDE.md and HEARTBEAT.md in OpenClaw workspace
+	@echo "$(BLUE)Updating OpenClaw workspace docs...$(NC)"
+	@# --- Update CLAUDE.md skills table ---
+	@if [ -f "$(OPENCLAW_WORKSPACE)/CLAUDE.md" ]; then \
+		python3 -c "$$UPDATE_CLAUDE_MD_PY" "$(CLAUDE_SKILLS_DIR)" "$(OPENCLAW_WORKSPACE)/CLAUDE.md"; \
+	else \
+		echo "  $(YELLOW)No CLAUDE.md found in workspace — skipping$(NC)"; \
+	fi
+	@# --- Update HEARTBEAT.md with forager task ---
+	@python3 -c "$$UPDATE_HEARTBEAT_PY" "$(OPENCLAW_WORKSPACE)/HEARTBEAT.md" "$(PROJECT_ROOT)"
+	@echo "$(GREEN)✓ OpenClaw workspace docs updated$(NC)"
 
 .PHONY: deploy-goose
 deploy-goose: ## Generate MCP config for Goose (future implementation)

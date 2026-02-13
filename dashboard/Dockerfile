@@ -52,6 +52,7 @@ COPY --from=python-deps /app/.venv /app/.venv
 COPY pyproject.toml uv.lock README.md ./
 COPY src/skillful_alhazen/__init__.py ./src/skillful_alhazen/
 COPY .claude/skills/jobhunt/jobhunt.py ./.claude/skills/jobhunt/
+COPY .claude/skills/jobhunt/job_forager.py ./.claude/skills/jobhunt/
 COPY .claude/skills/typedb-notebook/typedb_notebook.py ./.claude/skills/typedb-notebook/
 
 # Copy Node.js build and dependencies
