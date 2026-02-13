@@ -60,6 +60,17 @@ priority-level sub attribute, value string;  # high/medium/low
 # Your skill profile attributes
 last-updated sub attribute, value datetime;
 
+# Forager attributes (automated job discovery)
+board-token sub attribute, value string;     # company slug for API
+board-platform sub attribute, value string;  # "greenhouse", "lever", "linkedin", "remotive", "adzuna"
+external-job-id sub attribute, value string; # API's job ID for dedup
+discovered-at sub attribute, value datetime;
+relevance-score sub attribute, value double; # 0.0-1.0 keyword match
+candidate-status sub attribute, value string; # new/reviewed/promoted/dismissed
+search-query sub attribute, value string;      # keywords for aggregator searches
+search-location sub attribute, value string;   # location filter for aggregator searches
+triage-reason sub attribute, value string;     # LLM explanation for relevance score
+
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Job Hunting Collections
@@ -83,6 +94,26 @@ your-skill sub domain-thing,
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Job Hunting Things
 # -----------------------------------------------------------------------------
+
+# JOBHUNT-SEARCH-SOURCE - A company job board to search (forager)
+jobhunt-search-source sub domain-thing,
+    owns board-token,
+    owns board-platform,
+    owns company-url,
+    owns search-query,
+    owns search-location,
+    plays source-provides:source;
+
+# JOBHUNT-CANDIDATE - A discovered job posting (forager, lightweight)
+jobhunt-candidate sub domain-thing,
+    owns job-url,
+    owns external-job-id,
+    owns location,
+    owns discovered-at,
+    owns relevance-score,
+    owns candidate-status,
+    owns triage-reason,
+    plays source-provides:candidate;
 
 # JOBHUNT-COMPANY - An organization/employer
 jobhunt-company sub domain-thing,
@@ -210,6 +241,11 @@ addresses-requirement sub relation,
     owns confidence,
     relates resource,
     relates requirement;
+
+# SOURCE-PROVIDES - Links forager candidates to their search source
+source-provides sub relation,
+    relates source,
+    relates candidate;
 
 # WORKS-AT - Contacts working at companies
 works-at sub relation,
