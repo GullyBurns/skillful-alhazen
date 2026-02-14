@@ -1327,7 +1327,9 @@ def cmd_add_skill(args):
 
             # Create skill
             with session.transaction(TransactionType.WRITE) as tx:
+                skill_id = generate_id("skill")
                 skill_query = f'''insert $s isa your-skill,
+                    has id "{skill_id}",
                     has skill-name "{escape_string(args.name)}",
                     has skill-level "{args.level}",
                     has last-updated {timestamp}'''
