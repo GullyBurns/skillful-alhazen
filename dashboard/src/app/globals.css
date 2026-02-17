@@ -85,9 +85,9 @@
   /* Hub-matching dark theme: gradient from #1a1a2e to #16213e */
   --background: #1a1a2e;
   --foreground: #e4e4e7;
-  --card: rgba(255, 255, 255, 0.05);
+  --card: #1e1e33;
   --card-foreground: #e4e4e7;
-  --popover: rgba(255, 255, 255, 0.08);
+  --popover: #222238;
   --popover-foreground: #e4e4e7;
   --primary: #818cf8; /* Indigo accent */
   --primary-foreground: #1a1a2e;
