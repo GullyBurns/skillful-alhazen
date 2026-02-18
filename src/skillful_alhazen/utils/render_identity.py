@@ -126,9 +126,10 @@ def run_count_query(query: str) -> int:
     try:
         with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
             with session.transaction(TransactionType.READ) as tx:
-                result = tx.query.match_aggregate(query)
-                if result and result.is_int():
-                    return result.as_int()
+                promise = tx.query.get_aggregate(query)
+                result = promise.resolve()
+                if result and result.is_long():
+                    return result.as_long()
                 return 0
     except Exception as e:
         print(f"TypeDB count query error: {e}", file=sys.stderr)
@@ -140,6 +141,13 @@ def run_count_query(query: str) -> int:
             pass
 
 
+def _unescape_content(value):
+    """Unescape double-escaped newlines and tabs from TypeDB string values."""
+    if isinstance(value, str):
+        return value.replace("\\n", "\n").replace("\\t", "\t")
+    return value
+
+
 def parse_fetch_result(result: dict) -> dict:
     """Parse a TypeDB fetch result into a flat dictionary."""
     parsed = {}
@@ -148,11 +156,11 @@ def parse_fetch_result(result: dict) -> dict:
             for attr_name, attr_value in value.items():
                 if attr_name != "type":
                     if isinstance(attr_value, list) and len(attr_value) == 1:
-                        parsed[attr_name] = attr_value[0].get("value")
+                        parsed[attr_name] = _unescape_content(attr_value[0].get("value"))
                     elif isinstance(attr_value, list) and len(attr_value) > 1:
-                        parsed[attr_name] = [v.get("value") for v in attr_value]
+                        parsed[attr_name] = [_unescape_content(v.get("value")) for v in attr_value]
                     elif isinstance(attr_value, dict):
-                        parsed[attr_name] = attr_value.get("value")
+                        parsed[attr_name] = _unescape_content(attr_value.get("value"))
         else:
             parsed[key] = value
     return parsed
@@ -220,7 +228,7 @@ def query_user_questions(resolved: bool = False, limit: int = 10) -> list[dict]:
     """Get open user questions."""
     questions = run_query(
         f"match $q isa user-question; "
-        f"fetch $q: id, content, created-at; "
+        f"fetch $q: id, name, description, created-at; "
         f"limit {limit};"
     )
     return [parse_fetch_result(q) for q in questions]
@@ -393,8 +401,9 @@ def render_memory(workspace: Path) -> None:
         if questions:
             lines.append("### Open Questions")
             for q in questions:
-                content = truncate(q.get("content", ""), 120)
-                lines.append(f'- "{content}"')
+                text = q.get("name") or q.get("description") or q.get("id", "")
+                text = truncate(text, 120)
+                lines.append(f'- "{text}"')
             lines.append("")
 
         # Saved searches (collections with logical-query)
@@ -704,7 +713,7 @@ def render_collections(workspace: Path) -> None:
             mid = m.get("id", "")
             if mid:
                 member_notes = run_query(
-                    f'match $s isa information-content-entity, has id "{mid}"; '
+                    f'match $s isa identifiable-entity, has id "{mid}"; '
                     f'(note: $n, subject: $s) isa aboutness; '
                     f'fetch $n: id, content, confidence; limit 3;'
                 )
