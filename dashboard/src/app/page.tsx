@@ -71,6 +71,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [hubUrl, setHubUrl] = useState('#');
 
   // All Triaged state
   const [allTriaged, setAllTriaged] = useState<Candidate[]>([]);
@@ -172,6 +173,10 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    setHubUrl(`${window.location.protocol}//${window.location.hostname}:8080`);
+  }, []);
+
+  useEffect(() => {
     fetchData();
   }, [fetchData]);
 
@@ -244,7 +249,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <a
-                href="http://localhost:8080"
+                href={hubUrl}
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
