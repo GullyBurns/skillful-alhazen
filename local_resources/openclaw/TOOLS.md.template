@@ -1,0 +1,18 @@
+# TOOLS.md — Environment Notes
+
+## TypeDB
+- Host: ${TYPEDB_HOST}:${TYPEDB_PORT}
+- Database: ${TYPEDB_DATABASE}
+- Namespaces: ${TYPEDB_NAMESPACES}
+- Status: ${TYPEDB_STATUS}
+
+## Artifact Cache
+- Location: ${CACHE_DIR}
+- Stats: ${CACHE_STATS}
+
+## CLI Pattern
+All skills follow: `uv run python .claude/skills/<name>/<name>.py <subcommand> [args]`
+Use `--help` on any script for available subcommands.
+
+## Project Root
+ALHAZEN_PROJECT_ROOT = ${PROJECT_ROOT}

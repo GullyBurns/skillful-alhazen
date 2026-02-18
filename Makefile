@@ -162,7 +162,7 @@ deploy-claude: ## Copy/update skills to .claude/skills/ (for Claude Code)
 	fi
 
 .PHONY: deploy-openclaw
-deploy-openclaw: deploy-openclaw-skills deploy-openclaw-config deploy-openclaw-docs ## Symlink skills + configure OpenClaw + update workspace docs
+deploy-openclaw: deploy-openclaw-skills deploy-openclaw-config deploy-openclaw-docs deploy-openclaw-identity ## Symlink skills + configure OpenClaw + update workspace docs + render identity
 
 .PHONY: deploy-openclaw-skills
 deploy-openclaw-skills: ## Symlink skills to OpenClaw workspace
@@ -250,43 +250,8 @@ else:
 endef
 export UPDATE_CLAUDE_MD_PY
 
-# Python script: update HEARTBEAT.md with forager task
-# Args: sys.argv[1]=heartbeat_path sys.argv[2]=project_root
-define UPDATE_HEARTBEAT_PY
-import os, sys
-path = sys.argv[1]
-project_root = sys.argv[2]
-forager_block = f"""# HEARTBEAT.md
-
-## Job Forager (daily)
-
-Run the job forager heartbeat to discover new postings from configured sources.
-Only run once per day -- check memory/heartbeat-state.json for last run time.
-
-```bash
-uv run --project {project_root} python {project_root}/.claude/skills/jobhunt/job_forager.py heartbeat --min-relevance 0.1
-```
-
-After running:
-- If new candidates found, summarize them to the user (titles, companies, relevance scores)
-- Update memory/heartbeat-state.json with timestamp: {{"job_forager": "YYYY-MM-DDTHH:MM:SS"}}
-- If no sources configured yet, suggest running suggest-sources and mention add-source
-"""
-if os.path.exists(path):
-    content = open(path).read()
-    if 'Job Forager' in content:
-        print('  HEARTBEAT.md already has Job Forager section -- skipping')
-    else:
-        open(path, 'w').write(forager_block)
-        print('  Updated HEARTBEAT.md with Job Forager task')
-else:
-    open(path, 'w').write(forager_block)
-    print('  Created HEARTBEAT.md with Job Forager task')
-endef
-export UPDATE_HEARTBEAT_PY
-
 .PHONY: deploy-openclaw-docs
-deploy-openclaw-docs: ## Update CLAUDE.md and HEARTBEAT.md in OpenClaw workspace
+deploy-openclaw-docs: ## Update CLAUDE.md skills table in OpenClaw workspace
 	@echo "$(BLUE)Updating OpenClaw workspace docs...$(NC)"
 	@# --- Update CLAUDE.md skills table ---
 	@if [ -f "$(OPENCLAW_WORKSPACE)/CLAUDE.md" ]; then \
@@ -294,9 +259,24 @@ deploy-openclaw-docs: ## Update CLAUDE.md and HEARTBEAT.md in OpenClaw workspace
 	else \
 		echo "  $(YELLOW)No CLAUDE.md found in workspace — skipping$(NC)"; \
 	fi
-	@# --- Update HEARTBEAT.md with forager task ---
-	@python3 -c "$$UPDATE_HEARTBEAT_PY" "$(OPENCLAW_WORKSPACE)/HEARTBEAT.md" "$(PROJECT_ROOT)"
 	@echo "$(GREEN)✓ OpenClaw workspace docs updated$(NC)"
+
+.PHONY: deploy-openclaw-identity
+deploy-openclaw-identity: ## Render identity files (MEMORY, HEARTBEAT, TOOLS, etc.) for OpenClaw workspace
+	@echo "$(BLUE)Rendering identity files...$(NC)"
+	@# Copy SOUL.md (static, always overwrite from source)
+	@if [ -f "$(PROJECT_ROOT)/local_resources/openclaw/SOUL.md" ]; then \
+		cp "$(PROJECT_ROOT)/local_resources/openclaw/SOUL.md" "$(OPENCLAW_WORKSPACE)/"; \
+		echo "  Copied SOUL.md"; \
+	fi
+	@uv run python $(PROJECT_ROOT)/src/skillful_alhazen/utils/render_identity.py \
+		--workspace $(OPENCLAW_WORKSPACE) render-all
+	@echo "$(GREEN)✓ Identity files rendered$(NC)"
+
+.PHONY: render-memory
+render-memory: ## Refresh identity files from TypeDB (standalone, any workspace)
+	uv run python $(PROJECT_ROOT)/src/skillful_alhazen/utils/render_identity.py \
+		--workspace $(OPENCLAW_WORKSPACE) render-all
 
 .PHONY: deploy-goose
 deploy-goose: ## Generate MCP config for Goose (future implementation)
