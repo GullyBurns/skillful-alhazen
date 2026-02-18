@@ -30,8 +30,10 @@ import {
 function getValue(attr: Array<{ value: unknown }> | undefined): string | null {
   if (!attr || attr.length === 0) return null;
   const val = String(attr[0].value);
-  // Unescape newlines that may have been escaped during JSON serialization
-  return val.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+  // Unescape newlines/tabs — handle double-escaped (\\n) before single-escaped (\n)
+  // Content may be double-escaped when CLI passes literal \n through escape_string()
+  return val.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n')
+            .replace(/\\\\t/g, '\t').replace(/\\t/g, '\t');
 }
 
 function getNumber(attr: Array<{ value: unknown }> | undefined): number | null {

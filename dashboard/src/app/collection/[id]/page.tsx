@@ -21,7 +21,9 @@ import {
 function getValue(attr: Array<{ value: unknown }> | undefined): string | null {
   if (!attr || attr.length === 0) return null;
   const val = String(attr[0].value);
-  return val.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+  // Unescape newlines/tabs — handle double-escaped (\\n) before single-escaped (\n)
+  return val.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n')
+            .replace(/\\\\t/g, '\t').replace(/\\t/g, '\t');
 }
 
 function getNumber(attr: Array<{ value: unknown }> | undefined): number | null {

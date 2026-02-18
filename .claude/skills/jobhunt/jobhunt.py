@@ -941,13 +941,28 @@ def cmd_show_position(args):
                 fetch $c: id, name, company-url, location;'''
                 company_result = list(tx.query.fetch(company_query))
 
-                # Get all notes (only fetch common attributes - specific ones like
-                # application-status are only on subtypes)
-                notes_query = f'''match
-                    $p isa jobhunt-position, has id "{args.id}";
-                    (note: $n, subject: $p) isa aboutness;
-                fetch $n: id, name, content;'''
-                notes_result = list(tx.query.fetch(notes_query))
+                # Query each note subtype separately so we can return type
+                # labels and type-specific attributes for the dashboard
+                NOTE_TYPES = {
+                    "jobhunt-application-note": "id, name, content, application-status, applied-date, response-date",
+                    "jobhunt-fit-analysis-note": "id, name, content, fit-score, fit-summary",
+                    "jobhunt-interview-note": "id, name, content, interview-date",
+                    "jobhunt-interaction-note": "id, name, content, interaction-type, interaction-date",
+                    "jobhunt-research-note": "id, name, content",
+                    "jobhunt-strategy-note": "id, name, content",
+                    "jobhunt-skill-gap-note": "id, name, content",
+                }
+                notes_result = []
+                for ntype, attrs in NOTE_TYPES.items():
+                    q = f'''match
+                        $p isa jobhunt-position, has id "{args.id}";
+                        (note: $n, subject: $p) isa aboutness;
+                        $n isa {ntype};
+                    fetch $n: {attrs};'''
+                    for r in tx.query.fetch(q):
+                        note = r["n"]
+                        note["type"] = {"label": ntype}
+                        notes_result.append(note)
 
                 # Get requirements
                 req_query = f'''match
@@ -975,7 +990,7 @@ def cmd_show_position(args):
         "success": True,
         "position": pos_result[0]["p"] if pos_result else None,
         "company": company_result[0]["c"] if company_result else None,
-        "notes": [n["n"] for n in notes_result],
+        "notes": notes_result,
         "requirements": [r["r"] for r in req_result],
         "job_description": artifact_result[0]["a"] if artifact_result else None,
         "tags": [t["t"]["name"][0]["value"] for t in tags_result],
