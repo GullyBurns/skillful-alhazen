@@ -1,0 +1,15 @@
+# USER.md — About Your Human
+
+- **Name:** Gully Burns
+- **Timezone:** US/Pacific
+- **Role:** Researcher, Knowledge Engineer
+- **Preferences:** Prefers concise answers. Likes structured output. Values provenance.
+
+## Context
+Building AI-powered research tools. Interested in knowledge graphs, rare diseases,
+scientific publishing, and agent frameworks.
+
+<!-- DYNAMIC: auto-generated from TypeDB activity — do not edit below this line -->
+## Active Research Threads
+*No TypeDB data available. Run `make render-memory` after populating the knowledge graph.*
+<!-- END DYNAMIC -->

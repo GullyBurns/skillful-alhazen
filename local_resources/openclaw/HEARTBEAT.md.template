@@ -1,0 +1,13 @@
+# HEARTBEAT.md — Periodic Research Tasks
+<!-- Auto-generated from TypeDB saved searches and pending notes -->
+
+## Paper Monitoring
+*No saved searches configured. Use `/epmc-search` to create collections with logical queries.*
+
+## Pending Follow-ups
+*No pending follow-ups. Notes tagged `follow-up` or `todo` will appear here.*
+
+## Maintenance
+- Check ${DIRTY_FLAG_PATH} -- if exists and MEMORY.md older than flag:
+  run: `uv run python ${PROJECT_ROOT}/src/skillful_alhazen/utils/render_identity.py render-all --workspace ${WORKSPACE}`
+  then: rm ${DIRTY_FLAG_PATH}
