@@ -1,0 +1,123 @@
+name: techrecon
+description: "Systematically investigate external software systems, libraries, frameworks, and computational tools"
+license: Apache-2.0
+compatibility: "Requires uv, docker, TypeDB 2.x running, and internet access for GitHub/HuggingFace APIs"
+
+# Core files
+scripts:
+  - techrecon.py
+schema: techrecon.tql
+
+# Dependencies
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+  optional_env: [ALHAZEN_CACHE_DIR, GITHUB_TOKEN]
+
+# TypeDB namespaces
+namespaces:
+  - techrecon.tql
+
+# Design pattern
+pattern: curation
+phases:
+  - foraging: "Discover systems to investigate"
+  - ingestion: "Fetch READMEs, file trees, docs, source code, schemas, model cards"
+  - sensemaking: "Claude identifies architecture, components, concepts, data models"
+  - analysis: "Query across investigations for integration paths and comparisons"
+  - reporting: "Architecture maps, comparison matrices, integration assessments"
+
+# Core operations
+operations:
+  # Investigation management
+  - start-investigation
+  - list-investigations
+  - update-investigation
+
+  # Entity creation
+  - add-system
+  - add-component
+  - add-concept
+  - add-data-model
+
+  # Ingestion
+  - ingest-repo
+  - ingest-doc
+  - ingest-source
+  - ingest-schema
+  - ingest-model-card
+
+  # Linking
+  - link-component
+  - link-concept
+  - link-data-model
+  - link-dependency
+
+  # Queries
+  - list-systems
+  - show-system
+  - show-architecture
+  - list-artifacts
+  - show-artifact
+  - show-component
+  - show-concept
+  - show-data-model
+
+  # Notes and fragments
+  - add-note
+  - add-fragment
+
+  # Tagging
+  - tag
+  - search-tag
+
+# Entity types
+entities:
+  collections:
+    - techrecon-investigation
+  things:
+    - techrecon-system
+    - techrecon-component
+    - techrecon-concept
+    - techrecon-data-model
+  artifacts:
+    - techrecon-readme
+    - techrecon-source-file
+    - techrecon-doc-page
+    - techrecon-schema-file
+    - techrecon-model-card
+    - techrecon-file-tree
+  fragments:
+    - techrecon-code-snippet
+    - techrecon-api-spec
+    - techrecon-schema-excerpt
+    - techrecon-config-excerpt
+  notes:
+    - techrecon-architecture-note
+    - techrecon-design-pattern-note
+    - techrecon-integration-note
+    - techrecon-comparison-note
+    - techrecon-data-model-note
+    - techrecon-assessment-note
+
+# Maturity levels
+maturity_values:
+  - experimental
+  - alpha
+  - beta
+  - stable
+  - mature
+  - deprecated
+
+# Investigation statuses
+investigation_statuses:
+  - active
+  - paused
+  - completed
+  - archived
+
+# Integration with other skills
+integrates_with:
+  - typedb-notebook
+  - apm
+  - epmc-search

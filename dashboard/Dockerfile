@@ -1,5 +1,5 @@
 # Dashboard Dockerfile for Skillful-Alhazen
-# Multi-stage build with Node.js + Python + uv for running jobhunt.py
+# Multi-stage build with Node.js + Python + uv for running skill scripts
 
 # ==============================================================================
 # Stage 1: Python base with uv
@@ -54,6 +54,7 @@ COPY src/skillful_alhazen/__init__.py ./src/skillful_alhazen/
 COPY .claude/skills/jobhunt/jobhunt.py ./.claude/skills/jobhunt/
 COPY .claude/skills/jobhunt/job_forager.py ./.claude/skills/jobhunt/
 COPY .claude/skills/typedb-notebook/typedb_notebook.py ./.claude/skills/typedb-notebook/
+COPY .claude/skills/techrecon/techrecon.py ./.claude/skills/techrecon/
 
 # Copy Node.js build and dependencies
 COPY --from=node-builder /app/dashboard/.next ./.next

@@ -135,6 +135,7 @@ When TypeDB 3.0 drivers reach stable, migration will require:
 - `local_resources/typedb/namespaces/scilit.tql` - Scientific literature extensions
 - `local_resources/typedb/namespaces/jobhunt.tql` - Job hunting extensions
 - `local_resources/typedb/namespaces/apm.tql` - Precision medicine extensions
+- `local_resources/typedb/namespaces/techrecon.tql` - Tech recon extensions
 - `local_resources/typedb/docs/` - Generated schema documentation
 
 ### Alhazen's Notebook Model
@@ -212,6 +213,11 @@ Skills follow a **three-component architecture**:
   - `.claude/skills/jobhunt/jobhunt.py`
   - `local_resources/typedb/namespaces/jobhunt.tql`
   - `dashboard/` (full-stack example)
+
+- **techrecon** - Systematic investigation of external software systems
+  - `.claude/skills/techrecon/SKILL.md`
+  - `.claude/skills/techrecon/techrecon.py`
+  - `local_resources/typedb/namespaces/techrecon.tql`
 
 ### Dashboards
 

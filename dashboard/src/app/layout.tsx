@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Job Hunt Dashboard | Skillful-Alhazen",
-  description: "Track job applications, analyze skill gaps, and manage your learning plan",
+  title: "Skillful-Alhazen",
+  description: "AI-Powered Knowledge Curation System",
 };
 
 export default function RootLayout({

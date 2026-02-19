@@ -107,7 +107,7 @@ export default function PositionPage({ params }: PositionPageProps) {
   if (error || !data) {
     return (
       <div className="min-h-screen bg-background p-8">
-        <Link href="/">
+        <Link href="/jobhunt">
           <Button variant="ghost" className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
@@ -171,7 +171,7 @@ export default function PositionPage({ params }: PositionPageProps) {
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
-          <Link href="/">
+          <Link href="/jobhunt">
             <Button variant="ghost" size="sm" className="mb-2 hover:bg-primary/10">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
