@@ -200,7 +200,7 @@ export function LearningPlan({ resources, collections = [] }: LearningPlanProps)
                 >
                   <div className="flex-1">
                     <Link
-                      href={`/collection/${collection.id}`}
+                      href={`/jobhunt/collection/${collection.id}`}
                       className="font-medium text-sm text-primary hover:underline"
                     >
                       {collection.name}
@@ -223,7 +223,7 @@ export function LearningPlan({ resources, collections = [] }: LearningPlanProps)
                       )}
                     </div>
                   </div>
-                  <Link href={`/collection/${collection.id}`}>
+                  <Link href={`/jobhunt/collection/${collection.id}`}>
                     <Button variant="ghost" size="sm">
                       <ExternalLink className="w-4 h-4" />
                     </Button>

@@ -1,0 +1,219 @@
+# =============================================================================
+# TECH RECON NAMESPACE - TypeDB 2.x Schema Extension
+# =============================================================================
+# Domain-specific subtypes for systematic investigation of external software
+# systems, libraries, frameworks, and computational tools.
+#
+# A techrecon investigation is like a research project:
+#   Collection = investigation (organizes all related things/ICEs)
+#   Thing = actors (systems, components, concepts, data models)
+#   Artifact = raw evidence (READMEs, source files, doc pages, schemas)
+#   Fragment = extracted pieces (code snippets, API specs, config excerpts)
+#   Note = analysis (architecture notes, integration assessments, comparisons)
+#
+# Namespace prefix: techrecon-*
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Tech Recon Specific
+# -----------------------------------------------------------------------------
+
+# URL attributes
+techrecon-repo-url sub attribute, value string;
+techrecon-doc-url sub attribute, value string;
+
+# System metadata
+techrecon-model-id sub attribute, value string;         # HuggingFace model ID
+techrecon-package-name sub attribute, value string;     # pip/npm/cargo package name
+techrecon-language sub attribute, value string;          # primary language: Python, Rust, etc.
+techrecon-version sub attribute, value string;           # version string
+techrecon-stars sub attribute, value long;               # GitHub stars
+techrecon-last-commit sub attribute, value datetime;     # last commit timestamp
+techrecon-license-type sub attribute, value string;      # MIT, Apache-2.0, GPL, etc.
+techrecon-maturity sub attribute, value string;          # experimental/alpha/beta/stable/mature/deprecated
+
+# Investigation tracking
+techrecon-investigation-status sub attribute, value string;  # active/paused/completed/archived
+techrecon-investigation-goal sub attribute, value string;    # what we want to learn
+
+# Component attributes
+techrecon-component-type sub attribute, value string;    # module/service/library/plugin/API/CLI/data-store
+techrecon-component-role sub attribute, value string;    # what the component does in the system
+
+# Concept attributes
+techrecon-concept-category sub attribute, value string;  # algorithm/pattern/protocol/data-structure/architecture
+
+# Data model attributes
+techrecon-model-format sub attribute, value string;      # JSON-Schema/RDF-OWL/TypeDB/SQL/Protobuf/GraphQL/custom
+
+# Source file attributes
+techrecon-file-path sub attribute, value string;         # path within repo
+techrecon-file-language sub attribute, value string;     # language of source file
+
+# Assessment attributes
+techrecon-integration-priority sub attribute, value string;  # high/medium/low/none
+techrecon-complexity-rating sub attribute, value string;     # trivial/moderate/complex/prohibitive
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech Recon Collections
+# -----------------------------------------------------------------------------
+
+# TECHRECON-INVESTIGATION - An investigation into a system or technology area
+techrecon-investigation sub collection,
+    owns techrecon-investigation-status,
+    owns techrecon-investigation-goal;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech Recon Things (sub domain-thing)
+# -----------------------------------------------------------------------------
+
+# TECHRECON-SYSTEM - A software system, library, framework, or tool
+techrecon-system sub domain-thing,
+    owns techrecon-repo-url,
+    owns techrecon-doc-url,
+    owns techrecon-language,
+    owns techrecon-version,
+    owns techrecon-stars,
+    owns techrecon-last-commit,
+    owns techrecon-license-type,
+    owns techrecon-maturity,
+    owns techrecon-package-name,
+    plays techrecon-has-component:system,
+    plays techrecon-has-data-model:system,
+    plays techrecon-system-dependency:dependent,
+    plays techrecon-system-dependency:dependency;
+
+# TECHRECON-COMPONENT - A module, subsystem, or architectural piece
+techrecon-component sub domain-thing,
+    owns techrecon-component-type,
+    owns techrecon-component-role,
+    owns techrecon-file-path,
+    plays techrecon-has-component:component,
+    plays techrecon-uses-concept:component,
+    plays techrecon-component-dependency:dependent-component,
+    plays techrecon-component-dependency:dependency-component;
+
+# TECHRECON-CONCEPT - A key concept, abstraction, or pattern
+techrecon-concept sub domain-thing,
+    owns techrecon-concept-category,
+    plays techrecon-uses-concept:concept;
+
+# TECHRECON-DATA-MODEL - A data model, schema, or ontology used by a system
+techrecon-data-model sub domain-thing,
+    owns techrecon-model-format,
+    owns techrecon-doc-url,
+    plays techrecon-has-data-model:data-model;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech Recon Artifacts (sub artifact)
+# -----------------------------------------------------------------------------
+
+# TECHRECON-README - Repository README content
+techrecon-readme sub artifact;
+
+# TECHRECON-SOURCE-FILE - A source code file from a repo
+techrecon-source-file sub artifact,
+    owns techrecon-file-path,
+    owns techrecon-file-language;
+
+# TECHRECON-DOC-PAGE - A documentation page
+techrecon-doc-page sub artifact;
+
+# TECHRECON-SCHEMA-FILE - A schema or model definition file
+techrecon-schema-file sub artifact,
+    owns techrecon-model-format;
+
+# TECHRECON-MODEL-CARD - HuggingFace model card
+techrecon-model-card sub artifact,
+    owns techrecon-model-id;
+
+# TECHRECON-FILE-TREE - Repository file/directory structure
+techrecon-file-tree sub artifact;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech Recon Fragments (sub fragment)
+# -----------------------------------------------------------------------------
+
+# TECHRECON-CODE-SNIPPET - Extracted code snippet
+techrecon-code-snippet sub fragment,
+    owns techrecon-file-language;
+
+# TECHRECON-API-SPEC - API specification excerpt
+techrecon-api-spec sub fragment;
+
+# TECHRECON-SCHEMA-EXCERPT - Schema/model definition excerpt
+techrecon-schema-excerpt sub fragment,
+    owns techrecon-model-format;
+
+# TECHRECON-CONFIG-EXCERPT - Configuration file excerpt
+techrecon-config-excerpt sub fragment;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech Recon Notes (sub note)
+# -----------------------------------------------------------------------------
+
+# TECHRECON-ARCHITECTURE-NOTE - System architecture analysis
+techrecon-architecture-note sub note;
+
+# TECHRECON-DESIGN-PATTERN-NOTE - Design pattern or approach analysis
+techrecon-design-pattern-note sub note;
+
+# TECHRECON-INTEGRATION-NOTE - How to integrate with our system
+techrecon-integration-note sub note,
+    owns techrecon-integration-priority,
+    owns techrecon-complexity-rating;
+
+# TECHRECON-COMPARISON-NOTE - Comparison between systems/approaches
+techrecon-comparison-note sub note;
+
+# TECHRECON-DATA-MODEL-NOTE - Analysis of a data model/schema
+techrecon-data-model-note sub note;
+
+# TECHRECON-ASSESSMENT-NOTE - Overall assessment of a system
+techrecon-assessment-note sub note,
+    owns techrecon-integration-priority,
+    owns techrecon-complexity-rating;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Tech Recon Specific
+# -----------------------------------------------------------------------------
+
+# TECHRECON-HAS-COMPONENT - System contains component
+techrecon-has-component sub relation,
+    relates system,
+    relates component;
+
+# TECHRECON-USES-CONCEPT - Component uses/implements a concept
+techrecon-uses-concept sub relation,
+    owns confidence,
+    relates component,
+    relates concept;
+
+# TECHRECON-HAS-DATA-MODEL - System uses a data model
+techrecon-has-data-model sub relation,
+    relates system,
+    relates data-model;
+
+# TECHRECON-SYSTEM-DEPENDENCY - System depends on another system
+techrecon-system-dependency sub relation,
+    owns techrecon-version,
+    relates dependent,
+    relates dependency;
+
+# TECHRECON-COMPONENT-DEPENDENCY - Component depends on another component
+techrecon-component-dependency sub relation,
+    relates dependent-component,
+    relates dependency-component;
+
+
+# =============================================================================
+# END TECH RECON NAMESPACE
+# =============================================================================

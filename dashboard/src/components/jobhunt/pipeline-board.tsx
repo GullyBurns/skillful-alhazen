@@ -66,7 +66,7 @@ function PositionCard({
     <Card className="mb-1.5 hover:shadow-sm transition-shadow group">
       <CardContent className="p-2">
         <div className="flex items-center justify-between gap-1">
-          <Link href={`/position/${position.id}`} className="flex-1 min-w-0 cursor-pointer">
+          <Link href={`/jobhunt/position/${position.id}`} className="flex-1 min-w-0 cursor-pointer">
             <div className="flex items-center gap-1.5">
               {position.priority === 'high' && (
                 <div
@@ -88,7 +88,7 @@ function PositionCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
-                <Link href={`/position/${position.id}`}>
+                <Link href={`/jobhunt/position/${position.id}`}>
                   <Eye className="w-4 h-4 mr-2" />
                   View Details
                 </Link>
