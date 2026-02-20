@@ -1,5 +1,6 @@
 # Makefile for Skillful Alhazen Repository
 # Comprehensive skill portability and project management
+SHELL := /bin/bash
 
 # =============================================================================
 # Variables
