@@ -1,0 +1,323 @@
+---
+# Container Stack Deployment (works with both Podman and Docker)
+
+- name: Set container tool facts
+  set_fact:
+    compose_cmd: "{{ 'docker compose' if target_type == 'macmini' else 'podman-compose' }}"
+    container_cmd: "{{ 'docker' if target_type == 'macmini' else 'podman' }}"
+
+# Linux: Get UID for rootless Podman
+- name: Get Alhazen User UID (Linux)
+  getent:
+    database: passwd
+    key: "{{ alhazen_user }}"
+  when: target_type == 'vps'
+
+# Directory Structure
+- name: Create Docker Directory Structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0700'
+  loop:
+    - "{{ docker_dir }}"
+    - "{{ docker_dir }}/typedb-data"
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+# Clone Source Repository (needed for container builds)
+- name: Clone Alhazen Repository (Linux)
+  git:
+    repo: "https://github.com/GullyBurns/skillful-alhazen.git"
+    dest: "{{ repo_dir }}"
+    version: "{{ deploy_branch | default('main') }}"
+    update: yes
+  become: true
+  become_user: "{{ alhazen_user }}"
+  when: target_type == 'vps'
+
+- name: Clone Alhazen Repository (macOS)
+  git:
+    repo: "https://github.com/GullyBurns/skillful-alhazen.git"
+    dest: "{{ repo_dir }}"
+    version: "{{ deploy_branch | default('main') }}"
+    update: yes
+  when: target_type == 'macmini'
+
+# Secrets Management
+- name: Check for existing litellm.env
+  slurp:
+    src: "{{ docker_dir }}/litellm.env"
+  register: existing_litellm_env
+  ignore_errors: true
+
+- name: Extract Existing LiteLLM Master Key
+  set_fact:
+    existing_master_key: "{{ (existing_litellm_env.content | b64decode | regex_findall('LITELLM_MASTER_KEY=(.*)'))[0] | default('') }}"
+  when: not existing_litellm_env.failed
+
+- name: Generate LiteLLM Master Key (if missing)
+  command: "openssl rand -base64 32"
+  register: litellm_master_key_gen
+  when: existing_master_key | default('') | length == 0
+
+- name: Set Final Secrets
+  set_fact:
+    litellm_key: "{{ existing_master_key | default('') if (existing_master_key | default('') | length > 0) else litellm_master_key_gen.stdout }}"
+
+# Render Templates
+- name: Create LiteLLM Config
+  template:
+    src: litellm-config.yaml.j2
+    dest: "{{ docker_dir }}/litellm-config.yaml"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create LiteLLM env file (real API keys - LiteLLM only)
+  template:
+    src: litellm.env.j2
+    dest: "{{ docker_dir }}/litellm.env"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create Alhazen env file (app containers - no real keys)
+  template:
+    src: alhazen.env.j2
+    dest: "{{ docker_dir }}/alhazen.env"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create Squid Allowlist
+  template:
+    src: allowlist.txt.j2
+    dest: "{{ docker_dir }}/allowlist.txt"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0644'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create Squid Config
+  template:
+    src: squid.conf.j2
+    dest: "{{ docker_dir }}/squid.conf"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Deploy Docker Compose Stack
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ docker_dir }}/docker-compose.yml"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Deploy SSL Certificate
+  copy:
+    content: "{{ hostvars['localhost']['alhazen_ssl_cert'] }}"
+    dest: "{{ docker_dir }}/alhazen.crt"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0644'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Deploy SSL Key
+  copy:
+    content: "{{ hostvars['localhost']['alhazen_ssl_key'] }}"
+    dest: "{{ docker_dir }}/alhazen.key"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Deploy Monitoring Script
+  template:
+    src: monitor-alhazen.sh.j2
+    dest: "{{ docker_dir }}/monitor-alhazen.sh"
+    owner: "{{ alhazen_user }}"
+    group: "{{ alhazen_user }}"
+    mode: '0700'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+# Linux: Podman user namespace setup
+- name: Set Podman User Namespace Permissions
+  command: "podman unshare chown -R 1000:1000 {{ docker_dir }}/typedb-data"
+  become: true
+  become_user: "{{ alhazen_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][alhazen_user][1] }}"
+  when: target_type == 'vps'
+
+# Linux: Monitoring systemd timer
+- name: Create Monitoring systemd Service (Linux)
+  copy:
+    dest: /etc/systemd/system/alhazen-monitor.service
+    content: |
+      [Unit]
+      Description=Alhazen Security Monitor
+      After=podman.service
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ docker_dir }}/monitor-alhazen.sh
+      User=root
+  when: target_type == 'vps'
+
+- name: Create Monitoring systemd Timer (Linux)
+  copy:
+    dest: /etc/systemd/system/alhazen-monitor.timer
+    content: |
+      [Unit]
+      Description=Run Alhazen Security Monitor Weekly
+
+      [Timer]
+      OnCalendar=weekly
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+  when: target_type == 'vps'
+
+- name: Enable Monitoring Timer (Linux)
+  systemd:
+    name: alhazen-monitor.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: target_type == 'vps'
+
+# macOS: Monitoring via launchd
+- name: Create Monitoring launchd plist (macOS)
+  copy:
+    dest: /Library/LaunchDaemons/com.alhazen.monitor.plist
+    owner: root
+    group: wheel
+    mode: '0644'
+    content: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>Label</key>
+          <string>com.alhazen.monitor</string>
+          <key>ProgramArguments</key>
+          <array>
+              <string>{{ docker_dir }}/monitor-alhazen.sh</string>
+          </array>
+          <key>StartCalendarInterval</key>
+          <dict>
+              <key>Weekday</key>
+              <integer>1</integer>
+              <key>Hour</key>
+              <integer>3</integer>
+          </dict>
+      </dict>
+      </plist>
+  when: target_type == 'macmini'
+
+# Stop existing stack
+- name: Stop Existing Stack (Linux/Podman)
+  shell: |
+    podman-compose down
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ alhazen_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][alhazen_user][1] }}"
+  ignore_errors: true
+  when: target_type == 'vps'
+
+- name: Stop Existing Stack (macOS/Docker)
+  shell: |
+    docker compose down
+  args:
+    chdir: "{{ docker_dir }}"
+  ignore_errors: true
+  when: target_type == 'macmini'
+
+# Build and start
+- name: Build Container Images (Linux/Podman)
+  shell: |
+    podman-compose build
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ alhazen_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][alhazen_user][1] }}"
+  register: build_result_linux
+  when: target_type == 'vps'
+
+- name: Build Container Images (macOS/Docker)
+  shell: |
+    docker compose build
+  args:
+    chdir: "{{ docker_dir }}"
+  register: build_result_macos
+  when: target_type == 'macmini'
+
+- name: Start Stack (Linux/Podman)
+  shell: |
+    podman-compose up -d
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ alhazen_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][alhazen_user][1] }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_facts['getent_passwd'][alhazen_user][1] }}/bus"
+  register: start_result_linux
+  when: target_type == 'vps'
+
+- name: Start Stack (macOS/Docker)
+  shell: |
+    docker compose up -d
+  args:
+    chdir: "{{ docker_dir }}"
+  register: start_result_macos
+  when: target_type == 'macmini'
+
+# Health check: wait for TypeDB
+- name: Wait for TypeDB to be Ready
+  shell: |
+    for i in $(seq 1 30); do
+      {{ container_cmd }} exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 <<< 'exit' 2>/dev/null && exit 0
+      sleep 2
+    done
+    echo "TypeDB failed to start within 60 seconds" && exit 1
+  args:
+    chdir: "{{ docker_dir }}"
+  become: "{{ target_type == 'vps' }}"
+  become_user: "{{ alhazen_user if target_type == 'vps' else omit }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][alhazen_user][1]} if target_type == 'vps' else {} }}"
+  register: typedb_health
+
+- name: Show TypeDB Health
+  debug:
+    msg: "TypeDB health check: {{ 'PASSED' if typedb_health.rc == 0 else 'FAILED' }}"
+
+# List containers
+- name: List All Containers
+  shell: "{{ container_cmd }} ps -a"
+  become: "{{ target_type == 'vps' }}"
+  become_user: "{{ alhazen_user if target_type == 'vps' else omit }}"
+  register: container_ps_result
+
+- name: Show Container Status
+  debug:
+    var: container_ps_result.stdout_lines
+
+# Ensure persistence
+- name: Ensure Containers Persist on Reboot (Linux)
+  command: "loginctl enable-linger {{ alhazen_user }}"
+  when: target_type == 'vps'

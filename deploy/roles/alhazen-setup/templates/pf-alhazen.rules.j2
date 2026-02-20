@@ -1,0 +1,20 @@
+# Alhazen pf Firewall Rules (macOS)
+# Deny all incoming except SSH and Tailscale
+
+# Default: block all incoming
+block in all
+
+# Allow loopback
+pass in on lo0 all
+
+# Allow SSH (port 22)
+pass in proto tcp from any to any port 22
+
+# Allow Tailscale (UDP 41641)
+pass in proto udp from any to any port 41641
+
+# Allow established connections
+pass in proto tcp from any to any flags A/A
+
+# Allow all outgoing
+pass out all

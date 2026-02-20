@@ -1,0 +1,189 @@
+version: '3.8'
+
+services:
+  typedb:
+    image: vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: alhazen-typedb
+    restart: unless-stopped
+    volumes:
+      - ./typedb-data:/opt/typedb-all-linux-x86_64/server/data
+      - {{ repo_dir }}/local_resources/typedb:/schema:ro
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'database list' | /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - alhazen-internal
+    ports:
+      - "127.0.0.1:1729:1729"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    cpus: 2.0
+
+  typedb-init:
+    image: vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: alhazen-typedb-init
+    depends_on:
+      typedb:
+        condition: service_healthy
+    volumes:
+      - {{ repo_dir }}/local_resources/typedb:/schema:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Checking if database exists..."
+        if echo "database list" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729 2>/dev/null | grep -q "alhazen_notebook"; then
+          echo "Database already exists, skipping initialization"
+          exit 0
+        fi
+
+        echo "Creating database..."
+        echo "database create alhazen_notebook" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729 2>/dev/null || true
+
+        echo "Loading main schema..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/alhazen_notebook.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading scientific literature namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/scilit.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading job hunt namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/jobhunt.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading precision medicine namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/apm.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading tech recon namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/techrecon.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Schema initialization complete!"
+    networks:
+      - alhazen-internal
+    restart: "no"
+
+  mcp:
+    build:
+      context: {{ repo_dir }}
+      dockerfile: Dockerfile.mcp
+    container_name: alhazen-mcp
+    restart: unless-stopped
+    env_file: alhazen.env
+    environment:
+      - HTTP_PROXY=http://squid:3128
+      - HTTPS_PROXY=http://squid:3128
+      - NO_PROXY=typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+    depends_on:
+      - typedb
+      - litellm
+      - squid
+    networks:
+      - alhazen-internal
+    ports:
+      - "127.0.0.1:3000:3000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    mem_limit: 1g
+    cpus: 1.0
+
+  dashboard:
+    build:
+      context: {{ repo_dir }}
+      dockerfile: dashboard/Dockerfile
+    container_name: alhazen-dashboard
+    restart: unless-stopped
+    env_file: alhazen.env
+    depends_on:
+      - typedb
+    networks:
+      - alhazen-internal
+    ports:
+      - "127.0.0.1:3001:3000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=50m
+    mem_limit: 512m
+    cpus: 1.0
+
+  hub:
+    build:
+      context: {{ repo_dir }}/hub
+    container_name: alhazen-hub
+    restart: unless-stopped
+    depends_on:
+      - mcp
+      - dashboard
+    networks:
+      - alhazen-internal
+    ports:
+      - "127.0.0.1:8080:80"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    mem_limit: 256m
+    cpus: 0.5
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: alhazen-litellm
+    restart: unless-stopped
+    env_file: litellm.env
+    environment:
+      - LITELLM_LOG=INFO
+    ports:
+      - "127.0.0.1:4001:4000"
+    networks:
+      - alhazen-internal
+      - alhazen-external
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    mem_limit: 512m
+    cpus: 1.0
+
+  squid:
+    image: docker.io/ubuntu/squid:latest
+    container_name: alhazen-squid
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3129:3128"
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+      - ./allowlist.txt:/etc/squid/allowlist.txt:ro
+    networks:
+      - alhazen-internal
+      - alhazen-external
+
+networks:
+  alhazen-internal:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+
+  alhazen-external:
+    driver: bridge

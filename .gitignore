@@ -159,3 +159,9 @@ dist/
 
 # protected datafiles
 #local_resources/data_files/cryoet_portal_metadata/
+
+# Deployment secrets
+deploy/ssh-keys/*.pem
+deploy/ssh-keys/*.pem.pub
+deploy/ssh-keys/*.key
+deploy/ssh-keys/*.crt
