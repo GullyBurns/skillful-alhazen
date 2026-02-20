@@ -15,6 +15,14 @@ TYPEDB_DATABASE := alhazen_notebook
 SKILLS_MANIFEST_DIR := $(PROJECT_ROOT)/local_resources/skills
 TYPEDB_SCHEMAS_DIR := $(PROJECT_ROOT)/local_resources/typedb
 
+# OS detection
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    PKG_INSTALL_HINT = brew install
+else
+    PKG_INSTALL_HINT = apt-get install -y
+endif
+
 # Colors for output
 RED := \033[31m
 GREEN := \033[32m
@@ -190,7 +198,7 @@ deploy-openclaw-skills: ## Symlink skills to OpenClaw workspace
 deploy-openclaw-config: ## Merge skills.entries into openclaw.json (requires jq)
 	@echo "$(BLUE)Updating OpenClaw configuration...$(NC)"
 	@if ! command -v jq &>/dev/null; then \
-		echo "$(RED)✗ jq is required. Install with: brew install jq$(NC)"; \
+		echo "$(RED)✗ jq is required. Install with: $(PKG_INSTALL_HINT) jq$(NC)"; \
 		exit 1; \
 	fi
 	@if [ ! -f "$(OPENCLAW_CONFIG)" ]; then \
@@ -406,7 +414,7 @@ clean: ## Clean generated files
 tailscale-serve: ## Expose hub and dashboard over HTTPS on Tailscale network
 	@echo "$(BLUE)Starting Tailscale Serve (HTTPS)...$(NC)"
 	@if ! command -v tailscale &>/dev/null; then \
-		echo "$(RED)✗ Tailscale not installed. Run: brew install tailscale$(NC)"; \
+		echo "$(RED)✗ Tailscale not installed. Run: $(PKG_INSTALL_HINT) tailscale$(NC)"; \
 		exit 1; \
 	fi
 	@if ! tailscale status &>/dev/null; then \
