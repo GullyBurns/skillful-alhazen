@@ -54,10 +54,10 @@
     }
   },
   "channels": {
-    "telegram": { "dmPolicy": "pairing" },
-    "whatsapp": { "dmPolicy": "pairing" },
-    "discord": { "dm": { "policy": "pairing" } },
-    "signal": { "dmPolicy": "pairing" }
+    "telegram": { "dmPolicy": "allowlist", "allowFrom": [], "groupPolicy": "disabled" },
+    "whatsapp": { "dmPolicy": "allowlist", "allowFrom": [], "groupPolicy": "disabled" },
+    "discord": { "dm": { "policy": "allowlist" }, "allowFrom": [], "groupPolicy": "disabled" },
+    "signal": { "dmPolicy": "allowlist", "allowFrom": [], "groupPolicy": "disabled" }
   },
   "skills": {
     "entries": {}
