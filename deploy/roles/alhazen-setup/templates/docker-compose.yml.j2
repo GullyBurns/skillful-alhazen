@@ -1,11 +1,11 @@
-version: '3.8'
+name: {{ compose_project_name | default('openclaw-docker') }}
 
 services:
   # --- Infrastructure Services ---
 
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
-    container_name: openclaw-litellm
+    container_name: {{ container_prefix | default('openclaw') }}-litellm
     restart: unless-stopped
     env_file: litellm.env
     environment:
@@ -18,6 +18,8 @@ services:
     volumes:
       - ./litellm-config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -28,7 +30,7 @@ services:
 
   squid:
     image: docker.io/ubuntu/squid:latest
-    container_name: openclaw-squid
+    container_name: {{ container_prefix | default('openclaw') }}-squid
     restart: unless-stopped
     ports:
       - "127.0.0.1:3128:3128"
@@ -49,7 +51,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: openclaw-agent
+    container_name: {{ container_prefix | default('openclaw') }}-agent
     restart: unless-stopped
     ports:
       - "127.0.0.1:18789:18789"
@@ -81,7 +83,7 @@ services:
   typedb:
     image: docker.io/vaticle/typedb:2.25.0
     platform: linux/amd64
-    container_name: alhazen-typedb
+    container_name: {{ container_prefix | default('alhazen') }}-typedb
     restart: unless-stopped
     volumes:
       - ./typedb-data:/opt/typedb-all-linux-x86_64/server/data
@@ -95,7 +97,7 @@ services:
     networks:
       - openclaw-internal
     ports:
-      - "127.0.0.1:1729:1729"
+      - "127.0.0.1:{{ typedb_host_port | default('1729') }}:1729"
     security_opt:
       - no-new-privileges:true
     mem_limit: 2g
@@ -104,7 +106,7 @@ services:
   typedb-init:
     image: docker.io/vaticle/typedb:2.25.0
     platform: linux/amd64
-    container_name: alhazen-typedb-init
+    container_name: {{ container_prefix | default('alhazen') }}-typedb-init
     depends_on:
       typedb:
         condition: service_healthy
@@ -156,7 +158,7 @@ services:
     build:
       context: {{ repo_dir }}
       dockerfile: Dockerfile.mcp
-    container_name: alhazen-mcp
+    container_name: {{ container_prefix | default('alhazen') }}-mcp
     restart: unless-stopped
     environment:
       - TYPEDB_HOST=typedb
@@ -174,7 +176,7 @@ services:
     networks:
       - openclaw-internal
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:{{ mcp_host_port | default('3000') }}:3000"
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -187,7 +189,7 @@ services:
     build:
       context: {{ repo_dir }}
       dockerfile: dashboard/Dockerfile
-    container_name: alhazen-dashboard
+    container_name: {{ container_prefix | default('alhazen') }}-dashboard
     restart: unless-stopped
     environment:
       - TYPEDB_HOST=typedb
@@ -198,7 +200,7 @@ services:
     networks:
       - openclaw-internal
     ports:
-      - "127.0.0.1:3001:3000"
+      - "127.0.0.1:{{ dashboard_host_port | default('3001') }}:3000"
     security_opt:
       - no-new-privileges:true
     read_only: true

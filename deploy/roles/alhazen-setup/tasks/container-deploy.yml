@@ -465,7 +465,7 @@
   shell: |
     podman-compose up -d
     # Force restart agent to ensure config pick-up
-    podman restart openclaw-agent
+    podman restart {{ container_prefix | default('openclaw') }}-agent
   args:
     chdir: "{{ docker_dir }}"
   become: true
@@ -481,7 +481,7 @@
 - name: Start Stack (macOS/Docker)
   shell: |
     docker compose up -d
-    docker restart openclaw-agent
+    docker restart {{ container_prefix | default('openclaw') }}-agent
   args:
     chdir: "{{ docker_dir }}"
   environment:
@@ -493,7 +493,7 @@
 # Run OpenClaw Doctor Fix
 - name: Run OpenClaw Doctor Fix
   shell: |
-    {{ container_cmd }} exec openclaw-agent openclaw doctor --fix --yes --non-interactive
+    {{ container_cmd }} exec {{ container_prefix | default('openclaw') }}-agent openclaw doctor --fix --yes --non-interactive
   become: "{{ target_type == 'vps' }}"
   become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
   environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {} }}"
@@ -503,7 +503,7 @@
 - name: Wait for TypeDB to be Ready
   shell: |
     for i in $(seq 1 30); do
-      echo 'exit' | {{ container_cmd }} exec -i alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null && exit 0
+      echo 'exit' | {{ container_cmd }} exec -i {{ container_prefix | default('alhazen') }}-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null && exit 0
       sleep 2
     done
     echo "TypeDB failed to start within 60 seconds" && exit 1
