@@ -136,8 +136,8 @@
     openclaw_user: "openclaw"
     openclaw_home: "/home/openclaw"
 
-    # Directory Layout
-    docker_dir: "{{ openclaw_home }}/openclaw-docker"
+    # Directory Layout (compose_project_name allows dual-stack on same host)
+    docker_dir: "{{ openclaw_home }}/{{ compose_project_name | default('openclaw-docker') }}"
     data_dir: "{{ docker_dir }}/openclaw-data"
     ssh_dir: "{{ docker_dir }}/openclaw-ssh"
     workspace_dir: "{{ docker_dir }}/workspace"
@@ -159,6 +159,13 @@
     llm_url: "{{ llm_url | default('') }}"
     llm_key: "{{ llm_key | default('sk-placeholder') }}"
 
+    # Dual-stack Configuration (Passed from deploy.sh)
+    container_prefix: "{{ container_prefix | default('alhazen') }}"
+    compose_project_name: "{{ compose_project_name | default('openclaw-docker') }}"
+    typedb_host_port: "{{ typedb_host_port | default('1729') }}"
+    mcp_host_port: "{{ mcp_host_port | default('3000') }}"
+    dashboard_host_port: "{{ dashboard_host_port | default('3001') }}"
+
   roles:
     - alhazen-setup
 
@@ -177,7 +184,7 @@
           - "Private Key saved locally to: ssh-keys/{{ target_hostname }}.pem"
           - "Hostname: {{ target_hostname }}"
           - "OpenClaw Dashboard: https://{{ inventory_hostname }}:18789"
-          - "Alhazen Dashboard: http://{{ inventory_hostname }}:3001"
+          - "Alhazen Dashboard: http://{{ inventory_hostname }}:{{ dashboard_host_port }}"
           - "Connect using: ssh -i ssh-keys/{{ target_hostname }}.pem {{ openclaw_user }}@{{ inventory_hostname }}"
           - "LLM Provider: {{ llm_provider }} | Model: {{ llm_model }}"
           - "Password authentication has been DISABLED."
