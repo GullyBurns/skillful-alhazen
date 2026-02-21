@@ -60,9 +60,3 @@
     - { regexp: '^#?ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
     - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
   notify: Restart SSH
-
-- name: Restart SSH
-  systemd:
-    name: sshd
-    state: restarted
-  listen: "Restart SSH"

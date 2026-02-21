@@ -1,8 +1,85 @@
 version: '3.8'
 
 services:
+  # --- Infrastructure Services ---
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: openclaw-litellm
+    restart: unless-stopped
+    env_file: litellm.env
+    environment:
+      - LITELLM_LOG=INFO
+    ports:
+      - "127.0.0.1:4000:4000"
+    networks:
+      - openclaw-internal
+      - openclaw-external
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    mem_limit: 1g
+    cpus: 1.0
+
+  squid:
+    image: docker.io/ubuntu/squid:latest
+    container_name: openclaw-squid
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3128:3128"
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+      - ./allowlist.txt:/etc/squid/allowlist.txt:ro
+    networks:
+      - openclaw-internal
+      - openclaw-external
+
+  # --- OpenClaw Agent ---
+  # IMPORTANT: The agent gets openclaw-external for direct internet (Telegram, etc.)
+  # but does NOT use Squid proxy. The @anthropic-ai/sdk in Node.js honors HTTP_PROXY
+  # but ignores NO_PROXY, so routing through Squid breaks internal LiteLLM calls.
+  # Instead, the agent talks to LiteLLM directly via the internal network.
+
+  openclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openclaw-agent
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18789:18789"
+    networks:
+      - openclaw-internal
+      - openclaw-external
+    volumes:
+      - ./openclaw-data:/home/node/.openclaw
+      - ./openclaw-data/gateway.crt:/home/node/.openclaw/gateway.crt:ro
+      - ./openclaw-data/gateway.key:/home/node/.openclaw/gateway.key:ro
+      - ./openclaw-ssh:/home/node/.ssh
+      - ./workspace:/opt/openclaw/workspace
+    working_dir: /home/node
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - ANTHROPIC_API_BASE=http://litellm:4000
+      - ANTHROPIC_API_KEY=${LITELLM_MASTER_KEY}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_GATEWAY_CERT=/home/node/.openclaw/gateway.crt
+      - OPENCLAW_GATEWAY_KEY=/home/node/.openclaw/gateway.key
+    depends_on:
+      - litellm
+    security_opt:
+      - no-new-privileges:true
+
+  # --- Alhazen Services ---
+
   typedb:
-    image: vaticle/typedb:2.25.0
+    image: docker.io/vaticle/typedb:2.25.0
     platform: linux/amd64
     container_name: alhazen-typedb
     restart: unless-stopped
@@ -16,7 +93,7 @@ services:
       retries: 10
       start_period: 30s
     networks:
-      - alhazen-internal
+      - openclaw-internal
     ports:
       - "127.0.0.1:1729:1729"
     security_opt:
@@ -25,7 +102,7 @@ services:
     cpus: 2.0
 
   typedb-init:
-    image: vaticle/typedb:2.25.0
+    image: docker.io/vaticle/typedb:2.25.0
     platform: linux/amd64
     container_name: alhazen-typedb-init
     depends_on:
@@ -72,26 +149,30 @@ services:
 
         echo "Schema initialization complete!"
     networks:
-      - alhazen-internal
+      - openclaw-internal
     restart: "no"
 
-  mcp:
+  alhazen-mcp:
     build:
       context: {{ repo_dir }}
       dockerfile: Dockerfile.mcp
     container_name: alhazen-mcp
     restart: unless-stopped
-    env_file: alhazen.env
     environment:
+      - TYPEDB_HOST=typedb
+      - TYPEDB_PORT=1729
+      - TYPEDB_DATABASE=alhazen_notebook
       - HTTP_PROXY=http://squid:3128
       - HTTPS_PROXY=http://squid:3128
       - NO_PROXY=typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+      - http_proxy=http://squid:3128
+      - https_proxy=http://squid:3128
+      - no_proxy=typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
     depends_on:
       - typedb
-      - litellm
       - squid
     networks:
-      - alhazen-internal
+      - openclaw-internal
     ports:
       - "127.0.0.1:3000:3000"
     security_opt:
@@ -102,17 +183,20 @@ services:
     mem_limit: 1g
     cpus: 1.0
 
-  dashboard:
+  alhazen-dashboard:
     build:
       context: {{ repo_dir }}
       dockerfile: dashboard/Dockerfile
     container_name: alhazen-dashboard
     restart: unless-stopped
-    env_file: alhazen.env
+    environment:
+      - TYPEDB_HOST=typedb
+      - TYPEDB_PORT=1729
+      - TYPEDB_DATABASE=alhazen_notebook
     depends_on:
       - typedb
     networks:
-      - alhazen-internal
+      - openclaw-internal
     ports:
       - "127.0.0.1:3001:3000"
     security_opt:
@@ -123,67 +207,13 @@ services:
     mem_limit: 512m
     cpus: 1.0
 
-  hub:
-    build:
-      context: {{ repo_dir }}/hub
-    container_name: alhazen-hub
-    restart: unless-stopped
-    depends_on:
-      - mcp
-      - dashboard
-    networks:
-      - alhazen-internal
-    ports:
-      - "127.0.0.1:8080:80"
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    mem_limit: 256m
-    cpus: 0.5
-
-  litellm:
-    image: ghcr.io/berriai/litellm:main-latest
-    container_name: alhazen-litellm
-    restart: unless-stopped
-    env_file: litellm.env
-    environment:
-      - LITELLM_LOG=INFO
-    ports:
-      - "127.0.0.1:4001:4000"
-    networks:
-      - alhazen-internal
-      - alhazen-external
-    volumes:
-      - ./litellm-config.yaml:/app/config.yaml:ro
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=100m
-    mem_limit: 512m
-    cpus: 1.0
-
-  squid:
-    image: docker.io/ubuntu/squid:latest
-    container_name: alhazen-squid
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:3129:3128"
-    volumes:
-      - ./squid.conf:/etc/squid/squid.conf:ro
-      - ./allowlist.txt:/etc/squid/allowlist.txt:ro
-    networks:
-      - alhazen-internal
-      - alhazen-external
-
 networks:
-  alhazen-internal:
+  openclaw-internal:
     driver: bridge
     internal: true
     ipam:
       config:
-        - subnet: 172.29.0.0/16
+        - subnet: 172.28.0.0/16
 
-  alhazen-external:
+  openclaw-external:
     driver: bridge

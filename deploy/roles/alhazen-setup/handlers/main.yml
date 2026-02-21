@@ -4,3 +4,8 @@
     name: fail2ban
     state: restarted
     enabled: true
+
+- name: Restart SSH
+  systemd:
+    name: sshd
+    state: restarted

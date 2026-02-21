@@ -6,13 +6,13 @@
   tasks:
     - name: Check for existing agent identity
       stat:
-        path: /etc/alhazen_identity
+        path: /etc/openclaw_identity
       register: identity_file
       ignore_errors: true
 
     - name: Read existing identity
       slurp:
-        src: /etc/alhazen_identity
+        src: /etc/openclaw_identity
       register: identity_content
       when: identity_file.stat.exists
       ignore_errors: true
@@ -110,9 +110,9 @@
 
         - name: Set Facts for Deployment
           set_fact:
-            alhazen_public_key: "{{ public_key_content['content'] | b64decode }}"
-            alhazen_ssl_cert: "{{ ssl_cert_content['content'] | b64decode }}"
-            alhazen_ssl_key: "{{ ssl_key_content['content'] | b64decode }}"
+            deploy_public_key: "{{ public_key_content['content'] | b64decode }}"
+            deploy_ssl_cert: "{{ ssl_cert_content['content'] | b64decode }}"
+            deploy_ssl_key: "{{ ssl_key_content['content'] | b64decode }}"
 
       rescue:
         - name: Cleanup Key Files on Failure
@@ -128,24 +128,30 @@
           fail:
             msg: "Setup failed. Cleaned up temporary key files."
 
-- name: Alhazen Hardened Deployment (Remote)
+- name: OpenClaw + Alhazen Hardened Deployment (Remote)
   hosts: all
   become: true
   vars:
-    # User Configuration
-    alhazen_user: "alhazen"
-    alhazen_home: "/home/alhazen"
+    # User Configuration (single user for everything)
+    openclaw_user: "openclaw"
+    openclaw_home: "/home/openclaw"
 
-    # Paths
-    docker_dir: "{{ alhazen_home }}/alhazen-docker"
-    repo_dir: "{{ alhazen_home }}/skillful-alhazen"
+    # Directory Layout
+    docker_dir: "{{ openclaw_home }}/openclaw-docker"
+    data_dir: "{{ docker_dir }}/openclaw-data"
+    ssh_dir: "{{ docker_dir }}/openclaw-ssh"
+    workspace_dir: "{{ docker_dir }}/workspace"
+    repo_dir: "{{ openclaw_home }}/skillful-alhazen"
 
     # Pass generated variables from first play
     target_hostname: "{{ hostvars['localhost']['generated_hostname'] }}"
-    deploy_public_key: "{{ hostvars['localhost']['alhazen_public_key'] }}"
+    deploy_public_key: "{{ hostvars['localhost']['deploy_public_key'] }}"
 
     # Deployment target type (passed from deploy.sh)
     target_type: "{{ target_type | default('vps') }}"
+
+    # Alhazen repo branch
+    deploy_branch: "{{ deploy_branch | default('main') }}"
 
     # LLM Configuration (Passed from deploy.sh)
     llm_provider: "{{ llm_provider | default('anthropic') }}"
@@ -160,18 +166,18 @@
     - name: Persist Agent Identity
       copy:
         content: "{{ target_hostname }}"
-        dest: /etc/alhazen_identity
+        dest: /etc/openclaw_identity
         mode: '0644'
 
   post_tasks:
     - name: Final Success Message
       debug:
         msg:
-          - "Alhazen Deployment Complete!"
+          - "Deployment Complete!"
           - "Private Key saved locally to: ssh-keys/{{ target_hostname }}.pem"
           - "Hostname: {{ target_hostname }}"
-          - "Dashboard: https://{{ inventory_hostname }}:3001"
-          - "Hub: https://{{ inventory_hostname }}:8080"
-          - "Connect using: ssh -i ssh-keys/{{ target_hostname }}.pem {{ alhazen_user }}@{{ inventory_hostname }}"
+          - "OpenClaw Dashboard: https://{{ inventory_hostname }}:18789"
+          - "Alhazen Dashboard: http://{{ inventory_hostname }}:3001"
+          - "Connect using: ssh -i ssh-keys/{{ target_hostname }}.pem {{ openclaw_user }}@{{ inventory_hostname }}"
           - "LLM Provider: {{ llm_provider }} | Model: {{ llm_model }}"
           - "Password authentication has been DISABLED."

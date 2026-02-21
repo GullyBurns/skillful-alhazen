@@ -77,34 +77,34 @@
     state: present
 
 # User Setup
-- name: Create Alhazen User
+- name: Create OpenClaw User
   user:
-    name: "{{ alhazen_user }}"
-    comment: "Alhazen Service User"
+    name: "{{ openclaw_user }}"
+    comment: "OpenClaw + Alhazen Service User"
     shell: /bin/bash
     create_home: true
-    home: "{{ alhazen_home }}"
+    home: "{{ openclaw_home }}"
     state: present
 
-- name: Authorize New SSH Key for Alhazen User
+- name: Authorize New SSH Key for OpenClaw User
   authorized_key:
-    user: "{{ alhazen_user }}"
+    user: "{{ openclaw_user }}"
     state: present
     key: "{{ deploy_public_key }}"
 
-- name: Setup Alhazen .ssh Directory
+- name: Setup OpenClaw .ssh Directory
   file:
-    path: "{{ alhazen_home }}/.ssh"
+    path: "{{ openclaw_home }}/.ssh"
     state: directory
-    owner: "{{ alhazen_user }}"
-    group: "{{ alhazen_user }}"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
     mode: '0700'
 
 # Rootless Podman Setup
-- name: Enable Lingering for Alhazen User
-  command: "loginctl enable-linger {{ alhazen_user }}"
+- name: Enable Lingering for OpenClaw User
+  command: "loginctl enable-linger {{ openclaw_user }}"
   args:
-    creates: "/var/lib/systemd/linger/{{ alhazen_user }}"
+    creates: "/var/lib/systemd/linger/{{ openclaw_user }}"
 
 - name: Start and Enable Tailscale
   systemd:

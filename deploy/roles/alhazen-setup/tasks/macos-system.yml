@@ -45,17 +45,17 @@
   when: compose_check.rc != 0
 
 # User Setup (macOS uses dscl instead of useradd)
-- name: Check if Alhazen User Exists
-  command: "dscl . -read /Users/{{ alhazen_user }}"
+- name: Check if OpenClaw User Exists
+  command: "dscl . -read /Users/{{ openclaw_user }}"
   register: user_check
   changed_when: false
   failed_when: false
 
-- name: Create Alhazen Home Directory
+- name: Create OpenClaw Home Directory
   file:
-    path: "{{ alhazen_home }}"
+    path: "{{ openclaw_home }}"
     state: directory
-    owner: "{{ alhazen_user }}"
+    owner: "{{ openclaw_user }}"
     mode: '0700'
   when: user_check.rc == 0
 
@@ -69,7 +69,7 @@
 - name: Note about macOS User
   debug:
     msg: >
-      macOS user '{{ alhazen_user }}' does not exist. Deployment will use the current user.
+      macOS user '{{ openclaw_user }}' does not exist. Deployment will use the current user.
       To create a dedicated user, use System Preferences > Users & Groups.
   when: user_check.rc != 0
 
