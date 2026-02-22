@@ -235,6 +235,29 @@ vim roles/alhazen-setup/templates/allowlist.txt.j2
 ./update-allowlist.sh -t 5.78.187.158
 ```
 
+## Channel User Management
+
+Manage messaging channel allowlists (Telegram, WhatsApp, Discord, Signal) without a full redeploy:
+
+```bash
+# Add a Telegram user
+./update-channels.sh -t 5.78.187.158 --channel telegram --add-user 7365829064
+
+# Remove a user
+./update-channels.sh -t 5.78.187.158 --channel telegram --remove-user 7365829064
+
+# List current users for a channel
+./update-channels.sh -t 5.78.187.158 --channel telegram --list
+
+# Mac Mini target
+./update-channels.sh -t 10.0.110.100 --target-type macmini --channel telegram --add-user 7365829064
+
+# Custom compose project (dual-stack)
+./update-channels.sh -t 5.78.187.158 --compose-project openclaw-dev --channel telegram --add-user 7365829064
+```
+
+The script patches `openclaw.json` on the target, adding/removing user IDs from the channel's `allowFrom` array. The agent container is automatically restarted when changes are made. Idempotent — adding an existing user is a no-op.
+
 ## Updating Skills
 
 Skills are copied from the repo's `.claude/skills/` directory during deploy. To update:
