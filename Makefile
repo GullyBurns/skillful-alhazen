@@ -9,7 +9,7 @@ SHELL := /bin/bash
 PROJECT_ROOT := $(shell pwd)
 OPENCLAW_WORKSPACE := $(HOME)/.openclaw/workspace
 CLAUDE_SKILLS_DIR := $(PROJECT_ROOT)/.claude/skills
-OPENCLAW_SKILLS_DIR := $(OPENCLAW_WORKSPACE)/skills
+OPENCLAW_SKILLS_DIR := $(HOME)/.openclaw/skills
 OPENCLAW_CONFIG := $(HOME)/.openclaw/openclaw.json
 TYPEDB_CONTAINER := alhazen-typedb
 TYPEDB_DATABASE := alhazen_notebook
@@ -48,6 +48,9 @@ help: ## Show this help message
 	@echo
 	@echo "$(GREEN)Database Management:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'db-' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
+	@echo "$(GREEN)Deployment:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'deploy-(vps|macmini|status)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
 	@echo "$(GREEN)Remote Access:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'tailscale' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
@@ -481,6 +484,29 @@ status: ## Show project status
 
 .PHONY: info
 info: status ## Alias for status
+
+# =============================================================================
+# Deployment
+# =============================================================================
+
+.PHONY: deploy-vps
+deploy-vps: ## Deploy to VPS (Podman rootless, full hardening)
+	@echo "$(BLUE)Launching VPS deployment...$(NC)"
+	cd $(PROJECT_ROOT)/deploy && bash deploy.sh --target-type vps
+
+.PHONY: deploy-macmini
+deploy-macmini: ## Deploy to Mac Mini (Docker Desktop, pf firewall)
+	@echo "$(BLUE)Launching Mac Mini deployment...$(NC)"
+	cd $(PROJECT_ROOT)/deploy && bash deploy.sh --target-type macmini
+
+.PHONY: deploy-status
+deploy-status: ## Check deployment status on remote
+	@echo "$(BLUE)Checking deployment status...$(NC)"
+	@if [ -z "$(TARGET)" ]; then \
+		echo "$(RED)Error: TARGET variable required. Usage: make deploy-status TARGET=<ip>$(NC)"; \
+		exit 1; \
+	fi
+	@ssh $(TARGET) "docker ps -a 2>/dev/null || podman ps -a 2>/dev/null" || echo "$(RED)Could not connect to $(TARGET)$(NC)"
 
 # Default target
 .DEFAULT_GOAL := help

@@ -1,0 +1,63 @@
+#!/bin/bash
+# OpenClaw + Alhazen Security Monitor
+# Automated security check script
+
+REPORT_DIR="{{ docker_dir }}"
+REPORT_FILE="${REPORT_DIR}/security-audit-$(date +%Y%m%d).log"
+CONTAINER_CMD="{{ 'docker' if target_type == 'macmini' else 'podman' }}"
+
+echo "=== Security Audit $(date) ===" > "$REPORT_FILE"
+
+# 1. Check Container Health
+echo "[*] Checking container health..." >> "$REPORT_FILE"
+$CONTAINER_CMD ps --format "{% raw %}{{.Names}} {{.Status}}{% endraw %}" 2>/dev/null | while read name status; do
+  echo "  $name: $status" >> "$REPORT_FILE"
+done
+
+# 2. Run OpenClaw Internal Audit
+echo "[*] Running OpenClaw Security Audit..." >> "$REPORT_FILE"
+$CONTAINER_CMD exec openclaw-agent openclaw security audit --deep >> "$REPORT_FILE" 2>&1
+
+# 3. Check TypeDB Status
+echo "[*] Checking TypeDB..." >> "$REPORT_FILE"
+$CONTAINER_CMD exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 <<< 'exit' >> "$REPORT_FILE" 2>&1
+if [ $? -eq 0 ]; then
+  echo "  TypeDB: HEALTHY" >> "$REPORT_FILE"
+else
+  echo "  TypeDB: UNHEALTHY" >> "$REPORT_FILE"
+fi
+
+# 4. Check for Prompt Injection Patterns
+echo "[*] Scanning for Prompt Injection Attempts (Last 7 days)..." >> "$REPORT_FILE"
+find {{ data_dir }}/agents -name "*.jsonl" -mtime -7 -exec \
+  grep -iH "IGNORE PREVIOUS\|SYSTEM:\|DISREGARD\|NEW INSTRUCTIONS" {} \; \
+  >> "$REPORT_FILE" 2>/dev/null
+
+# 5. Check for Dangerous Command Execution
+echo "[*] Scanning for Dangerous Command Patterns..." >> "$REPORT_FILE"
+find {{ data_dir }}/agents -name "*.jsonl" -mtime -7 -exec \
+  grep -iH "rm -rf\|curl.*http\|wget\|nc \|bash -c\|/etc/passwd" {} \; \
+  >> "$REPORT_FILE" 2>/dev/null
+
+# 6. Scan Squid Logs for Denied Requests
+echo "[*] Scanning proxy logs for blocked domains..." >> "$REPORT_FILE"
+$CONTAINER_CMD logs openclaw-squid 2>&1 | grep "TCP_DENIED" | tail -n 20 >> "$REPORT_FILE"
+
+# 7. Verify Firewall Status
+echo "[*] Checking Firewall State..." >> "$REPORT_FILE"
+{% if target_type == 'macmini' %}
+sudo pfctl -sr 2>/dev/null | head -20 >> "$REPORT_FILE"
+{% else %}
+sudo ufw status verbose >> "$REPORT_FILE" 2>/dev/null
+{% endif %}
+
+# 8. Check disk usage
+echo "[*] Disk Usage..." >> "$REPORT_FILE"
+df -h {{ docker_dir }} >> "$REPORT_FILE"
+
+# 9. Check TypeDB data size
+echo "[*] TypeDB Data Size..." >> "$REPORT_FILE"
+du -sh {{ docker_dir }}/typedb-data >> "$REPORT_FILE" 2>/dev/null
+
+echo "=== Audit Complete ===" >> "$REPORT_FILE"
+echo "Report saved to: $REPORT_FILE"

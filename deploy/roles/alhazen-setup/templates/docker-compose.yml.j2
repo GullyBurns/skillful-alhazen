@@ -1,0 +1,221 @@
+name: {{ compose_project_name | default('openclaw-docker') }}
+
+services:
+  # --- Infrastructure Services ---
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: {{ container_prefix | default('openclaw') }}-litellm
+    restart: unless-stopped
+    env_file: litellm.env
+    environment:
+      - LITELLM_LOG=INFO
+    ports:
+      - "127.0.0.1:4000:4000"
+    networks:
+      - openclaw-internal
+      - openclaw-external
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    mem_limit: 1g
+    cpus: 1.0
+
+  squid:
+    image: docker.io/ubuntu/squid:latest
+    container_name: {{ container_prefix | default('openclaw') }}-squid
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3128:3128"
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+      - ./allowlist.txt:/etc/squid/allowlist.txt:ro
+    networks:
+      - openclaw-internal
+      - openclaw-external
+
+  # --- OpenClaw Agent ---
+  # IMPORTANT: The agent gets openclaw-external for direct internet (Telegram, etc.)
+  # but does NOT use Squid proxy. The @anthropic-ai/sdk in Node.js honors HTTP_PROXY
+  # but ignores NO_PROXY, so routing through Squid breaks internal LiteLLM calls.
+  # Instead, the agent talks to LiteLLM directly via the internal network.
+
+  openclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: {{ container_prefix | default('openclaw') }}-agent
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18789:18789"
+    networks:
+      - openclaw-internal
+      - openclaw-external
+    volumes:
+      - ./openclaw-data:/home/node/.openclaw
+      - ./openclaw-data/gateway.crt:/home/node/.openclaw/gateway.crt:ro
+      - ./openclaw-data/gateway.key:/home/node/.openclaw/gateway.key:ro
+      - ./openclaw-ssh:/home/node/.ssh
+      - ./workspace:/opt/openclaw/workspace
+    working_dir: /home/node
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - ANTHROPIC_API_BASE=http://litellm:4000
+      - ANTHROPIC_API_KEY=${LITELLM_MASTER_KEY}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_GATEWAY_CERT=/home/node/.openclaw/gateway.crt
+      - OPENCLAW_GATEWAY_KEY=/home/node/.openclaw/gateway.key
+    depends_on:
+      - litellm
+    security_opt:
+      - no-new-privileges:true
+
+  # --- Alhazen Services ---
+
+  typedb:
+    image: docker.io/vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: {{ container_prefix | default('alhazen') }}-typedb
+    restart: unless-stopped
+    volumes:
+      - ./typedb-data:/opt/typedb-all-linux-x86_64/server/data
+      - {{ repo_dir }}/local_resources/typedb:/schema:ro
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'database list' | /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - openclaw-internal
+    ports:
+      - "127.0.0.1:{{ typedb_host_port | default('1729') }}:1729"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    cpus: 2.0
+
+  typedb-init:
+    image: docker.io/vaticle/typedb:2.25.0
+    platform: linux/amd64
+    container_name: {{ container_prefix | default('alhazen') }}-typedb-init
+    depends_on:
+      typedb:
+        condition: service_healthy
+    volumes:
+      - {{ repo_dir }}/local_resources/typedb:/schema:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Checking if database exists..."
+        if echo "database list" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729 2>/dev/null | grep -q "alhazen_notebook"; then
+          echo "Database already exists, skipping initialization"
+          exit 0
+        fi
+
+        echo "Creating database..."
+        echo "database create alhazen_notebook" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729 2>/dev/null || true
+
+        echo "Loading main schema..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/alhazen_notebook.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading scientific literature namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/scilit.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading job hunt namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/jobhunt.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading precision medicine namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/apm.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Loading tech recon namespace..."
+        echo "transaction alhazen_notebook schema write
+        source /schema/namespaces/techrecon.tql
+        commit" | /opt/typedb-all-linux-x86_64/typedb console --server=typedb:1729
+
+        echo "Schema initialization complete!"
+    networks:
+      - openclaw-internal
+    restart: "no"
+
+  alhazen-mcp:
+    build:
+      context: {{ repo_dir }}
+      dockerfile: Dockerfile.mcp
+    container_name: {{ container_prefix | default('alhazen') }}-mcp
+    restart: unless-stopped
+    environment:
+      - TYPEDB_HOST=typedb
+      - TYPEDB_PORT=1729
+      - TYPEDB_DATABASE=alhazen_notebook
+      - HTTP_PROXY=http://squid:3128
+      - HTTPS_PROXY=http://squid:3128
+      - NO_PROXY=typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+      - http_proxy=http://squid:3128
+      - https_proxy=http://squid:3128
+      - no_proxy=typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+    depends_on:
+      - typedb
+      - squid
+    networks:
+      - openclaw-internal
+    ports:
+      - "127.0.0.1:{{ mcp_host_port | default('3000') }}:3000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+    mem_limit: 1g
+    cpus: 1.0
+
+  alhazen-dashboard:
+    build:
+      context: {{ repo_dir }}
+      dockerfile: dashboard/Dockerfile
+    container_name: {{ container_prefix | default('alhazen') }}-dashboard
+    restart: unless-stopped
+    environment:
+      - TYPEDB_HOST=typedb
+      - TYPEDB_PORT=1729
+      - TYPEDB_DATABASE=alhazen_notebook
+    depends_on:
+      - typedb
+    networks:
+      - openclaw-internal
+    ports:
+      - "127.0.0.1:{{ dashboard_host_port | default('3001') }}:3000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=50m
+    mem_limit: 512m
+    cpus: 1.0
+
+networks:
+  openclaw-internal:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+  openclaw-external:
+    driver: bridge

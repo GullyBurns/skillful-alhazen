@@ -1,0 +1,85 @@
+---
+# macOS Security Configuration (pf firewall, SSH hardening)
+
+# pf Firewall
+- name: Deploy pf Firewall Rules
+  template:
+    src: pf-alhazen.rules.j2
+    dest: /etc/pf.anchors/openclaw.rules
+    owner: root
+    group: wheel
+    mode: '0644'
+  register: pf_rules
+
+- name: Check if pf.conf already has openclaw anchor
+  command: grep -c 'openclaw' /etc/pf.conf
+  register: pf_anchor_check
+  changed_when: false
+  failed_when: false
+
+- name: Add openclaw anchor to pf.conf
+  blockinfile:
+    path: /etc/pf.conf
+    marker: "# {mark} OPENCLAW MANAGED BLOCK"
+    block: |
+      anchor "openclaw"
+      load anchor "openclaw" from "/etc/pf.anchors/openclaw.rules"
+  when: pf_anchor_check.stdout | int == 0
+
+- name: Reload pf Firewall
+  command: pfctl -e -f /etc/pf.conf
+  when: pf_rules.changed or pf_anchor_check.stdout | int == 0
+  failed_when: false
+
+# Launchd plist for pf persistence
+- name: Create launchd plist for pf
+  copy:
+    dest: /Library/LaunchDaemons/com.openclaw.pf.plist
+    owner: root
+    group: wheel
+    mode: '0644'
+    content: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>Label</key>
+          <string>com.openclaw.pf</string>
+          <key>ProgramArguments</key>
+          <array>
+              <string>/sbin/pfctl</string>
+              <string>-e</string>
+              <string>-f</string>
+              <string>/etc/pf.conf</string>
+          </array>
+          <key>RunAtLoad</key>
+          <true/>
+      </dict>
+      </plist>
+  register: pf_plist
+
+- name: Load pf launchd plist
+  command: launchctl load /Library/LaunchDaemons/com.openclaw.pf.plist
+  when: pf_plist.changed
+  failed_when: false
+
+# SSH Hardening
+- name: Disable SSH Password Authentication (macOS)
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    backup: true
+  loop:
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+    - { regexp: '^#?ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
+    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+
+- name: Display macOS Security Summary
+  debug:
+    msg:
+      - "macOS security hardening applied (OpenClaw + Alhazen):"
+      - "  - pf firewall: deny incoming except SSH (22) and Tailscale (41641)"
+      - "  - SSH: password auth disabled, key-only"
+      - "  - pf persists across reboots via launchd"

@@ -1,0 +1,105 @@
+---
+- name: Update Channel Users
+  hosts: all
+  become: true
+  vars:
+    openclaw_user: "openclaw"
+    openclaw_home: "/home/openclaw"
+    compose_project_name: "{{ compose_project_name | default('openclaw-docker') }}"
+    docker_dir: "{{ openclaw_home }}/{{ compose_project_name }}"
+    data_dir: "{{ docker_dir }}/openclaw-data"
+    config_file: "{{ data_dir }}/openclaw.json"
+    target_type: "{{ target_type | default('vps') }}"
+    channel: "{{ channel }}"
+    channel_action: "{{ channel_action | default('list') }}"
+    user_id: "{{ user_id | default('') }}"
+    container_prefix: "{{ compose_project_name | replace('-docker', '') }}"
+
+  tasks:
+    # List current users (run as root — podman subuid remaps file ownership)
+    - name: List current allowFrom users
+      shell: |
+        jq -r '.channels.{{ channel }}.allowFrom // [] | .[]' "{{ config_file }}"
+      register: current_users
+      changed_when: false
+
+    - name: Show current users
+      debug:
+        msg: "Current {{ channel }} allowFrom: {{ current_users.stdout_lines | default([]) }}"
+      when: channel_action == 'list'
+
+    # Add user
+    - name: Check if user already exists
+      shell: |
+        jq -e '.channels.{{ channel }}.allowFrom // [] | index("{{ user_id }}")' "{{ config_file }}" > /dev/null 2>&1
+      register: user_exists
+      failed_when: false
+      changed_when: false
+      when: channel_action == 'add'
+
+    - name: Add user to channel allowFrom
+      shell: |
+        jq '.channels.{{ channel }}.allowFrom = ((.channels.{{ channel }}.allowFrom // []) + ["{{ user_id }}"] | unique)' \
+          "{{ config_file }}" > "{{ config_file }}.tmp" && \
+          mv "{{ config_file }}.tmp" "{{ config_file }}"
+      register: config_add
+      when: channel_action == 'add' and user_exists.rc != 0
+
+    - name: User already in allowFrom
+      debug:
+        msg: "User {{ user_id }} is already in {{ channel }} allowFrom list."
+      when: channel_action == 'add' and user_exists.rc == 0
+
+    # Remove user
+    - name: Remove user from channel allowFrom
+      shell: |
+        jq '.channels.{{ channel }}.allowFrom = ([.channels.{{ channel }}.allowFrom // [] | .[] | select(. != "{{ user_id }}")])' \
+          "{{ config_file }}" > "{{ config_file }}.tmp" && \
+          mv "{{ config_file }}.tmp" "{{ config_file }}"
+      register: config_remove
+      when: channel_action == 'remove'
+
+    # Restart agent if config changed
+    - name: Set config_changed fact
+      set_fact:
+        config_changed: "{{ (config_add is defined and config_add.changed | default(false)) or (config_remove is defined and config_remove.changed | default(false)) }}"
+
+    - name: Show updated allowFrom
+      shell: |
+        jq -r '.channels.{{ channel }}.allowFrom // [] | .[]' "{{ config_file }}"
+      register: updated_users
+      changed_when: false
+      when: config_changed | bool
+
+    - name: Display updated users
+      debug:
+        msg: "Updated {{ channel }} allowFrom: {{ updated_users.stdout_lines | default([]) }}"
+      when: config_changed | bool
+
+    # Linux (Podman) restart — must run as openclaw user (rootless podman)
+    - name: Get OpenClaw User UID (Linux)
+      getent:
+        database: passwd
+        key: "{{ openclaw_user }}"
+      when: config_changed | bool and target_type == 'vps'
+
+    - name: Restart Agent Container (Linux/Podman)
+      shell: |
+        podman restart {{ container_prefix }}-agent
+      become_user: "{{ openclaw_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+      when: config_changed | bool and target_type == 'vps'
+
+    # macOS (Docker) restart
+    - name: Restart Agent Container (macOS/Docker)
+      shell: |
+        docker restart {{ container_prefix }}-agent
+      when: config_changed | bool and target_type == 'macmini'
+
+    - name: Status Message
+      debug:
+        msg: >-
+          {{ 'Agent restarted with updated ' + channel + ' config.'
+             if config_changed | bool
+             else 'No changes to ' + channel + ' config.' }}

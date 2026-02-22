@@ -1,0 +1,33 @@
+---
+# Main Task File - Conditional Loading based on OS and target_type
+
+- name: Detect Operating System
+  debug:
+    msg: "Detected OS Family: {{ ansible_facts['os_family'] }}, Distribution: {{ ansible_facts['distribution'] | default('N/A') }}, Target Type: {{ target_type }}"
+
+# System setup
+- name: Load Debian/Ubuntu Tasks
+  include_tasks: linux-system.yml
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Load macOS Tasks
+  include_tasks: macos-system.yml
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: Fail on Unsupported OS
+  fail:
+    msg: "Unsupported OS: {{ ansible_facts['os_family'] }}. This playbook supports Debian/Ubuntu and macOS."
+  when: ansible_facts['os_family'] not in ['Debian', 'Darwin']
+
+# Security hardening
+- name: Configure Linux Security (UFW/Fail2Ban/SSH)
+  include_tasks: security-linux.yml
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Configure macOS Security (pf/SSH)
+  include_tasks: security-macos.yml
+  when: ansible_facts['os_family'] == 'Darwin'
+
+# Container deployment (same for both, with conditional commands)
+- name: Deploy Container Stack
+  include_tasks: container-deploy.yml

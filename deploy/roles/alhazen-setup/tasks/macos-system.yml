@@ -1,0 +1,89 @@
+---
+# macOS System Setup (Mac Mini target)
+
+- name: Verify Docker Desktop is Running
+  command: docker info
+  register: docker_info
+  changed_when: false
+  failed_when: docker_info.rc != 0
+
+- name: Display Docker Info
+  debug:
+    msg: "Docker Desktop is running: {{ docker_info.stdout_lines[:3] }}"
+
+- name: Check if Homebrew is Installed
+  command: which brew
+  register: brew_check
+  changed_when: false
+  failed_when: false
+
+- name: Warn if Homebrew Missing
+  debug:
+    msg: "WARNING: Homebrew not found. Install from https://brew.sh if you need to install packages."
+  when: brew_check.rc != 0
+
+- name: Check if Tailscale is Installed
+  command: which tailscale
+  register: tailscale_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Tailscale via Homebrew
+  command: brew install --cask tailscale
+  when: tailscale_check.rc != 0 and brew_check.rc == 0
+  become: false
+
+- name: Check if docker compose is Available
+  command: docker compose version
+  register: compose_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if docker compose not Available
+  fail:
+    msg: "docker compose is not available. Ensure Docker Desktop is installed and up to date."
+  when: compose_check.rc != 0
+
+# User Setup (macOS uses dscl instead of useradd)
+- name: Check if OpenClaw User Exists
+  command: "dscl . -read /Users/{{ openclaw_user }}"
+  register: user_check
+  changed_when: false
+  failed_when: false
+
+- name: Create OpenClaw Home Directory
+  file:
+    path: "{{ openclaw_home }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    mode: '0700'
+  when: user_check.rc == 0
+
+- name: Create Project Directory (using current user if no dedicated user)
+  file:
+    path: "{{ docker_dir }}"
+    state: directory
+    mode: '0700'
+  when: user_check.rc != 0
+
+- name: Note about macOS User
+  debug:
+    msg: >
+      macOS user '{{ openclaw_user }}' does not exist. Deployment will use the current user.
+      To create a dedicated user, use System Preferences > Users & Groups.
+  when: user_check.rc != 0
+
+- name: Verify SSH is Enabled (Remote Login)
+  command: systemsetup -getremotelogin
+  register: ssh_status
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Display SSH Status
+  debug:
+    msg: "{{ ssh_status.stdout | default('Could not check SSH status') }}"
+
+- name: Display Tailscale Instruction
+  debug:
+    msg: "Please ensure Tailscale is running and connected to your tailnet."

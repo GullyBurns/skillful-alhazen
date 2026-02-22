@@ -1,0 +1,43 @@
+---
+- name: Update Squid Allowlist
+  hosts: all
+  become: true
+  vars:
+    alhazen_user: "alhazen"
+    docker_dir: "/home/alhazen/alhazen-docker"
+    target_type: "{{ target_type | default('vps') }}"
+
+  tasks:
+    - name: Update Allowlist File
+      template:
+        src: roles/alhazen-setup/templates/allowlist.txt.j2
+        dest: "{{ docker_dir }}/allowlist.txt"
+        owner: "{{ alhazen_user }}"
+        group: "{{ alhazen_user }}"
+        mode: '0644'
+      register: allowlist_update
+
+    # Linux (Podman) reload
+    - name: Get Alhazen User UID (Linux)
+      getent:
+        database: passwd
+        key: "{{ alhazen_user }}"
+      when: allowlist_update.changed and target_type == 'vps'
+
+    - name: Reload Squid Configuration (Linux/Podman)
+      shell: |
+        podman exec alhazen-squid squid -k reconfigure
+      become_user: "{{ alhazen_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][alhazen_user][1] }}"
+      when: allowlist_update.changed and target_type == 'vps'
+
+    # macOS (Docker) reload
+    - name: Reload Squid Configuration (macOS/Docker)
+      shell: |
+        docker exec alhazen-squid squid -k reconfigure
+      when: allowlist_update.changed and target_type == 'macmini'
+
+    - name: Status Message
+      debug:
+        msg: "{{ 'Allowlist updated and Squid reloaded.' if allowlist_update.changed else 'No changes to allowlist.' }}"

@@ -1,0 +1,537 @@
+---
+# Combined OpenClaw + Alhazen Container Stack Deployment
+
+- name: Set container tool facts
+  set_fact:
+    compose_cmd: "{{ 'docker compose' if target_type == 'macmini' else 'podman-compose' }}"
+    container_cmd: "{{ 'docker' if target_type == 'macmini' else 'podman' }}"
+
+# Linux: Get UID for rootless Podman
+- name: Get OpenClaw User UID (Linux)
+  getent:
+    database: passwd
+    key: "{{ openclaw_user }}"
+  when: target_type == 'vps'
+
+# Directory Structure
+- name: Create Docker Directory Structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0700'
+  loop:
+    - "{{ docker_dir }}"
+    - "{{ data_dir }}"
+    - "{{ ssh_dir }}"
+    - "{{ workspace_dir }}"
+    - "{{ docker_dir }}/typedb-data"
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Fix Workspace Permissions (Must be readable)
+  file:
+    path: "{{ workspace_dir }}"
+    mode: '0755'
+
+# Clone Source Repository (needed for container builds and schemas)
+- name: Clone Alhazen Repository (Linux)
+  git:
+    repo: "https://github.com/GullyBurns/skillful-alhazen.git"
+    dest: "{{ repo_dir }}"
+    version: "{{ deploy_branch | default('main') }}"
+    update: yes
+  become: true
+  become_user: "{{ openclaw_user }}"
+  when: target_type == 'vps'
+
+- name: Clone Alhazen Repository (macOS)
+  git:
+    repo: "https://github.com/GullyBurns/skillful-alhazen.git"
+    dest: "{{ repo_dir }}"
+    version: "{{ deploy_branch | default('main') }}"
+    update: yes
+  when: target_type == 'macmini'
+
+# Reset Podman namespace ownership before writing (fixes re-deploy permission errors)
+- name: Reset Workspace Ownership for Host Access (Linux)
+  shell: |
+    podman unshare chown -R 0:0 {{ workspace_dir }}
+    podman unshare chown -R 0:0 {{ data_dir }}
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+  when: target_type == 'vps'
+  ignore_errors: true
+
+# Copy Alhazen skills into OpenClaw managed skills directory
+# OpenClaw discovers custom skills from ~/.openclaw/skills/ (managedSkillsDir),
+# which maps to openclaw-data/skills/ on the host via the docker-compose volume mount.
+- name: Copy Alhazen Skills to Managed Skills Dir
+  shell: |
+    mkdir -p {{ data_dir }}/skills
+    for skill_dir in {{ repo_dir }}/.claude/skills/*/; do
+      skill_name=$(basename "$skill_dir")
+      [ "$skill_name" = "_template" ] && continue
+      cp -r "$skill_dir" "{{ data_dir }}/skills/$skill_name"
+    done
+  become: "{{ target_type == 'vps' }}"
+  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+
+# Copy identity files to workspace (matching make deploy-openclaw-identity)
+- name: Copy SOUL.md to Workspace
+  copy:
+    src: "{{ repo_dir }}/local_resources/openclaw/SOUL.md"
+    dest: "{{ workspace_dir }}/SOUL.md"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+    remote_src: true
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Copy AGENTS.md to Workspace
+  copy:
+    src: "{{ repo_dir }}/local_resources/openclaw/AGENTS.md"
+    dest: "{{ workspace_dir }}/AGENTS.md"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+    remote_src: true
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Copy Identity Templates to Workspace
+  copy:
+    src: "{{ repo_dir }}/local_resources/openclaw/{{ item }}"
+    dest: "{{ workspace_dir }}/{{ item | replace('.template', '') }}"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+    remote_src: true
+    force: false
+  loop:
+    - HEARTBEAT.md.template
+    - MEMORY.md.template
+    - TOOLS.md.template
+    - USER.md.template
+  ignore_errors: true
+
+# Copy CLAUDE.md to workspace (matching make deploy-openclaw-docs)
+- name: Copy CLAUDE.md to Workspace
+  copy:
+    src: "{{ repo_dir }}/CLAUDE.md"
+    dest: "{{ workspace_dir }}/CLAUDE.md"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+    remote_src: true
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+# Secrets Management
+- name: Check for existing secrets in .env
+  slurp:
+    src: "{{ docker_dir }}/.env"
+  register: existing_env_file
+  ignore_errors: true
+
+- name: Extract Existing LiteLLM Master Key
+  set_fact:
+    existing_master_key: "{{ (existing_env_file.content | b64decode | regex_findall('LITELLM_MASTER_KEY=(.*)'))[0] | default('') }}"
+  when: not existing_env_file.failed
+
+- name: Extract Existing Gateway Token
+  set_fact:
+    existing_openclaw_token: "{{ (existing_env_file.content | b64decode | regex_findall('OPENCLAW_GATEWAY_TOKEN=(.*)'))[0] | default('') }}"
+  when: not existing_env_file.failed
+
+- name: Generate LiteLLM Master Key (if missing)
+  command: "openssl rand -base64 32"
+  register: litellm_master_key_gen
+  when: existing_master_key | default('') | length == 0
+
+- name: Generate OpenClaw Gateway Token (if missing)
+  command: "openssl rand -base64 32"
+  register: openclaw_token_gen
+  when: existing_openclaw_token | default('') | length == 0
+
+- name: Set Final Secrets
+  set_fact:
+    litellm_key: "{{ existing_master_key | default('') if (existing_master_key | default('') | length > 0) else litellm_master_key_gen.stdout }}"
+    openclaw_token: "{{ existing_openclaw_token | default('') if (existing_openclaw_token | default('') | length > 0) else openclaw_token_gen.stdout }}"
+
+# Render All Config Templates
+- name: Create .env file for Compose
+  template:
+    src: env.j2
+    dest: "{{ docker_dir }}/.env"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create LiteLLM env file (real API keys - LiteLLM only)
+  template:
+    src: litellm.env.j2
+    dest: "{{ docker_dir }}/litellm.env"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create LiteLLM Config
+  template:
+    src: litellm-config.yaml.j2
+    dest: "{{ docker_dir }}/litellm-config.yaml"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Prepare OpenClaw Config Directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0700'
+  loop:
+    - "{{ data_dir }}/credentials"
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create OpenClaw Consolidated Config
+  template:
+    src: openclaw.json.j2
+    dest: "{{ data_dir }}/openclaw.json"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create Hardened Tools Allowlist
+  template:
+    src: tools.yaml.j2
+    dest: "{{ data_dir }}/tools.yaml"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create Secure MCP Config
+  template:
+    src: mcp.json.j2
+    dest: "{{ data_dir }}/mcp.json"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create Exec Approvals Config
+  template:
+    src: exec-approvals.json.j2
+    dest: "{{ data_dir }}/exec-approvals.json"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+# Generate dynamic skill entries in OpenClaw config
+- name: Generate Alhazen Skill Entries in OpenClaw Config
+  shell: |
+    patch='{}'
+    for skill_yaml in {{ repo_dir }}/local_resources/skills/*.yaml; do
+      skill_name=$(basename "$skill_yaml" .yaml)
+      patch=$(echo "$patch" | jq --arg name "$skill_name" \
+        --arg root "/opt/openclaw/workspace" \
+        --arg typedb_host "typedb" \
+        --arg typedb_port "1729" \
+        --arg typedb_db "alhazen_notebook" \
+        '. + {($name): {"env": {"ALHAZEN_PROJECT_ROOT": $root, "TYPEDB_HOST": $typedb_host, "TYPEDB_PORT": $typedb_port, "TYPEDB_DATABASE": $typedb_db}}}')
+    done
+    jq --argjson entries "$patch" '.skills.entries = $entries' \
+      "{{ data_dir }}/openclaw.json" > "{{ data_dir }}/openclaw.json.tmp" && \
+      mv "{{ data_dir }}/openclaw.json.tmp" "{{ data_dir }}/openclaw.json"
+  become: "{{ target_type == 'vps' }}"
+  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+
+- name: Add Heartbeat Config to OpenClaw
+  shell: |
+    if ! jq -e '.agents.defaults.heartbeat' "{{ data_dir }}/openclaw.json" >/dev/null 2>&1; then
+      jq '.agents.defaults.heartbeat = {"every": "2h", "target": "last", "activeHours": {"start": "08:00", "end": "22:00", "timezone": "America/Los_Angeles"}}' \
+        "{{ data_dir }}/openclaw.json" > "{{ data_dir }}/openclaw.json.tmp" && \
+        mv "{{ data_dir }}/openclaw.json.tmp" "{{ data_dir }}/openclaw.json"
+    fi
+  become: "{{ target_type == 'vps' }}"
+  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+
+- name: Create Squid Allowlist
+  template:
+    src: allowlist.txt.j2
+    dest: "{{ docker_dir }}/allowlist.txt"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Create Squid Config
+  template:
+    src: squid.conf.j2
+    dest: "{{ docker_dir }}/squid.conf"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+# SSL Certificates
+- name: Deploy SSL Certificate
+  copy:
+    content: "{{ hostvars['localhost']['deploy_ssl_cert'] }}"
+    dest: "{{ data_dir }}/gateway.crt"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Deploy SSL Key
+  copy:
+    content: "{{ hostvars['localhost']['deploy_ssl_key'] }}"
+    dest: "{{ data_dir }}/gateway.key"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+# Monitoring
+- name: Deploy Monitoring Script
+  template:
+    src: monitor.sh.j2
+    dest: "{{ docker_dir }}/monitor.sh"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0700'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+# Docker Compose & Dockerfile
+- name: Create OpenClaw Dockerfile
+  template:
+    src: Dockerfile.j2
+    dest: "{{ docker_dir }}/Dockerfile"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0644'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+- name: Deploy Docker Compose Stack
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ docker_dir }}/docker-compose.yml"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0600'
+  ignore_errors: "{{ target_type == 'macmini' }}"
+
+# Linux: Podman user namespace setup
+- name: Set Podman User Namespace Permissions
+  command: "podman unshare chown -R 1000:1000 {{ item }}"
+  loop:
+    - "{{ data_dir }}"
+    - "{{ ssh_dir }}"
+    - "{{ workspace_dir }}"
+    - "{{ docker_dir }}/typedb-data"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+  when: target_type == 'vps'
+
+- name: Fix Base Directory Permissions
+  file:
+    path: "{{ docker_dir }}"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: '0700'
+
+# Linux: Monitoring systemd timer
+- name: Create Monitoring systemd Service (Linux)
+  copy:
+    dest: /etc/systemd/system/openclaw-monitor.service
+    content: |
+      [Unit]
+      Description=OpenClaw + Alhazen Security Monitor
+      After=podman.service
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ docker_dir }}/monitor.sh
+      User=root
+  when: target_type == 'vps'
+
+- name: Create Monitoring systemd Timer (Linux)
+  copy:
+    dest: /etc/systemd/system/openclaw-monitor.timer
+    content: |
+      [Unit]
+      Description=Run Security Monitor Weekly
+
+      [Timer]
+      OnCalendar=weekly
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+  when: target_type == 'vps'
+
+- name: Enable Monitoring Timer (Linux)
+  systemd:
+    name: openclaw-monitor.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: target_type == 'vps'
+
+# macOS: Monitoring via launchd
+- name: Create Monitoring launchd plist (macOS)
+  copy:
+    dest: /Library/LaunchDaemons/com.openclaw.monitor.plist
+    owner: root
+    group: wheel
+    mode: '0644'
+    content: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>Label</key>
+          <string>com.openclaw.monitor</string>
+          <key>ProgramArguments</key>
+          <array>
+              <string>{{ docker_dir }}/monitor.sh</string>
+          </array>
+          <key>StartCalendarInterval</key>
+          <dict>
+              <key>Weekday</key>
+              <integer>1</integer>
+              <key>Hour</key>
+              <integer>3</integer>
+          </dict>
+      </dict>
+      </plist>
+  when: target_type == 'macmini'
+
+# Stop existing stack
+- name: Stop Existing Stack (Linux/Podman)
+  shell: |
+    podman-compose down
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+  ignore_errors: true
+  when: target_type == 'vps'
+
+- name: Stop Existing Stack (macOS/Docker)
+  shell: |
+    docker compose down
+  args:
+    chdir: "{{ docker_dir }}"
+  ignore_errors: true
+  when: target_type == 'macmini'
+
+# Build and start
+- name: Build Container Images (Linux/Podman)
+  shell: |
+    podman-compose build --no-cache 2>&1
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+  register: build_result_linux
+  async: 1800
+  poll: 30
+  when: target_type == 'vps'
+
+- name: Build Container Images (macOS/Docker)
+  shell: |
+    docker compose build 2>&1
+  args:
+    chdir: "{{ docker_dir }}"
+  register: build_result_macos
+  async: 1800
+  poll: 30
+  when: target_type == 'macmini'
+
+- name: Start Stack (Linux/Podman)
+  shell: |
+    podman-compose up -d
+    # Force restart agent to ensure config pick-up
+    podman restart {{ container_prefix | default('openclaw') }}-agent
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}/bus"
+    LITELLM_MASTER_KEY: "{{ litellm_key }}"
+    OPENCLAW_GATEWAY_TOKEN: "{{ openclaw_token }}"
+  register: start_result_linux
+  when: target_type == 'vps'
+
+- name: Start Stack (macOS/Docker)
+  shell: |
+    docker compose up -d
+    docker restart {{ container_prefix | default('openclaw') }}-agent
+  args:
+    chdir: "{{ docker_dir }}"
+  environment:
+    LITELLM_MASTER_KEY: "{{ litellm_key }}"
+    OPENCLAW_GATEWAY_TOKEN: "{{ openclaw_token }}"
+  register: start_result_macos
+  when: target_type == 'macmini'
+
+# Run OpenClaw Doctor Fix
+- name: Run OpenClaw Doctor Fix
+  shell: |
+    {{ container_cmd }} exec {{ container_prefix | default('openclaw') }}-agent openclaw doctor --fix --yes --non-interactive
+  become: "{{ target_type == 'vps' }}"
+  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {} }}"
+  ignore_errors: true
+
+# Health check: wait for TypeDB
+- name: Wait for TypeDB to be Ready
+  shell: |
+    for i in $(seq 1 30); do
+      echo 'exit' | {{ container_cmd }} exec -i {{ container_prefix | default('alhazen') }}-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null && exit 0
+      sleep 2
+    done
+    echo "TypeDB failed to start within 60 seconds" && exit 1
+  args:
+    chdir: "{{ docker_dir }}"
+  become: "{{ target_type == 'vps' }}"
+  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {} }}"
+  register: typedb_health
+
+- name: Show TypeDB Health
+  debug:
+    msg: "TypeDB health check: {{ 'PASSED' if typedb_health.rc == 0 else 'FAILED' }}"
+
+# List containers
+- name: List All Containers
+  shell: "{{ container_cmd }} ps -a"
+  become: "{{ target_type == 'vps' }}"
+  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+  register: container_ps_result
+
+- name: Show Container Status
+  debug:
+    var: container_ps_result.stdout_lines
+
+# Ensure persistence
+- name: Ensure Containers Persist on Reboot (Linux)
+  command: "loginctl enable-linger {{ openclaw_user }}"
+  when: target_type == 'vps'
