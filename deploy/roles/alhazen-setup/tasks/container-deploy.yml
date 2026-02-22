@@ -65,14 +65,16 @@
   when: target_type == 'vps'
   ignore_errors: true
 
-# Copy Alhazen skills into OpenClaw workspace
-- name: Copy Alhazen Skills to Workspace
+# Copy Alhazen skills into OpenClaw managed skills directory
+# OpenClaw discovers custom skills from ~/.openclaw/skills/ (managedSkillsDir),
+# which maps to openclaw-data/skills/ on the host via the docker-compose volume mount.
+- name: Copy Alhazen Skills to Managed Skills Dir
   shell: |
-    mkdir -p {{ workspace_dir }}/skills
+    mkdir -p {{ data_dir }}/skills
     for skill_dir in {{ repo_dir }}/.claude/skills/*/; do
       skill_name=$(basename "$skill_dir")
       [ "$skill_name" = "_template" ] && continue
-      cp -r "$skill_dir" "{{ workspace_dir }}/skills/$skill_name"
+      cp -r "$skill_dir" "{{ data_dir }}/skills/$skill_name"
     done
   become: "{{ target_type == 'vps' }}"
   become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
