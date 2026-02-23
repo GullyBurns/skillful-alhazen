@@ -13,7 +13,7 @@
     channel: "{{ channel }}"
     channel_action: "{{ channel_action | default('list') }}"
     user_id: "{{ user_id | default('') }}"
-    container_prefix: "{{ compose_project_name | replace('-docker', '') }}"
+    container_prefix: "{{ container_prefix | default('alhazen') }}"
 
   tasks:
     # List current users (run as root — podman subuid remaps file ownership)

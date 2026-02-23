@@ -67,10 +67,19 @@
     }
   },
   "channels": {
-    "telegram": { "dmPolicy": "allowlist", "allowFrom": [], "groupPolicy": "disabled" },
-    "whatsapp": { "dmPolicy": "allowlist", "allowFrom": [], "groupPolicy": "disabled" },
-    "discord": { "dm": { "policy": "allowlist" }, "allowFrom": [], "groupPolicy": "disabled" },
-    "signal": { "dmPolicy": "allowlist", "allowFrom": [], "groupPolicy": "disabled" }
+{% if telegram_bot_token | default('') != '' %}
+    "telegram": { "botToken": "{{ telegram_bot_token }}", "dmPolicy": "allowlist", "allowFrom": [], "groupPolicy": "disabled" }
+{% endif %}
+  },
+  "plugins": {
+    "entries": {
+{% if telegram_bot_token | default('') != '' %}
+      "telegram": { "enabled": true },
+{% endif %}
+      "device-pair": { "enabled": false },
+      "phone-control": { "enabled": false },
+      "talk-voice": { "enabled": false }
+    }
   },
   "skills": {
     "entries": {}
