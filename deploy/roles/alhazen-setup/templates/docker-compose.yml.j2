@@ -75,6 +75,7 @@ services:
       - OPENCLAW_GATEWAY_KEY=/home/node/.openclaw/gateway.key
     depends_on:
       - litellm
+    shm_size: '256m'
     security_opt:
       - no-new-privileges:true
 

@@ -29,6 +29,19 @@
       "token": "{{ openclaw_token }}"
     }
   },
+  "browser": {
+    "enabled": true,
+    "defaultProfile": "openclaw",
+    "headless": true,
+    "noSandbox": true,
+    "executablePath": "/usr/bin/chromium-browser",
+    "profiles": {
+      "openclaw": {
+        "cdpPort": 18800,
+        "color": "#FF6B00"
+      }
+    }
+  },
   "discovery": {
     "mdns": { "mode": "off" }
   },
