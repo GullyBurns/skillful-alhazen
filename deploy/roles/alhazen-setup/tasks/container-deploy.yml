@@ -45,6 +45,16 @@
   become_user: "{{ openclaw_user }}"
   when: target_type == 'vps'
 
+- name: Fix Repo Ownership (macOS)
+  file:
+    path: "{{ repo_dir }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
+    recurse: yes
+  when: target_type == 'macmini'
+  ignore_errors: true
+
 - name: Clone Alhazen Repository (macOS)
   git:
     repo: "https://github.com/GullyBurns/skillful-alhazen.git"
