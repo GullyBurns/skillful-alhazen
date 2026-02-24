@@ -76,7 +76,7 @@
     path: "{{ openclaw_home }}"
     state: directory
     owner: "{{ openclaw_user }}"
-    mode: '0700'
+    mode: '0755'
   when: user_check.rc == 0
 
 - name: Create Project Directory (using current user if no dedicated user)
