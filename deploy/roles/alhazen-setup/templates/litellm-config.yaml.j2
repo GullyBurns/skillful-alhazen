@@ -47,6 +47,7 @@ model_list:
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   max_parallel_requests: 10
+  allow_requests_on_db_unavailable: true
 
 litellm_settings:
   request_timeout: 600
