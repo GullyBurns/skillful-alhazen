@@ -86,6 +86,16 @@
     mode: '0700'
   when: user_check.rc == 0
 
+- name: Ensure openclaw is in staff Group (for Docker socket access)
+  command: "dscl . -append /Groups/staff GroupMembership {{ openclaw_user }}"
+  when: user_check.rc == 0
+  changed_when: false
+
+- name: Grant openclaw Traverse Access to SSH User Home (for Docker socket)
+  command: "chmod +a '{{ openclaw_user }} allow execute' /Users/{{ ansible_user }}"
+  when: user_check.rc == 0
+  changed_when: false
+
 - name: Create Project Directory (using current user if no dedicated user)
   file:
     path: "{{ docker_dir }}"
@@ -101,10 +111,11 @@
   when: user_check.rc != 0
 
 - name: Verify openclaw Can Access Docker
-  command: docker info
+  shell: /usr/local/bin/docker info 2>&1
   environment: "{{ macos_docker_env }}"
   become: true
   become_user: "{{ openclaw_user }}"
+  become_flags: "-H"
   register: openclaw_docker_check
   changed_when: false
   failed_when: false
@@ -114,6 +125,7 @@
   fail:
     msg: |
       The openclaw user cannot access Docker Desktop.
+      Error: {{ openclaw_docker_check.stdout | default('') }} {{ openclaw_docker_check.stderr | default('') }}
       Ensure Docker socket is accessible: ls -la /var/run/docker.sock
       The openclaw user must be in the 'staff' group.
   when: user_check.rc == 0 and openclaw_docker_check.rc != 0
