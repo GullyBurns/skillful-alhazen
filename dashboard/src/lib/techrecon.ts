@@ -26,6 +26,10 @@ export async function listInvestigations(status?: string) {
   return runTechrecon(args);
 }
 
+export async function getInvestigation(id: string) {
+  return runTechrecon(['show-investigation', '--id', id]);
+}
+
 export async function listSystems() {
   return runTechrecon(['list-systems']);
 }

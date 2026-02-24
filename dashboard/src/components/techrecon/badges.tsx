@@ -37,6 +37,13 @@ const TYPE_COLORS: Record<string, string> = {
   investigation: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
 };
 
+const INVESTIGATION_STATUS_COLORS: Record<string, string> = {
+  active: 'bg-green-500/20 text-green-400 border-green-500/30',
+  completed: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  paused: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  archived: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+};
+
 function getBadgeColor(map: Record<string, string>, value: string): string {
   return map[value.toLowerCase()] || 'bg-slate-500/20 text-slate-300 border-slate-500/30';
 }
@@ -69,6 +76,14 @@ export function TypeBadge({ type }: { type: string }) {
   return (
     <Badge className={getBadgeColor(TYPE_COLORS, type)}>
       {type}
+    </Badge>
+  );
+}
+
+export function InvestigationStatusBadge({ status }: { status: string }) {
+  return (
+    <Badge className={getBadgeColor(INVESTIGATION_STATUS_COLORS, status)}>
+      {status}
     </Badge>
   );
 }

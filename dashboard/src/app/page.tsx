@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Briefcase, Monitor, Database } from 'lucide-react';
@@ -39,13 +40,18 @@ export default function HubPage() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="py-16 text-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-          Skillful-Alhazen
-        </h1>
-        <p className="text-muted-foreground mt-2 text-lg">
-          AI-Powered Knowledge Curation System
-        </p>
+      <header className="py-16 flex justify-center">
+        <div className="flex items-center gap-5">
+          <Image src="/hero-icon.svg" alt="" width={72} height={72} />
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+              Skillful-Alhazen
+            </h1>
+            <p className="text-muted-foreground mt-1 text-lg">
+              AI-Powered Knowledge Curation System
+            </p>
+          </div>
+        </div>
       </header>
 
       {/* Dashboard Cards */}

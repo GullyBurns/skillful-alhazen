@@ -10,7 +10,8 @@ Usage:
 Commands:
     # Investigation Management
     start-investigation   Start a new investigation
-    list-investigations   List investigations
+    list-investigations   List investigations (with summary counts)
+    show-investigation    Show investigation details with all members
     update-investigation  Update investigation status
 
     # Entity Creation
@@ -380,7 +381,7 @@ def cmd_start_investigation(args):
 
 
 def cmd_list_investigations(args):
-    """List investigations."""
+    """List investigations with summary counts."""
     with get_driver() as driver:
         with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
             with session.transaction(TransactionType.READ) as tx:
@@ -388,18 +389,43 @@ def cmd_list_investigations(args):
                 if args.status:
                     query += f', has techrecon-investigation-status "{args.status}"'
                 query += """;
-                fetch $i: id, name, techrecon-investigation-status, techrecon-investigation-goal, created-at;"""
+                fetch $i: id, name, description, techrecon-investigation-status, techrecon-investigation-goal, created-at;"""
                 results = list(tx.query.fetch(query))
 
-    investigations = []
-    for r in results:
-        investigations.append({
-            "id": get_attr(r["i"], "id"),
-            "name": get_attr(r["i"], "name"),
-            "status": get_attr(r["i"], "techrecon-investigation-status"),
-            "goal": get_attr(r["i"], "techrecon-investigation-goal"),
-            "created_at": get_attr(r["i"], "created-at"),
-        })
+                investigations = []
+                for r in results:
+                    inv_id = get_attr(r["i"], "id")
+
+                    # Count members by type
+                    counts = {"systems": 0, "artifacts": 0, "notes": 0, "components": 0, "concepts": 0, "data_models": 0}
+                    member_types = [
+                        ("systems", "techrecon-system"),
+                        ("artifacts", "artifact"),
+                        ("notes", "note"),
+                        ("components", "techrecon-component"),
+                        ("concepts", "techrecon-concept"),
+                        ("data_models", "techrecon-data-model"),
+                    ]
+                    for count_key, type_name in member_types:
+                        count_q = f'''match
+                            $c isa techrecon-investigation, has id "{inv_id}";
+                            (collection: $c, member: $m) isa collection-membership;
+                            $m isa {type_name};
+                        fetch $m: id;'''
+                        try:
+                            counts[count_key] = len(list(tx.query.fetch(count_q)))
+                        except Exception:
+                            pass
+
+                    investigations.append({
+                        "id": inv_id,
+                        "name": get_attr(r["i"], "name"),
+                        "description": get_attr(r["i"], "description"),
+                        "status": get_attr(r["i"], "techrecon-investigation-status"),
+                        "goal": get_attr(r["i"], "techrecon-investigation-goal"),
+                        "created_at": get_attr(r["i"], "created-at"),
+                        "summary": counts,
+                    })
 
     print(json.dumps({"success": True, "investigations": investigations, "count": len(investigations)}, indent=2))
 
@@ -423,6 +449,188 @@ def cmd_update_investigation(args):
                 tx.commit()
 
     print(json.dumps({"success": True, "investigation_id": args.id, "status": args.status}))
+
+
+def cmd_show_investigation(args):
+    """Show full investigation details with all members."""
+    with get_driver() as driver:
+        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
+            with session.transaction(TransactionType.READ) as tx:
+                # Investigation metadata
+                inv_query = f'''match $i isa techrecon-investigation, has id "{args.id}";
+                fetch $i: id, name, description, techrecon-investigation-status,
+                    techrecon-investigation-goal, created-at;'''
+                inv_result = list(tx.query.fetch(inv_query))
+
+                if not inv_result:
+                    print(json.dumps({"success": False, "error": "Investigation not found"}))
+                    return
+
+                # Systems
+                sys_query = f'''match
+                    $c isa techrecon-investigation, has id "{args.id}";
+                    (collection: $c, member: $s) isa collection-membership;
+                    $s isa techrecon-system;
+                fetch $s: id, name, techrecon-repo-url, techrecon-language,
+                    techrecon-stars, techrecon-maturity, description, created-at;'''
+                sys_result = list(tx.query.fetch(sys_query))
+
+                # Artifacts
+                art_query = f'''match
+                    $c isa techrecon-investigation, has id "{args.id}";
+                    (collection: $c, member: $a) isa collection-membership;
+                    $a isa artifact;
+                fetch $a: id, name, source-uri, mime-type, created-at;'''
+                art_result = list(tx.query.fetch(art_query))
+
+                # Notes by subtype
+                note_types = [
+                    ("architecture", "techrecon-architecture-note"),
+                    ("design-pattern", "techrecon-design-pattern-note"),
+                    ("integration", "techrecon-integration-note"),
+                    ("comparison", "techrecon-comparison-note"),
+                    ("data-model", "techrecon-data-model-note"),
+                    ("assessment", "techrecon-assessment-note"),
+                ]
+                all_notes = []
+                for note_type_label, note_type_name in note_types:
+                    note_query = f'''match
+                        $c isa techrecon-investigation, has id "{args.id}";
+                        (collection: $c, member: $n) isa collection-membership;
+                        $n isa {note_type_name};
+                    fetch $n: id, name, content, created-at;'''
+                    try:
+                        note_results = list(tx.query.fetch(note_query))
+                    except Exception:
+                        note_results = []
+
+                    for nr in note_results:
+                        note_data = {
+                            "id": get_attr(nr["n"], "id"),
+                            "name": get_attr(nr["n"], "name"),
+                            "content": get_attr(nr["n"], "content"),
+                            "type": note_type_label,
+                            "created_at": get_attr(nr["n"], "created-at"),
+                        }
+                        # Fetch priority/complexity for integration and assessment notes
+                        if note_type_label in ("integration", "assessment"):
+                            nid = note_data["id"]
+                            extra_q = f'''match $n isa {note_type_name}, has id "{nid}";
+                            fetch $n: techrecon-integration-priority, techrecon-complexity-rating;'''
+                            try:
+                                extra_r = list(tx.query.fetch(extra_q))
+                                if extra_r:
+                                    note_data["priority"] = get_attr(extra_r[0]["n"], "techrecon-integration-priority")
+                                    note_data["complexity"] = get_attr(extra_r[0]["n"], "techrecon-complexity-rating")
+                            except Exception:
+                                pass
+                        all_notes.append(note_data)
+
+                # Also fetch general notes
+                gen_note_query = f'''match
+                    $c isa techrecon-investigation, has id "{args.id}";
+                    (collection: $c, member: $n) isa collection-membership;
+                    $n isa note;
+                fetch $n: id, name, content, created-at;'''
+                try:
+                    gen_note_results = list(tx.query.fetch(gen_note_query))
+                    # Exclude notes already found as subtypes
+                    seen_ids = {n["id"] for n in all_notes}
+                    for nr in gen_note_results:
+                        nid = get_attr(nr["n"], "id")
+                        if nid not in seen_ids:
+                            all_notes.append({
+                                "id": nid,
+                                "name": get_attr(nr["n"], "name"),
+                                "content": get_attr(nr["n"], "content"),
+                                "type": "general",
+                                "created_at": get_attr(nr["n"], "created-at"),
+                            })
+                except Exception:
+                    pass
+
+                # Components
+                comp_query = f'''match
+                    $c isa techrecon-investigation, has id "{args.id}";
+                    (collection: $c, member: $m) isa collection-membership;
+                    $m isa techrecon-component;
+                fetch $m: id, name, techrecon-component-type, techrecon-component-role;'''
+                comp_result = list(tx.query.fetch(comp_query))
+
+                # Concepts
+                con_query = f'''match
+                    $c isa techrecon-investigation, has id "{args.id}";
+                    (collection: $c, member: $m) isa collection-membership;
+                    $m isa techrecon-concept;
+                fetch $m: id, name, techrecon-concept-category, description;'''
+                con_result = list(tx.query.fetch(con_query))
+
+                # Data models
+                dm_query = f'''match
+                    $c isa techrecon-investigation, has id "{args.id}";
+                    (collection: $c, member: $m) isa collection-membership;
+                    $m isa techrecon-data-model;
+                fetch $m: id, name, techrecon-model-format, description;'''
+                dm_result = list(tx.query.fetch(dm_query))
+
+    inv = inv_result[0]["i"]
+    output = {
+        "success": True,
+        "investigation": {
+            "id": get_attr(inv, "id"),
+            "name": get_attr(inv, "name"),
+            "description": get_attr(inv, "description"),
+            "status": get_attr(inv, "techrecon-investigation-status"),
+            "goal": get_attr(inv, "techrecon-investigation-goal"),
+            "created_at": get_attr(inv, "created-at"),
+        },
+        "systems": [{
+            "id": get_attr(s["s"], "id"),
+            "name": get_attr(s["s"], "name"),
+            "repo_url": get_attr(s["s"], "techrecon-repo-url"),
+            "language": get_attr(s["s"], "techrecon-language"),
+            "stars": get_attr(s["s"], "techrecon-stars"),
+            "maturity": get_attr(s["s"], "techrecon-maturity"),
+            "description": get_attr(s["s"], "description"),
+            "created_at": get_attr(s["s"], "created-at"),
+        } for s in sys_result],
+        "artifacts": [{
+            "id": get_attr(a["a"], "id"),
+            "name": get_attr(a["a"], "name"),
+            "source_uri": get_attr(a["a"], "source-uri"),
+            "mime_type": get_attr(a["a"], "mime-type"),
+            "created_at": get_attr(a["a"], "created-at"),
+        } for a in art_result],
+        "notes": all_notes,
+        "components": [{
+            "id": get_attr(c["m"], "id"),
+            "name": get_attr(c["m"], "name"),
+            "type": get_attr(c["m"], "techrecon-component-type"),
+            "role": get_attr(c["m"], "techrecon-component-role"),
+        } for c in comp_result],
+        "concepts": [{
+            "id": get_attr(c["m"], "id"),
+            "name": get_attr(c["m"], "name"),
+            "category": get_attr(c["m"], "techrecon-concept-category"),
+            "description": get_attr(c["m"], "description"),
+        } for c in con_result],
+        "data_models": [{
+            "id": get_attr(d["m"], "id"),
+            "name": get_attr(d["m"], "name"),
+            "format": get_attr(d["m"], "techrecon-model-format"),
+            "description": get_attr(d["m"], "description"),
+        } for d in dm_result],
+        "summary": {
+            "systems_count": len(sys_result),
+            "artifacts_count": len(art_result),
+            "notes_count": len(all_notes),
+            "components_count": len(comp_result),
+            "concepts_count": len(con_result),
+            "data_models_count": len(dm_result),
+        },
+    }
+
+    print(json.dumps(output, indent=2, default=str))
 
 
 # =============================================================================
@@ -1777,6 +1985,9 @@ def main():
     p = subparsers.add_parser("list-investigations", help="List investigations")
     p.add_argument("--status", choices=["active", "paused", "completed", "archived"], help="Filter by status")
 
+    p = subparsers.add_parser("show-investigation", help="Show investigation details with all members")
+    p.add_argument("--id", required=True, help="Investigation ID")
+
     p = subparsers.add_parser("update-investigation", help="Update investigation status")
     p.add_argument("--id", required=True, help="Investigation ID")
     p.add_argument("--status", required=True, choices=["active", "paused", "completed", "archived"], help="New status")
@@ -1969,6 +2180,7 @@ def main():
         # Investigation management
         "start-investigation": cmd_start_investigation,
         "list-investigations": cmd_list_investigations,
+        "show-investigation": cmd_show_investigation,
         "update-investigation": cmd_update_investigation,
         # Entity creation
         "add-system": cmd_add_system,
