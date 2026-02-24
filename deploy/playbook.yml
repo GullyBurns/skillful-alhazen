@@ -14,13 +14,13 @@
       slurp:
         src: /etc/openclaw_identity
       register: identity_content
-      when: identity_file.stat.exists
+      when: identity_file.stat is defined and identity_file.stat.exists
       ignore_errors: true
 
     - name: Set existing_hostname fact
       set_fact:
         existing_hostname: "{{ identity_content['content'] | b64decode | trim }}"
-      when: identity_file.stat.exists and identity_content.content is defined
+      when: identity_file.stat is defined and identity_file.stat.exists and identity_content.content is defined
 
 - name: Local Setup (Key Generation & Naming)
   hosts: localhost
