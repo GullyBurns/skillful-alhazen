@@ -19,7 +19,7 @@
     path: "{{ item }}"
     state: directory
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0700'
   loop:
     - "{{ docker_dir }}"
@@ -85,7 +85,7 @@
     src: "{{ repo_dir }}/local_resources/openclaw/SOUL.md"
     dest: "{{ workspace_dir }}/SOUL.md"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
     remote_src: true
   ignore_errors: "{{ target_type == 'macmini' }}"
@@ -95,7 +95,7 @@
     src: "{{ repo_dir }}/local_resources/openclaw/AGENTS.md"
     dest: "{{ workspace_dir }}/AGENTS.md"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
     remote_src: true
   ignore_errors: "{{ target_type == 'macmini' }}"
@@ -105,7 +105,7 @@
     src: "{{ repo_dir }}/local_resources/openclaw/{{ item }}"
     dest: "{{ workspace_dir }}/{{ item | replace('.template', '') }}"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
     remote_src: true
     force: false
@@ -122,7 +122,7 @@
     src: "{{ repo_dir }}/CLAUDE.md"
     dest: "{{ workspace_dir }}/CLAUDE.md"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
     remote_src: true
   ignore_errors: "{{ target_type == 'macmini' }}"
@@ -165,7 +165,7 @@
     src: env.j2
     dest: "{{ docker_dir }}/.env"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -174,7 +174,7 @@
     src: litellm.env.j2
     dest: "{{ docker_dir }}/litellm.env"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -183,7 +183,7 @@
     src: litellm-config.yaml.j2
     dest: "{{ docker_dir }}/litellm-config.yaml"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -192,7 +192,7 @@
     path: "{{ item }}"
     state: directory
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0700'
   loop:
     - "{{ data_dir }}/credentials"
@@ -203,7 +203,7 @@
     src: openclaw.json.j2
     dest: "{{ data_dir }}/openclaw.json"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -212,7 +212,7 @@
     src: tools.yaml.j2
     dest: "{{ data_dir }}/tools.yaml"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -221,7 +221,7 @@
     src: mcp.json.j2
     dest: "{{ data_dir }}/mcp.json"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -230,7 +230,7 @@
     src: exec-approvals.json.j2
     dest: "{{ data_dir }}/exec-approvals.json"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -268,7 +268,7 @@
     src: allowlist.txt.j2
     dest: "{{ docker_dir }}/allowlist.txt"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -277,7 +277,7 @@
     src: squid.conf.j2
     dest: "{{ docker_dir }}/squid.conf"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -287,7 +287,7 @@
     content: "{{ hostvars['localhost']['deploy_ssl_cert'] }}"
     dest: "{{ data_dir }}/gateway.crt"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -296,7 +296,7 @@
     content: "{{ hostvars['localhost']['deploy_ssl_key'] }}"
     dest: "{{ data_dir }}/gateway.key"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -306,7 +306,7 @@
     src: monitor.sh.j2
     dest: "{{ docker_dir }}/monitor.sh"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0700'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -316,7 +316,7 @@
     src: Dockerfile.j2
     dest: "{{ docker_dir }}/Dockerfile"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -325,7 +325,7 @@
     src: docker-compose.yml.j2
     dest: "{{ docker_dir }}/docker-compose.yml"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
   ignore_errors: "{{ target_type == 'macmini' }}"
 
@@ -347,7 +347,7 @@
   file:
     path: "{{ docker_dir }}"
     owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0700'
 
 # Linux: Monitoring systemd timer
@@ -435,6 +435,8 @@
     docker compose down
   args:
     chdir: "{{ docker_dir }}"
+  environment:
+    PATH: "{{ macos_path | default(ansible_env.PATH) }}"
   ignore_errors: true
   when: target_type == 'macmini'
 
@@ -458,6 +460,8 @@
     docker compose build 2>&1
   args:
     chdir: "{{ docker_dir }}"
+  environment:
+    PATH: "{{ macos_path | default(ansible_env.PATH) }}"
   register: build_result_macos
   async: 1800
   poll: 30
@@ -487,6 +491,7 @@
   args:
     chdir: "{{ docker_dir }}"
   environment:
+    PATH: "{{ macos_path | default(ansible_env.PATH) }}"
     LITELLM_MASTER_KEY: "{{ litellm_key }}"
     OPENCLAW_GATEWAY_TOKEN: "{{ openclaw_token }}"
   register: start_result_macos
@@ -498,7 +503,7 @@
     {{ container_cmd }} exec {{ container_prefix | default('openclaw') }}-agent openclaw doctor --fix --yes --non-interactive
   become: "{{ target_type == 'vps' }}"
   become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
-  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {} }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {'PATH': macos_path | default(ansible_env.PATH)} }}"
   ignore_errors: true
 
 # Health check: wait for TypeDB
@@ -513,7 +518,7 @@
     chdir: "{{ docker_dir }}"
   become: "{{ target_type == 'vps' }}"
   become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
-  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {} }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {'PATH': macos_path | default(ansible_env.PATH)} }}"
   register: typedb_health
 
 - name: Show TypeDB Health
@@ -525,6 +530,7 @@
   shell: "{{ container_cmd }} ps -a"
   become: "{{ target_type == 'vps' }}"
   become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {'PATH': macos_path | default(ansible_env.PATH)} }}"
   register: container_ps_result
 
 - name: Show Container Status

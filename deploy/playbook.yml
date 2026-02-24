@@ -134,7 +134,8 @@
   vars:
     # User Configuration (single user for everything)
     openclaw_user: "openclaw"
-    openclaw_home: "/home/openclaw"
+    openclaw_group: "{{ 'staff' if target_type == 'macmini' else 'openclaw' }}"
+    openclaw_home: "{{ '/Users/openclaw' if target_type == 'macmini' else '/home/openclaw' }}"
 
     # Directory Layout (compose_project_name allows dual-stack on same host)
     docker_dir: "{{ openclaw_home }}/{{ compose_project_name | default('openclaw-docker') }}"

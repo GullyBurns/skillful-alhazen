@@ -1,8 +1,16 @@
 ---
 # macOS System Setup (Mac Mini target)
 
+# Ansible SSH sessions get a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin).
+# Docker Desktop symlinks live in /usr/local/bin, Homebrew in /opt/homebrew/bin.
+- name: Set macOS PATH for Docker and Homebrew
+  set_fact:
+    macos_path: "/usr/local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:{{ ansible_env.PATH | default('/usr/bin:/bin:/usr/sbin:/sbin') }}"
+
 - name: Verify Docker Desktop is Running
   command: docker info
+  environment:
+    PATH: "{{ macos_path }}"
   register: docker_info
   changed_when: false
   failed_when: docker_info.rc != 0
@@ -13,6 +21,8 @@
 
 - name: Check if Homebrew is Installed
   command: which brew
+  environment:
+    PATH: "{{ macos_path }}"
   register: brew_check
   changed_when: false
   failed_when: false
@@ -24,17 +34,23 @@
 
 - name: Check if Tailscale is Installed
   command: which tailscale
+  environment:
+    PATH: "{{ macos_path }}"
   register: tailscale_check
   changed_when: false
   failed_when: false
 
 - name: Install Tailscale via Homebrew
   command: brew install --cask tailscale
+  environment:
+    PATH: "{{ macos_path }}"
   when: tailscale_check.rc != 0 and brew_check.rc == 0
   become: false
 
 - name: Check if docker compose is Available
   command: docker compose version
+  environment:
+    PATH: "{{ macos_path }}"
   register: compose_check
   changed_when: false
   failed_when: false

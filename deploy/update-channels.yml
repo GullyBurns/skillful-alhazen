@@ -4,7 +4,7 @@
   become: true
   vars:
     openclaw_user: "openclaw"
-    openclaw_home: "/home/openclaw"
+    openclaw_home: "{{ '/Users/openclaw' if target_type == 'macmini' else '/home/openclaw' }}"
     compose_project_name: "{{ compose_project_name | default('openclaw-docker') }}"
     docker_dir: "{{ openclaw_home }}/{{ compose_project_name }}"
     data_dir: "{{ docker_dir }}/openclaw-data"
@@ -95,6 +95,8 @@
     - name: Restart Agent Container (macOS/Docker)
       shell: |
         docker restart {{ container_prefix }}-agent
+      environment:
+        PATH: "/usr/local/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('/usr/bin:/bin:/usr/sbin:/sbin') }}"
       when: config_changed | bool and target_type == 'macmini'
 
     - name: Status Message
