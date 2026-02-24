@@ -64,6 +64,13 @@
     msg: "docker compose is not available. Ensure Docker Desktop is installed and up to date."
   when: compose_check.rc != 0
 
+# Set macOS Docker environment for openclaw user
+- name: Set macOS Docker Environment
+  set_fact:
+    macos_docker_env:
+      PATH: "{{ macos_path }}"
+      DOCKER_HOST: "unix:///var/run/docker.sock"
+
 # User Setup (macOS uses dscl instead of useradd)
 - name: Check if OpenClaw User Exists
   command: "dscl . -read /Users/{{ openclaw_user }}"
@@ -76,7 +83,7 @@
     path: "{{ openclaw_home }}"
     state: directory
     owner: "{{ openclaw_user }}"
-    mode: '0755'
+    mode: '0700'
   when: user_check.rc == 0
 
 - name: Create Project Directory (using current user if no dedicated user)
@@ -92,6 +99,24 @@
       macOS user '{{ openclaw_user }}' does not exist. Deployment will use the current user.
       To create a dedicated user, use System Preferences > Users & Groups.
   when: user_check.rc != 0
+
+- name: Verify openclaw Can Access Docker
+  command: docker info
+  environment: "{{ macos_docker_env }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  register: openclaw_docker_check
+  changed_when: false
+  failed_when: false
+  when: user_check.rc == 0
+
+- name: Fail if openclaw Cannot Access Docker
+  fail:
+    msg: |
+      The openclaw user cannot access Docker Desktop.
+      Ensure Docker socket is accessible: ls -la /var/run/docker.sock
+      The openclaw user must be in the 'staff' group.
+  when: user_check.rc == 0 and openclaw_docker_check.rc != 0
 
 - name: Verify SSH is Enabled (Remote Login)
   command: systemsetup -getremotelogin

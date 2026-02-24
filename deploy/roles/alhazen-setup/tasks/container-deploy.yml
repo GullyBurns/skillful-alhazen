@@ -13,9 +13,7 @@
     key: "{{ openclaw_user }}"
   when: target_type == 'vps'
 
-# Directory Structure
-# On macOS, docker_dir needs 0755 so the Docker Desktop user (gullyburns)
-# can chdir into it for compose commands. Sensitive subdirs stay 0700.
+# Directory Structure — all dirs are 0700 (openclaw runs everything)
 - name: Create Docker Directory Structure
   file:
     path: "{{ item.path }}"
@@ -24,12 +22,11 @@
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: "{{ item.mode }}"
   loop:
-    - { path: "{{ docker_dir }}", mode: "{{ '0755' if target_type == 'macmini' else '0700' }}" }
+    - { path: "{{ docker_dir }}", mode: "0700" }
     - { path: "{{ data_dir }}", mode: "0700" }
     - { path: "{{ ssh_dir }}", mode: "0700" }
     - { path: "{{ workspace_dir }}", mode: "0700" }
     - { path: "{{ docker_dir }}/typedb-data", mode: "0700" }
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Fix Workspace Permissions (Must be readable)
   file:
@@ -55,7 +52,6 @@
     group: "{{ openclaw_group | default(openclaw_user) }}"
     recurse: yes
   when: target_type == 'macmini'
-  ignore_errors: true
 
 - name: Clone Alhazen Repository (macOS)
   git:
@@ -102,7 +98,6 @@
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
     remote_src: true
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Copy AGENTS.md to Workspace
   copy:
@@ -112,7 +107,6 @@
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
     remote_src: true
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Copy Identity Templates to Workspace
   copy:
@@ -139,7 +133,6 @@
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
     remote_src: true
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 # Secrets Management
 - name: Check for existing secrets in .env
@@ -181,7 +174,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Create LiteLLM env file (real API keys - LiteLLM only)
   template:
@@ -190,7 +182,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Create LiteLLM Config
   template:
@@ -199,7 +190,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Prepare OpenClaw Config Directories
   file:
@@ -210,7 +200,6 @@
     mode: '0700'
   loop:
     - "{{ data_dir }}/credentials"
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Create OpenClaw Consolidated Config
   template:
@@ -219,7 +208,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Create Hardened Tools Allowlist
   template:
@@ -228,7 +216,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Create Secure MCP Config
   template:
@@ -237,7 +224,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Create Exec Approvals Config
   template:
@@ -246,7 +232,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 # Generate dynamic skill entries in OpenClaw config
 - name: Generate Alhazen Skill Entries in OpenClaw Config
@@ -284,7 +269,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Create Squid Config
   template:
@@ -293,7 +277,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 # SSL Certificates
 - name: Deploy SSL Certificate
@@ -303,7 +286,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Deploy SSL Key
   copy:
@@ -312,7 +294,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 # Monitoring
 - name: Deploy Monitoring Script
@@ -322,7 +303,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0700'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 # Docker Compose & Dockerfile
 - name: Create OpenClaw Dockerfile
@@ -332,7 +312,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Deploy Docker Compose Stack
   template:
@@ -341,7 +320,6 @@
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
-  ignore_errors: "{{ target_type == 'macmini' }}"
 
 # Linux: Podman user namespace setup
 - name: Set Podman User Namespace Permissions
@@ -444,22 +422,14 @@
   ignore_errors: true
   when: target_type == 'vps'
 
-# On macOS, Docker Desktop runs as the SSH user (not openclaw), so it needs
-# read access to compose files, .env, Dockerfile, etc. in docker_dir.
-# The openclaw home dir and docker_dir get 755, and files get 644.
-# Sensitive subdirs (data, ssh) stay 700 — Docker accesses those via volume mounts.
-- name: Fix Docker Dir Permissions for Docker Desktop (macOS)
-  shell: |
-    chmod 755 {{ openclaw_home }} {{ docker_dir }}
-    find {{ docker_dir }} -maxdepth 1 -type f -exec chmod 644 {} \;
-  when: target_type == 'macmini'
-
 - name: Stop Existing Stack (macOS/Docker)
   shell: |
-    docker compose -f {{ docker_dir }}/docker-compose.yml --project-directory {{ docker_dir }} down
-  environment:
-    PATH: "{{ macos_path | default(ansible_env.PATH) }}"
-  become: false
+    docker compose down
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment: "{{ macos_docker_env }}"
   ignore_errors: true
   when: target_type == 'macmini'
 
@@ -480,10 +450,12 @@
 
 - name: Build Container Images (macOS/Docker)
   shell: |
-    docker compose -f {{ docker_dir }}/docker-compose.yml --project-directory {{ docker_dir }} build 2>&1
-  environment:
-    PATH: "{{ macos_path | default(ansible_env.PATH) }}"
-  become: false
+    docker compose build 2>&1
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment: "{{ macos_docker_env }}"
   register: build_result_macos
   async: 1800
   poll: 30
@@ -508,13 +480,17 @@
 
 - name: Start Stack (macOS/Docker)
   shell: |
-    docker compose -f {{ docker_dir }}/docker-compose.yml --project-directory {{ docker_dir }} up -d
+    docker compose up -d
     docker restart {{ container_prefix | default('openclaw') }}-agent
+  args:
+    chdir: "{{ docker_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
   environment:
-    PATH: "{{ macos_path | default(ansible_env.PATH) }}"
+    PATH: "{{ macos_docker_env.PATH }}"
+    DOCKER_HOST: "{{ macos_docker_env.DOCKER_HOST }}"
     LITELLM_MASTER_KEY: "{{ litellm_key }}"
     OPENCLAW_GATEWAY_TOKEN: "{{ openclaw_token }}"
-  become: false
   register: start_result_macos
   when: target_type == 'macmini'
 
@@ -522,9 +498,9 @@
 - name: Run OpenClaw Doctor Fix
   shell: |
     {{ container_cmd }} exec {{ container_prefix | default('openclaw') }}-agent openclaw doctor --fix --yes --non-interactive
-  become: "{{ target_type == 'vps' }}"
-  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
-  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {'PATH': macos_path | default(ansible_env.PATH)} }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else macos_docker_env }}"
   ignore_errors: true
 
 # Health check: wait for TypeDB
@@ -535,9 +511,9 @@
       sleep 2
     done
     echo "TypeDB failed to start within 60 seconds" && exit 1
-  become: "{{ target_type == 'vps' }}"
-  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
-  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {'PATH': macos_path | default(ansible_env.PATH)} }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else macos_docker_env }}"
   register: typedb_health
 
 - name: Show TypeDB Health
@@ -547,9 +523,9 @@
 # List containers
 - name: List All Containers
   shell: "{{ container_cmd }} ps -a"
-  become: "{{ target_type == 'vps' }}"
-  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
-  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else {'PATH': macos_path | default(ansible_env.PATH)} }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else macos_docker_env }}"
   register: container_ps_result
 
 - name: Show Container Status
