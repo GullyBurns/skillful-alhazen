@@ -449,6 +449,7 @@
     chdir: "{{ docker_dir }}"
   environment:
     PATH: "{{ macos_path | default(ansible_env.PATH) }}"
+  become: false
   ignore_errors: true
   when: target_type == 'macmini'
 
@@ -474,6 +475,7 @@
     chdir: "{{ docker_dir }}"
   environment:
     PATH: "{{ macos_path | default(ansible_env.PATH) }}"
+  become: false
   register: build_result_macos
   async: 1800
   poll: 30
@@ -506,6 +508,7 @@
     PATH: "{{ macos_path | default(ansible_env.PATH) }}"
     LITELLM_MASTER_KEY: "{{ litellm_key }}"
     OPENCLAW_GATEWAY_TOKEN: "{{ openclaw_token }}"
+  become: false
   register: start_result_macos
   when: target_type == 'macmini'
 
