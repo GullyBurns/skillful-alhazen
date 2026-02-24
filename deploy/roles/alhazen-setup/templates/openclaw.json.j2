@@ -30,7 +30,7 @@
     }
   },
   "browser": {
-    "enabled": true,
+    "enabled": {{ 'false' if target_type == 'macmini' else 'true' }},
     "defaultProfile": "openclaw",
     "headless": true,
     "noSandbox": true,
@@ -49,7 +49,7 @@
     "mode": "merge",
     "providers": {
       "anthropic": {
-        "baseUrl": "http://litellm:4000",
+        "baseUrl": "{{ 'http://localhost:4000' if target_type == 'macmini' else 'http://litellm:4000' }}",
         "apiKey": "${ANTHROPIC_API_KEY}",
         "api": "anthropic-messages",
         "models": [
@@ -68,7 +68,7 @@
   },
   "channels": {
 {% if telegram_bot_token | default('') != '' %}
-    "telegram": { "botToken": "{{ telegram_bot_token }}", "dmPolicy": "allowlist", "allowFrom": [], "groupPolicy": "disabled" }
+    "telegram": { "botToken": "{{ telegram_bot_token }}", "dmPolicy": "allowlist", "allowFrom": [{{ telegram_allowed_user_ids | default('') }}], "groupPolicy": "disabled" }
 {% endif %}
   },
   "plugins": {

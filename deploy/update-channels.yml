@@ -8,7 +8,7 @@
     compose_project_name: "{{ compose_project_name | default('openclaw-docker') }}"
     docker_dir: "{{ openclaw_home }}/{{ compose_project_name }}"
     data_dir: "{{ docker_dir }}/openclaw-data"
-    config_file: "{{ data_dir }}/openclaw.json"
+    config_file: "{{ openclaw_home + '/.openclaw/openclaw.json' if target_type == 'macmini' else data_dir + '/openclaw.json' }}"
     target_type: "{{ target_type | default('vps') }}"
     channel: "{{ channel }}"
     channel_action: "{{ channel_action | default('list') }}"
@@ -31,7 +31,7 @@
     # Add user
     - name: Check if user already exists
       shell: |
-        jq -e '.channels.{{ channel }}.allowFrom // [] | index("{{ user_id }}")' "{{ config_file }}" > /dev/null 2>&1
+        jq -e --argjson uid {{ user_id }} '.channels.{{ channel }}.allowFrom // [] | index($uid)' "{{ config_file }}" > /dev/null 2>&1
       register: user_exists
       failed_when: false
       changed_when: false
@@ -39,7 +39,7 @@
 
     - name: Add user to channel allowFrom
       shell: |
-        jq '.channels.{{ channel }}.allowFrom = ((.channels.{{ channel }}.allowFrom // []) + ["{{ user_id }}"] | unique)' \
+        jq --argjson uid {{ user_id }} '.channels.{{ channel }}.allowFrom = ((.channels.{{ channel }}.allowFrom // []) + [$uid] | unique)' \
           "{{ config_file }}" > "{{ config_file }}.tmp" && \
           mv "{{ config_file }}.tmp" "{{ config_file }}"
       register: config_add
@@ -53,7 +53,7 @@
     # Remove user
     - name: Remove user from channel allowFrom
       shell: |
-        jq '.channels.{{ channel }}.allowFrom = ([.channels.{{ channel }}.allowFrom // [] | .[] | select(. != "{{ user_id }}")])' \
+        jq --argjson uid {{ user_id }} '.channels.{{ channel }}.allowFrom = ([.channels.{{ channel }}.allowFrom // [] | .[] | select(. != $uid)])' \
           "{{ config_file }}" > "{{ config_file }}.tmp" && \
           mv "{{ config_file }}.tmp" "{{ config_file }}"
       register: config_remove
@@ -91,12 +91,11 @@
         XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
       when: config_changed | bool and target_type == 'vps'
 
-    # macOS (Docker) restart
-    - name: Restart Agent Container (macOS/Docker)
+    # macOS (launchd) restart
+    - name: Restart Agent Service (macOS/launchd)
       shell: |
-        docker restart {{ container_prefix }}-agent
-      environment:
-        PATH: "/usr/local/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('/usr/bin:/bin:/usr/sbin:/sbin') }}"
+        launchctl unload /Library/LaunchDaemons/com.alhazen.openclaw.plist
+        launchctl load /Library/LaunchDaemons/com.alhazen.openclaw.plist
       when: config_changed | bool and target_type == 'macmini'
 
     - name: Status Message

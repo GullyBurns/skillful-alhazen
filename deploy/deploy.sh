@@ -25,7 +25,8 @@ show_help() {
     echo "  --ssh-user USER          Initial SSH User (Default: root)"
     echo "  --ssh-key PATH           Path to private key for SSH connection"
     echo "  --ask-pass               Ask for SSH and Sudo passwords"
-    echo "  --telegram-token TOKEN   Telegram bot token (from @BotFather)"
+    echo "  --telegram-token TOKEN   Telegram bot token (from @BotFather)
+  --telegram-users IDS     Comma-separated Telegram user IDs allowed to DM the bot"
     echo "  --non-interactive        Fail if missing arguments instead of prompting"
     echo "  -h, --help               Show this help message"
     echo ""
@@ -46,6 +47,7 @@ INTERACTIVE=true
 ASK_PASS=false
 SSH_KEY=""
 TELEGRAM_BOT_TOKEN=""
+TELEGRAM_ALLOWED_USERS=""
 
 # Parse Arguments
 while [[ "$#" -gt 0 ]]; do
@@ -62,6 +64,7 @@ while [[ "$#" -gt 0 ]]; do
         --ssh-user) SSH_USER="$2"; shift ;;
         --ssh-key) SSH_KEY="$2"; shift ;;
         --telegram-token) TELEGRAM_BOT_TOKEN="$2"; shift ;;
+        --telegram-users) TELEGRAM_ALLOWED_USERS="$2"; shift ;;
         --ask-pass) ASK_PASS=true ;;
         --non-interactive) INTERACTIVE=false ;;
         -h|--help) show_help; exit 0 ;;
@@ -265,7 +268,11 @@ ansible-galaxy collection install -r requirements.yml > /dev/null
 # Run Ansible
 ANSIBLE_ARGS=""
 if [ "$ASK_PASS" = true ]; then
-    ANSIBLE_ARGS="-k -K"
+    if [ "$TARGET_IP" = "localhost" ]; then
+        ANSIBLE_ARGS="-K"   # local connection: no SSH, only become (sudo) password
+    else
+        ANSIBLE_ARGS="-k -K"
+    fi
 fi
 
 if [ -n "$SSH_KEY" ]; then
@@ -273,7 +280,7 @@ if [ -n "$SSH_KEY" ]; then
 fi
 
 ansible-playbook -i "$TEMP_INVENTORY" playbook.yml $ANSIBLE_ARGS \
-    --extra-vars "llm_provider='$LLM_PROVIDER' llm_model='$LLM_MODEL' llm_url='$LLM_URL' llm_key='$LLM_KEY' target_type='$TARGET_TYPE' deploy_branch='$DEPLOY_BRANCH' compose_project_name='$PROJECT_NAME' container_prefix='$CONTAINER_PREFIX' typedb_host_port='$TYPEDB_HOST_PORT' mcp_host_port='$MCP_HOST_PORT' dashboard_host_port='$DASHBOARD_HOST_PORT' telegram_bot_token='$TELEGRAM_BOT_TOKEN'"
+    --extra-vars "llm_provider='$LLM_PROVIDER' llm_model='$LLM_MODEL' llm_url='$LLM_URL' llm_key='$LLM_KEY' target_type='$TARGET_TYPE' deploy_branch='$DEPLOY_BRANCH' compose_project_name='$PROJECT_NAME' container_prefix='$CONTAINER_PREFIX' typedb_host_port='$TYPEDB_HOST_PORT' mcp_host_port='$MCP_HOST_PORT' dashboard_host_port='$DASHBOARD_HOST_PORT' telegram_bot_token='$TELEGRAM_BOT_TOKEN' telegram_allowed_user_ids='$TELEGRAM_ALLOWED_USERS'"
 
 # Cleanup
 rm "$TEMP_INVENTORY"

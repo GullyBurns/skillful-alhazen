@@ -89,7 +89,7 @@
             -keyout "ssh-keys/{{ generated_hostname }}.key"
             -out "ssh-keys/{{ generated_hostname }}.crt"
             -subj "/CN={{ generated_hostname }}"
-            -addext "subjectAltName=DNS:{{ generated_hostname }},DNS:localhost,IP:{{ groups['all'][0] }},IP:127.0.0.1"
+            -addext "subjectAltName=DNS:{{ generated_hostname }},DNS:localhost,{{ '' if groups['all'][0] == 'localhost' else 'IP:' + groups['all'][0] + ',' }}IP:127.0.0.1"
           args:
             creates: "ssh-keys/{{ generated_hostname }}.crt"
 
@@ -166,6 +166,7 @@
     typedb_host_port: "{{ typedb_host_port | default('1729') }}"
     mcp_host_port: "{{ mcp_host_port | default('3000') }}"
     dashboard_host_port: "{{ dashboard_host_port | default('3001') }}"
+    telegram_allowed_user_ids: "{{ telegram_allowed_user_ids | default('') }}"
 
   roles:
     - alhazen-setup
