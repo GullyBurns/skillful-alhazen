@@ -51,6 +51,8 @@
     dest: "{{ repo_dir }}"
     version: "{{ deploy_branch | default('main') }}"
     update: yes
+  become: true
+  become_user: "{{ openclaw_user }}"
   when: target_type == 'macmini'
 
 # Reset Podman namespace ownership before writing (fixes re-deploy permission errors)
@@ -76,8 +78,8 @@
       [ "$skill_name" = "_template" ] && continue
       cp -r "$skill_dir" "{{ data_dir }}/skills/$skill_name"
     done
-  become: "{{ target_type == 'vps' }}"
-  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
 
 # Copy identity files to workspace (matching make deploy-openclaw-identity)
 - name: Copy SOUL.md to Workspace
@@ -250,8 +252,8 @@
     jq --argjson entries "$patch" '.skills.entries = $entries' \
       "{{ data_dir }}/openclaw.json" > "{{ data_dir }}/openclaw.json.tmp" && \
       mv "{{ data_dir }}/openclaw.json.tmp" "{{ data_dir }}/openclaw.json"
-  become: "{{ target_type == 'vps' }}"
-  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
 
 - name: Add Heartbeat Config to OpenClaw
   shell: |
@@ -260,8 +262,8 @@
         "{{ data_dir }}/openclaw.json" > "{{ data_dir }}/openclaw.json.tmp" && \
         mv "{{ data_dir }}/openclaw.json.tmp" "{{ data_dir }}/openclaw.json"
     fi
-  become: "{{ target_type == 'vps' }}"
-  become_user: "{{ openclaw_user if target_type == 'vps' else omit }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
 
 - name: Create Squid Allowlist
   template:
