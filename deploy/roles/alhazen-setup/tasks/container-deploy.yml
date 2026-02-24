@@ -444,9 +444,14 @@
   ignore_errors: true
   when: target_type == 'vps'
 
+# On macOS, Docker Desktop runs as the SSH user (not openclaw), so it needs
+# read access to compose files, .env, Dockerfile, etc. in docker_dir.
+# The openclaw home dir and docker_dir get 755, and files get 644.
+# Sensitive subdirs (data, ssh) stay 700 — Docker accesses those via volume mounts.
 - name: Fix Docker Dir Permissions for Docker Desktop (macOS)
   shell: |
     chmod 755 {{ openclaw_home }} {{ docker_dir }}
+    find {{ docker_dir }} -maxdepth 1 -type f -exec chmod 644 {} \;
   when: target_type == 'macmini'
 
 - name: Stop Existing Stack (macOS/Docker)
