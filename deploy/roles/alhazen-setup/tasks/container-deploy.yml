@@ -14,19 +14,21 @@
   when: target_type == 'vps'
 
 # Directory Structure
+# On macOS, docker_dir needs 0755 so the Docker Desktop user (gullyburns)
+# can chdir into it for compose commands. Sensitive subdirs stay 0700.
 - name: Create Docker Directory Structure
   file:
-    path: "{{ item }}"
+    path: "{{ item.path }}"
     state: directory
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
-    mode: '0700'
+    mode: "{{ item.mode }}"
   loop:
-    - "{{ docker_dir }}"
-    - "{{ data_dir }}"
-    - "{{ ssh_dir }}"
-    - "{{ workspace_dir }}"
-    - "{{ docker_dir }}/typedb-data"
+    - { path: "{{ docker_dir }}", mode: "{{ '0755' if target_type == 'macmini' else '0700' }}" }
+    - { path: "{{ data_dir }}", mode: "0700" }
+    - { path: "{{ ssh_dir }}", mode: "0700" }
+    - { path: "{{ workspace_dir }}", mode: "0700" }
+    - { path: "{{ docker_dir }}/typedb-data", mode: "0700" }
   ignore_errors: "{{ target_type == 'macmini' }}"
 
 - name: Fix Workspace Permissions (Must be readable)
