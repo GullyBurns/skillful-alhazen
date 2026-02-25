@@ -25,8 +25,8 @@ show_help() {
     echo "  --ssh-user USER          Initial SSH User (Default: root)"
     echo "  --ssh-key PATH           Path to private key for SSH connection"
     echo "  --ask-pass               Ask for SSH and Sudo passwords"
-    echo "  --telegram-token TOKEN   Telegram bot token (from @BotFather)
-  --telegram-users IDS     Comma-separated Telegram user IDs allowed to DM the bot"
+    echo "  --telegram-token TOKEN   Telegram bot token (from @BotFather)"
+    echo "  --telegram-user ID       Telegram user ID to allow (repeatable)"
     echo "  --non-interactive        Fail if missing arguments instead of prompting"
     echo "  -h, --help               Show this help message"
     echo ""
@@ -47,7 +47,7 @@ INTERACTIVE=true
 ASK_PASS=false
 SSH_KEY=""
 TELEGRAM_BOT_TOKEN=""
-TELEGRAM_ALLOWED_USERS=""
+TELEGRAM_USERS=""
 
 # Parse Arguments
 while [[ "$#" -gt 0 ]]; do
@@ -64,7 +64,13 @@ while [[ "$#" -gt 0 ]]; do
         --ssh-user) SSH_USER="$2"; shift ;;
         --ssh-key) SSH_KEY="$2"; shift ;;
         --telegram-token) TELEGRAM_BOT_TOKEN="$2"; shift ;;
-        --telegram-users) TELEGRAM_ALLOWED_USERS="$2"; shift ;;
+        --telegram-user)
+            if [ -z "$TELEGRAM_USERS" ]; then
+                TELEGRAM_USERS="$2"
+            else
+                TELEGRAM_USERS="$TELEGRAM_USERS,$2"
+            fi
+            shift ;;
         --ask-pass) ASK_PASS=true ;;
         --non-interactive) INTERACTIVE=false ;;
         -h|--help) show_help; exit 0 ;;
@@ -169,6 +175,13 @@ if [ "$INTERACTIVE" = true ]; then
             LLM_KEY="ollama"
         fi
     fi
+    # Telegram Users (prompt if token is set but no users provided)
+    if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -z "$TELEGRAM_USERS" ]; then
+        echo ""
+        echo "Telegram bot token is set. Enter user ID(s) to allow (comma-separated, or blank to skip):"
+        read -p "Telegram User IDs: " input_users
+        TELEGRAM_USERS="${input_users}"
+    fi
 fi
 
 # --- Validation ---
@@ -223,6 +236,7 @@ echo "Target Type: $TARGET_TYPE"
 echo "User:        $SSH_USER"
 if [ -n "$SSH_KEY" ]; then echo "SSH Key:     $SSH_KEY"; fi
 if [ -n "$TELEGRAM_BOT_TOKEN" ]; then echo "Telegram:    (token set)"; fi
+if [ -n "$TELEGRAM_USERS" ]; then echo "TG Users:    $TELEGRAM_USERS"; fi
 echo "Provider:    $LLM_PROVIDER"
 echo "Model:       $LLM_MODEL"
 echo "Branch:      $DEPLOY_BRANCH"
@@ -280,7 +294,7 @@ if [ -n "$SSH_KEY" ]; then
 fi
 
 ansible-playbook -i "$TEMP_INVENTORY" playbook.yml $ANSIBLE_ARGS \
-    --extra-vars "llm_provider='$LLM_PROVIDER' llm_model='$LLM_MODEL' llm_url='$LLM_URL' llm_key='$LLM_KEY' target_type='$TARGET_TYPE' deploy_branch='$DEPLOY_BRANCH' compose_project_name='$PROJECT_NAME' container_prefix='$CONTAINER_PREFIX' typedb_host_port='$TYPEDB_HOST_PORT' mcp_host_port='$MCP_HOST_PORT' dashboard_host_port='$DASHBOARD_HOST_PORT' telegram_bot_token='$TELEGRAM_BOT_TOKEN' telegram_allowed_user_ids='$TELEGRAM_ALLOWED_USERS'"
+    --extra-vars "llm_provider='$LLM_PROVIDER' llm_model='$LLM_MODEL' llm_url='$LLM_URL' llm_key='$LLM_KEY' target_type='$TARGET_TYPE' deploy_branch='$DEPLOY_BRANCH' compose_project_name='$PROJECT_NAME' container_prefix='$CONTAINER_PREFIX' typedb_host_port='$TYPEDB_HOST_PORT' mcp_host_port='$MCP_HOST_PORT' dashboard_host_port='$DASHBOARD_HOST_PORT' telegram_bot_token='$TELEGRAM_BOT_TOKEN' telegram_users='$TELEGRAM_USERS'"
 
 # Cleanup
 rm "$TEMP_INVENTORY"
