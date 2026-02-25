@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.alhazen.openclaw</string>
+
+  <key>UserName</key>
+  <string>{{ openclaw_user }}</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/{{ openclaw_user }}/.npm-global/bin/openclaw</string>
+    <string>gateway</string>
+    <string>--allow-unconfigured</string>
+    <string>--bind</string>
+    <string>lan</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/{{ openclaw_user }}</string>
+    <key>PATH</key>
+    <string>/Users/{{ openclaw_user }}/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>ANTHROPIC_API_BASE</key>
+    <string>http://localhost:4000</string>
+    <key>ANTHROPIC_API_KEY</key>
+    <string>{{ litellm_key }}</string>
+    <key>OPENCLAW_GATEWAY_TOKEN</key>
+    <string>{{ openclaw_token }}</string>
+    <key>OPENCLAW_GATEWAY_CERT</key>
+    <string>/Users/{{ openclaw_user }}/.openclaw/gateway.crt</string>
+    <key>OPENCLAW_GATEWAY_KEY</key>
+    <string>/Users/{{ openclaw_user }}/.openclaw/gateway.key</string>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/{{ openclaw_user }}</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/{{ openclaw_user }}/logs/openclaw.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/{{ openclaw_user }}/logs/openclaw-error.log</string>
+</dict>
+</plist>

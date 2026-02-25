@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.alhazen.litellm</string>
+
+  <key>UserName</key>
+  <string>{{ openclaw_user }}</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/{{ openclaw_user }}/.local/bin/litellm</string>
+    <string>--config</string>
+    <string>/Users/{{ openclaw_user }}/litellm-config.yaml</string>
+    <string>--port</string>
+    <string>4000</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/{{ openclaw_user }}</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>LITELLM_MASTER_KEY</key>
+    <string>{{ litellm_key }}</string>
+    <key>TARGET_LLM_KEY</key>
+    <string>{{ llm_key }}</string>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/{{ openclaw_user }}</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/{{ openclaw_user }}/logs/litellm.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/{{ openclaw_user }}/logs/litellm-error.log</string>
+</dict>
+</plist>

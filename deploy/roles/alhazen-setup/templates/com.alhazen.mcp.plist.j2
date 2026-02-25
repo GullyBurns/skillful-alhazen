@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.alhazen.mcp</string>
+
+  <key>UserName</key>
+  <string>{{ openclaw_user }}</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/uv</string>
+    <string>run</string>
+    <string>python</string>
+    <string>-m</string>
+    <string>skillful_alhazen.mcp.typedb_server</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/{{ openclaw_user }}</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>TYPEDB_HOST</key>
+    <string>localhost</string>
+    <key>TYPEDB_PORT</key>
+    <string>1729</string>
+    <key>TYPEDB_DATABASE</key>
+    <string>alhazen_notebook</string>
+    <key>MCP_PORT</key>
+    <string>{{ mcp_host_port | default('3000') }}</string>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/{{ openclaw_user }}/skillful-alhazen</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/{{ openclaw_user }}/logs/mcp.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/{{ openclaw_user }}/logs/mcp-error.log</string>
+</dict>
+</plist>

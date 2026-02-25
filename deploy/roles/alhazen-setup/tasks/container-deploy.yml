@@ -6,6 +6,11 @@
     compose_cmd: "{{ 'docker compose' if target_type == 'macmini' else 'podman-compose' }}"
     container_cmd: "{{ 'docker' if target_type == 'macmini' else 'podman' }}"
 
+- name: Set SSH user fact (macOS compose runs as SSH user, not openclaw)
+  set_fact:
+    compose_user: "{{ ansible_user | default(lookup('env', 'USER')) }}"
+  when: target_type == 'macmini'
+
 # Linux: Get UID for rootless Podman
 - name: Get OpenClaw User UID (Linux)
   getent:
@@ -44,15 +49,6 @@
   become_user: "{{ openclaw_user }}"
   when: target_type == 'vps'
 
-- name: Fix Repo Ownership (macOS)
-  file:
-    path: "{{ repo_dir }}"
-    state: directory
-    owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_group | default(openclaw_user) }}"
-    recurse: yes
-  when: target_type == 'macmini'
-
 - name: Clone Alhazen Repository (macOS)
   git:
     repo: "https://github.com/GullyBurns/skillful-alhazen.git"
@@ -61,6 +57,10 @@
     update: yes
   become: true
   become_user: "{{ openclaw_user }}"
+  when: target_type == 'macmini'
+
+- name: Ensure Repo is World-Readable for Docker Builds (macOS)
+  shell: chmod -R a+rX {{ repo_dir }}
   when: target_type == 'macmini'
 
 # Reset Podman namespace ownership before writing (fixes re-deploy permission errors)
@@ -305,10 +305,22 @@
     mode: '0700'
 
 # Docker Compose & Dockerfile
+# openclaw-build/ is a minimal build context containing only the Dockerfile.
+# This avoids Docker's buildkit walking docker_dir (which contains 0600 secrets)
+# to read xattrs — buildkit scans ALL files in the context dir before applying
+# .dockerignore, so secrets must be physically absent from the context.
+- name: Create OpenClaw Minimal Build Context Directory
+  file:
+    path: "{{ docker_dir }}/openclaw-build"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
+    mode: '0755'
+
 - name: Create OpenClaw Dockerfile
   template:
     src: Dockerfile.j2
-    dest: "{{ docker_dir }}/Dockerfile"
+    dest: "{{ docker_dir }}/openclaw-build/Dockerfile"
     owner: "{{ openclaw_user }}"
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0644'
@@ -409,6 +421,21 @@
       </plist>
   when: target_type == 'macmini'
 
+# macOS: gullyburns runs docker compose, so it needs to enter docker_dir and read
+# compose files. Secret data files (openclaw-data/) stay 0600 (openclaw only).
+- name: Fix Docker Dir Permissions for SSH User Access (macOS)
+  shell: |
+    chmod 755 {{ docker_dir }}
+    chmod 644 {{ docker_dir }}/docker-compose.yml
+    chmod 644 {{ docker_dir }}/Dockerfile
+    chmod 755 {{ docker_dir }}/monitor.sh
+    chmod 640 {{ docker_dir }}/.env
+    chmod 640 {{ docker_dir }}/litellm.env
+    chmod 644 {{ docker_dir }}/litellm-config.yaml
+    chmod 644 {{ docker_dir }}/squid.conf
+    chmod 644 {{ docker_dir }}/allowlist.txt
+  when: target_type == 'macmini'
+
 # Stop existing stack
 - name: Stop Existing Stack (Linux/Podman)
   shell: |
@@ -427,8 +454,7 @@
     docker compose down
   args:
     chdir: "{{ docker_dir }}"
-  become: true
-  become_user: "{{ openclaw_user }}"
+  become: false
   environment: "{{ macos_docker_env }}"
   ignore_errors: true
   when: target_type == 'macmini'
@@ -453,8 +479,7 @@
     docker compose build 2>&1
   args:
     chdir: "{{ docker_dir }}"
-  become: true
-  become_user: "{{ openclaw_user }}"
+  become: false
   environment: "{{ macos_docker_env }}"
   register: build_result_macos
   async: 1800
@@ -484,8 +509,7 @@
     docker restart {{ container_prefix | default('openclaw') }}-agent
   args:
     chdir: "{{ docker_dir }}"
-  become: true
-  become_user: "{{ openclaw_user }}"
+  become: false
   environment:
     PATH: "{{ macos_docker_env.PATH }}"
     DOCKER_HOST: "{{ macos_docker_env.DOCKER_HOST }}"
@@ -495,16 +519,26 @@
   when: target_type == 'macmini'
 
 # Run OpenClaw Doctor Fix
-- name: Run OpenClaw Doctor Fix
+- name: Run OpenClaw Doctor Fix (Linux/Podman)
   shell: |
     {{ container_cmd }} exec {{ container_prefix | default('openclaw') }}-agent openclaw doctor --fix --yes --non-interactive
   become: true
   become_user: "{{ openclaw_user }}"
-  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else macos_docker_env }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
   ignore_errors: true
+  when: target_type == 'vps'
+
+- name: Run OpenClaw Doctor Fix (macOS/Docker)
+  shell: |
+    {{ container_cmd }} exec {{ container_prefix | default('openclaw') }}-agent openclaw doctor --fix --yes --non-interactive
+  become: false
+  environment: "{{ macos_docker_env }}"
+  ignore_errors: true
+  when: target_type == 'macmini'
 
 # Health check: wait for TypeDB
-- name: Wait for TypeDB to be Ready
+- name: Wait for TypeDB to be Ready (Linux/Podman)
   shell: |
     for i in $(seq 1 30); do
       echo 'exit' | {{ container_cmd }} exec -i {{ container_prefix | default('alhazen') }}-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null && exit 0
@@ -513,24 +547,47 @@
     echo "TypeDB failed to start within 60 seconds" && exit 1
   become: true
   become_user: "{{ openclaw_user }}"
-  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else macos_docker_env }}"
-  register: typedb_health
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+  register: typedb_health_linux
+  when: target_type == 'vps'
+
+- name: Wait for TypeDB to be Ready (macOS/Docker)
+  shell: |
+    for i in $(seq 1 30); do
+      echo 'exit' | {{ container_cmd }} exec -i alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null && exit 0
+      sleep 2
+    done
+    echo "TypeDB failed to start within 60 seconds" && exit 1
+  become: false
+  environment: "{{ macos_docker_env }}"
+  register: typedb_health_macos
+  when: target_type == 'macmini'
 
 - name: Show TypeDB Health
   debug:
-    msg: "TypeDB health check: {{ 'PASSED' if typedb_health.rc == 0 else 'FAILED' }}"
+    msg: "TypeDB health check: {{ 'PASSED' if (typedb_health_linux.rc | default(typedb_health_macos.rc | default(1))) | int == 0 else 'FAILED' }}"
 
 # List containers
-- name: List All Containers
+- name: List All Containers (Linux/Podman)
   shell: "{{ container_cmd }} ps -a"
   become: true
   become_user: "{{ openclaw_user }}"
-  environment: "{{ {'XDG_RUNTIME_DIR': '/run/user/' + ansible_facts['getent_passwd'][openclaw_user][1]} if target_type == 'vps' else macos_docker_env }}"
-  register: container_ps_result
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
+  register: container_ps_linux
+  when: target_type == 'vps'
+
+- name: List All Containers (macOS/Docker)
+  shell: "{{ container_cmd }} ps -a"
+  become: false
+  environment: "{{ macos_docker_env }}"
+  register: container_ps_macos
+  when: target_type == 'macmini'
 
 - name: Show Container Status
   debug:
-    var: container_ps_result.stdout_lines
+    msg: "{{ (container_ps_linux.stdout_lines | default(container_ps_macos.stdout_lines | default([]))) }}"
 
 # Ensure persistence
 - name: Ensure Containers Persist on Reboot (Linux)

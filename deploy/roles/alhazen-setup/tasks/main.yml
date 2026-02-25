@@ -28,6 +28,12 @@
   include_tasks: security-macos.yml
   when: ansible_facts['os_family'] == 'Darwin'
 
-# Container deployment (same for both, with conditional commands)
+# Container deployment (VPS/Linux only)
 - name: Deploy Container Stack
   include_tasks: container-deploy.yml
+  when: ansible_facts['os_family'] == 'Debian'
+
+# Native service deployment (macOS/macmini only)
+- name: Deploy Native Services
+  include_tasks: macos-native.yml
+  when: ansible_facts['os_family'] == 'Darwin'

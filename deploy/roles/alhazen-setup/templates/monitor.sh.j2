@@ -16,11 +16,11 @@ done
 
 # 2. Run OpenClaw Internal Audit
 echo "[*] Running OpenClaw Security Audit..." >> "$REPORT_FILE"
-$CONTAINER_CMD exec openclaw-agent openclaw security audit --deep >> "$REPORT_FILE" 2>&1
+$CONTAINER_CMD exec {{ container_prefix | default('openclaw') }}-agent openclaw security audit --deep >> "$REPORT_FILE" 2>&1
 
 # 3. Check TypeDB Status
 echo "[*] Checking TypeDB..." >> "$REPORT_FILE"
-$CONTAINER_CMD exec alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 <<< 'exit' >> "$REPORT_FILE" 2>&1
+$CONTAINER_CMD exec {{ container_prefix | default('alhazen') }}-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 <<< 'exit' >> "$REPORT_FILE" 2>&1
 if [ $? -eq 0 ]; then
   echo "  TypeDB: HEALTHY" >> "$REPORT_FILE"
 else
@@ -41,7 +41,7 @@ find {{ data_dir }}/agents -name "*.jsonl" -mtime -7 -exec \
 
 # 6. Scan Squid Logs for Denied Requests
 echo "[*] Scanning proxy logs for blocked domains..." >> "$REPORT_FILE"
-$CONTAINER_CMD logs openclaw-squid 2>&1 | grep "TCP_DENIED" | tail -n 20 >> "$REPORT_FILE"
+$CONTAINER_CMD logs {{ container_prefix | default('openclaw') }}-squid 2>&1 | grep "TCP_DENIED" | tail -n 20 >> "$REPORT_FILE"
 
 # 7. Verify Firewall Status
 echo "[*] Checking Firewall State..." >> "$REPORT_FILE"

@@ -49,8 +49,7 @@ services:
 
   openclaw:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./openclaw-build
     container_name: {{ container_prefix | default('openclaw') }}-agent
     restart: unless-stopped
     ports:
@@ -81,6 +80,7 @@ services:
 
   # --- Alhazen Services ---
 
+{% if target_type != 'macmini' %}
   typedb:
     image: docker.io/vaticle/typedb:2.25.0
     platform: linux/amd64
@@ -155,6 +155,7 @@ services:
       - openclaw-internal
     restart: "no"
 
+{% endif %}
   alhazen-mcp:
     build:
       context: {{ repo_dir }}
@@ -162,20 +163,25 @@ services:
     container_name: {{ container_prefix | default('alhazen') }}-mcp
     restart: unless-stopped
     environment:
-      - TYPEDB_HOST=typedb
+      - TYPEDB_HOST={{ 'alhazen-typedb' if target_type == 'macmini' else 'typedb' }}
       - TYPEDB_PORT=1729
       - TYPEDB_DATABASE=alhazen_notebook
       - HTTP_PROXY=http://squid:3128
       - HTTPS_PROXY=http://squid:3128
-      - NO_PROXY=typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+      - NO_PROXY=typedb,alhazen-typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
       - http_proxy=http://squid:3128
       - https_proxy=http://squid:3128
-      - no_proxy=typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+      - no_proxy=typedb,alhazen-typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
     depends_on:
+{% if target_type != 'macmini' %}
       - typedb
+{% endif %}
       - squid
     networks:
       - openclaw-internal
+{% if target_type == 'macmini' %}
+      - alhazen-network
+{% endif %}
     ports:
       - "127.0.0.1:{{ mcp_host_port | default('3000') }}:3000"
     security_opt:
@@ -193,13 +199,18 @@ services:
     container_name: {{ container_prefix | default('alhazen') }}-dashboard
     restart: unless-stopped
     environment:
-      - TYPEDB_HOST=typedb
+      - TYPEDB_HOST={{ 'alhazen-typedb' if target_type == 'macmini' else 'typedb' }}
       - TYPEDB_PORT=1729
       - TYPEDB_DATABASE=alhazen_notebook
+{% if target_type != 'macmini' %}
     depends_on:
       - typedb
+{% endif %}
     networks:
       - openclaw-internal
+{% if target_type == 'macmini' %}
+      - alhazen-network
+{% endif %}
     ports:
       - "127.0.0.1:{{ dashboard_host_port | default('3001') }}:3000"
     security_opt:
@@ -220,3 +231,9 @@ networks:
 
   openclaw-external:
     driver: bridge
+
+{% if target_type == 'macmini' %}
+  alhazen-network:
+    external: true
+    name: skillful-alhazen_alhazen-network
+{% endif %}

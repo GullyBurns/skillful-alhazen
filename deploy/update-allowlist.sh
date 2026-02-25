@@ -47,7 +47,7 @@ echo "Updating Allowlist on $TARGET_IP..."
 
 # Create temporary inventory
 TEMP_INVENTORY=$(mktemp)
-echo "[alhazen_hosts]" > "$TEMP_INVENTORY"
+echo "[openclaw_hosts]" > "$TEMP_INVENTORY"
 if [ "$TARGET_IP" = "localhost" ]; then
     echo "localhost ansible_connection=local" >> "$TEMP_INVENTORY"
 else
@@ -77,7 +77,7 @@ fi
 
 # Run Playbook
 ansible-playbook -i "$TEMP_INVENTORY" update-allowlist.yml $ANSIBLE_ARGS \
-    --extra-vars "target_type='$TARGET_TYPE'"
+    --extra-vars "target_type='$TARGET_TYPE' container_prefix='alhazen' compose_project_name='openclaw-docker'"
 
 # Cleanup
 rm "$TEMP_INVENTORY"

@@ -50,6 +50,38 @@
   when: tailscale_check.rc != 0 and brew_check.rc == 0
   become: false
 
+- name: Check if Node.js is Installed
+  command: which node
+  environment:
+    PATH: "{{ macos_path }}"
+  register: node_check
+  changed_when: false
+  failed_when: false
+  become: false
+
+- name: Install Node.js via Homebrew
+  command: brew install node
+  environment:
+    PATH: "{{ macos_path }}"
+  when: node_check.rc != 0 and brew_check.rc == 0
+  become: false
+
+- name: Check if uv is Installed
+  command: which uv
+  environment:
+    PATH: "{{ macos_path }}"
+  register: uv_check
+  changed_when: false
+  failed_when: false
+  become: false
+
+- name: Install uv via Homebrew
+  command: brew install uv
+  environment:
+    PATH: "{{ macos_path }}"
+  when: uv_check.rc != 0 and brew_check.rc == 0
+  become: false
+
 - name: Check if docker compose is Available
   command: docker compose version
   environment:
@@ -71,64 +103,76 @@
       PATH: "{{ macos_path }}"
       DOCKER_HOST: "unix:///var/run/docker.sock"
 
-# User Setup (macOS uses dscl instead of useradd)
+# --- User Setup (macOS uses dscl instead of useradd) ---
+
 - name: Check if OpenClaw User Exists
   command: "dscl . -read /Users/{{ openclaw_user }}"
   register: user_check
   changed_when: false
   failed_when: false
 
-- name: Create OpenClaw Home Directory
+# Create user via dscl if it does not exist
+- name: Find Next Available UID (macOS)
+  shell: |
+    max_uid=$(dscl . -list /Users UniqueID | awk '$2 >= 500 {print $2}' | sort -n | tail -1)
+    echo $(( ${max_uid:-500} + 1 ))
+  register: next_uid
+  changed_when: false
+  when: user_check.rc != 0
+
+- name: Create OpenClaw User (macOS/dscl)
+  shell: |
+    dscl . -create /Users/{{ openclaw_user }}
+    dscl . -create /Users/{{ openclaw_user }} UserShell /bin/bash
+    dscl . -create /Users/{{ openclaw_user }} RealName "OpenClaw + Alhazen Service User"
+    dscl . -create /Users/{{ openclaw_user }} UniqueID {{ next_uid.stdout | trim }}
+    dscl . -create /Users/{{ openclaw_user }} PrimaryGroupID 20
+    dscl . -create /Users/{{ openclaw_user }} NFSHomeDirectory {{ openclaw_home }}
+  when: user_check.rc != 0
+
+- name: Create New User Home Directory (macOS)
   file:
     path: "{{ openclaw_home }}"
     state: directory
     owner: "{{ openclaw_user }}"
-    mode: '0700'
-  when: user_check.rc == 0
-
-- name: Ensure openclaw is in staff Group (for Docker socket access)
-  command: "dscl . -append /Groups/staff GroupMembership {{ openclaw_user }}"
-  when: user_check.rc == 0
-  changed_when: false
-
-- name: Grant openclaw Traverse Access to SSH User Home (for Docker socket)
-  command: "chmod +a '{{ openclaw_user }} allow execute' /Users/{{ ansible_user }}"
-  when: user_check.rc == 0
-  changed_when: false
-
-- name: Create Project Directory (using current user if no dedicated user)
-  file:
-    path: "{{ docker_dir }}"
-    state: directory
-    mode: '0700'
+    group: staff
+    mode: '0755'
   when: user_check.rc != 0
 
-- name: Note about macOS User
-  debug:
-    msg: >
-      macOS user '{{ openclaw_user }}' does not exist. Deployment will use the current user.
-      To create a dedicated user, use System Preferences > Users & Groups.
+- name: Populate Home Directory Defaults (macOS)
+  command: createhomedir -c -u {{ openclaw_user }}
   when: user_check.rc != 0
-
-- name: Verify openclaw Can Access Docker
-  shell: /usr/local/bin/docker info 2>&1
-  environment: "{{ macos_docker_env }}"
-  become: true
-  become_user: "{{ openclaw_user }}"
-  become_flags: "-H"
-  register: openclaw_docker_check
-  changed_when: false
   failed_when: false
-  when: user_check.rc == 0
 
-- name: Fail if openclaw Cannot Access Docker
-  fail:
-    msg: |
-      The openclaw user cannot access Docker Desktop.
-      Error: {{ openclaw_docker_check.stdout | default('') }} {{ openclaw_docker_check.stderr | default('') }}
-      Ensure Docker socket is accessible: ls -la /var/run/docker.sock
-      The openclaw user must be in the 'staff' group.
-  when: user_check.rc == 0 and openclaw_docker_check.rc != 0
+# Ensure home directory exists with correct permissions (idempotent)
+# 0755: gullyburns (Docker user) needs read+execute to traverse and for getcwd to work
+- name: Ensure OpenClaw Home Directory Exists
+  file:
+    path: "{{ openclaw_home }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0755'
+
+# SSH Key Deployment (mirrors linux-system.yml pattern)
+- name: Setup OpenClaw .ssh Directory (macOS)
+  file:
+    path: "{{ openclaw_home }}/.ssh"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0700'
+
+- name: Authorize SSH Key for OpenClaw User (macOS)
+  authorized_key:
+    user: "{{ openclaw_user }}"
+    state: present
+    key: "{{ deploy_public_key }}"
+
+# Group membership (staff group for shared resources)
+- name: Ensure openclaw is in staff Group
+  command: "dscl . -append /Groups/staff GroupMembership {{ openclaw_user }}"
+  changed_when: false
 
 - name: Verify SSH is Enabled (Remote Login)
   command: systemsetup -getremotelogin

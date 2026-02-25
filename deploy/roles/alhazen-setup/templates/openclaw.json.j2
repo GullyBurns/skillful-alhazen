@@ -30,11 +30,11 @@
     }
   },
   "browser": {
-    "enabled": {{ 'false' if target_type == 'macmini' else 'true' }},
+    "enabled": true,
     "defaultProfile": "openclaw",
     "headless": true,
     "noSandbox": true,
-    "executablePath": "/usr/bin/chromium-browser",
+    "executablePath": "{{ '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' if target_type == 'macmini' else '/usr/bin/chromium-browser' }}",
     "profiles": {
       "openclaw": {
         "cdpPort": 18800,

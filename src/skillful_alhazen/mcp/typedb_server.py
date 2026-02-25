@@ -380,4 +380,8 @@ def traverse_provenance(entity_id: str) -> str:
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp_port = int(os.getenv("MCP_PORT", "0"))
+    if mcp_port:
+        mcp.run(transport="sse", host="0.0.0.0", port=mcp_port)
+    else:
+        mcp.run()
