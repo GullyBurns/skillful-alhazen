@@ -13,7 +13,7 @@
     channel: "{{ channel }}"
     channel_action: "{{ channel_action | default('list') }}"
     user_id: "{{ user_id | default('') }}"
-    container_prefix: "{{ container_prefix | default('alhazen') }}"
+    prefix: "{{ container_prefix | default('alhazen') }}"
 
   tasks:
     # List current users (run as root — podman subuid remaps file ownership)
@@ -85,7 +85,7 @@
 
     - name: Restart Agent Container (Linux/Podman)
       shell: |
-        podman restart {{ container_prefix }}-agent
+        podman restart {{ prefix }}-agent
       become_user: "{{ openclaw_user }}"
       environment:
         XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['getent_passwd'][openclaw_user][1] }}"
@@ -94,8 +94,9 @@
     # macOS (launchd) restart
     - name: Restart Agent Service (macOS/launchd)
       shell: |
-        launchctl unload /Library/LaunchDaemons/com.alhazen.openclaw.plist
-        launchctl load /Library/LaunchDaemons/com.alhazen.openclaw.plist
+        docker restart {{ prefix }}-agent
+      environment:
+        PATH: "/usr/local/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('/usr/bin:/bin:/usr/sbin:/sbin') }}"
       when: config_changed | bool and target_type == 'macmini'
 
     - name: Status Message

@@ -68,7 +68,7 @@
   },
   "channels": {
 {% if telegram_bot_token | default('') != '' %}
-    "telegram": { "botToken": "{{ telegram_bot_token }}", "dmPolicy": "allowlist", "allowFrom": [{{ telegram_allowed_user_ids | default('') }}], "groupPolicy": "disabled" }
+    "telegram": { "botToken": "{{ telegram_bot_token }}", "dmPolicy": "allowlist", "allowFrom": [{% if telegram_users | default('') != '' %}{% for uid in telegram_users.split(',') %}"{{ uid | trim }}"{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}], "groupPolicy": "disabled" }
 {% endif %}
   },
   "plugins": {

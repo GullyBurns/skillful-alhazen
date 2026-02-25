@@ -134,6 +134,25 @@
     mode: '0644'
     remote_src: true
 
+# Copy pyproject.toml and uv.lock so skill scripts can resolve dependencies via `uv run`
+- name: Copy pyproject.toml to Workspace
+  copy:
+    src: "{{ repo_dir }}/pyproject.toml"
+    dest: "{{ workspace_dir }}/pyproject.toml"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
+    mode: '0644'
+    remote_src: true
+
+- name: Copy uv.lock to Workspace
+  copy:
+    src: "{{ repo_dir }}/uv.lock"
+    dest: "{{ workspace_dir }}/uv.lock"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
+    mode: '0644'
+    remote_src: true
+
 # Secrets Management
 - name: Check for existing secrets in .env
   slurp:
