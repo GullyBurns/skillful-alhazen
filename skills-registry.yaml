@@ -32,6 +32,18 @@ skills:
     git: https://github.com/GullyBurns/alhazen-skill-examples
     ref: main
     subdir: skills/demo/jobhunt
+  - name: techrecon
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/demo/techrecon
+  - name: epmc-search
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/biomed/epmc-search
+  - name: apm
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/biomed/apm
 
 # Additional skills can be added below:
 # skills:
