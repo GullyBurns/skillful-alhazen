@@ -12,8 +12,8 @@ Use this skill whenever you need to search the web. SearXNG aggregates results f
 ## Search
 
 ```bash
-curl -s 'http://localhost:8888/search?q=QUERY&format=json' | python3 -c "
-import sys, json, urllib.parse
+curl -s "${SEARXNG_URL:-http://localhost:8888}/search?q=QUERY&format=json" | python3 -c "
+import sys, json
 r = json.load(sys.stdin)
 results = r.get('results', [])[:5]
 print(f'{len(results)} results:\n')
@@ -31,5 +31,5 @@ Replace `QUERY` with URL-encoded search terms — spaces as `+`, e.g. `Gully+Bur
 
 - Results are already ranked by relevance
 - Use `[:10]` instead of `[:5]` to get more results
-- SearXNG runs at `http://localhost:8888` (Docker container, always-on)
 - For site-specific search, add `site:example.com` to the query
+- `SEARXNG_URL` is set automatically per environment (localhost:8888 on macmini, searxng:8080 on VPS)

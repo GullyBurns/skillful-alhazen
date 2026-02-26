@@ -72,8 +72,10 @@ services:
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OPENCLAW_GATEWAY_CERT=/home/node/.openclaw/gateway.crt
       - OPENCLAW_GATEWAY_KEY=/home/node/.openclaw/gateway.key
+      - SEARXNG_URL=http://searxng:8080
     depends_on:
       - litellm
+      - searxng
     shm_size: '256m'
     security_opt:
       - no-new-privileges:true
