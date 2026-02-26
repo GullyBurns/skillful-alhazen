@@ -324,7 +324,6 @@
     mode: '0644'
   loop:
     - { src: com.alhazen.litellm.plist.j2,  name: com.alhazen.litellm }
-    - { src: com.alhazen.mcp.plist.j2,      name: com.alhazen.mcp }
     - { src: com.alhazen.openclaw.plist.j2, name: com.alhazen.openclaw }
 
 - name: Unload Existing Services (if running)
@@ -338,7 +337,6 @@
   shell: launchctl load /Library/LaunchDaemons/{{ item }}.plist
   loop:
     - com.alhazen.litellm
-    - com.alhazen.mcp
     - com.alhazen.openclaw
 
 # --- Health Checks ---
