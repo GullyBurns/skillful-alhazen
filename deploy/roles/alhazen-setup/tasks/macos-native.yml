@@ -349,14 +349,6 @@
   until: litellm_health.rc == 0
   ignore_errors: true
 
-- name: Wait for MCP Server to be Ready
-  shell: nc -z localhost {{ mcp_host_port | default('3000') }}
-  retries: 15
-  delay: 4
-  register: mcp_health
-  until: mcp_health.rc == 0
-  ignore_errors: true
-
 - name: Show Service Status
   shell: launchctl list | grep com.alhazen
   register: launchd_status
