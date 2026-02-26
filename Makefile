@@ -378,11 +378,7 @@ skills-validate: ## Validate SKILL.md frontmatter
 define SKILLS_INSTALL_PY
 import subprocess, sys, shutil
 from pathlib import Path
-try:
-    import yaml
-except ImportError:
-    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyyaml', '-q'])
-    import yaml
+import yaml
 registry = Path('skills-registry.yaml')
 if not registry.exists():
     print('No skills-registry.yaml found'); sys.exit(0)
@@ -400,7 +396,7 @@ for skill in skills:
     print(f'  Installing {name} from {git_url}@{ref}...')
     tmp = local_skills / f'_tmp_{name}'
     try:
-        subprocess.check_call(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], capture_output=True)
+        subprocess.run(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], check=True, capture_output=True)
         src = tmp / subdir if subdir != '.' else tmp; src.rename(target)
         print(f'  ✓ Installed {name}')
     except subprocess.CalledProcessError as e:
@@ -413,11 +409,7 @@ export SKILLS_INSTALL_PY
 define SKILLS_UPDATE_PY
 import subprocess, sys, shutil
 from pathlib import Path
-try:
-    import yaml
-except ImportError:
-    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyyaml', '-q'])
-    import yaml
+import yaml
 registry = Path('skills-registry.yaml')
 if not registry.exists():
     print('No skills-registry.yaml found'); sys.exit(0)
@@ -434,7 +426,7 @@ for skill in skills:
     if target.exists(): shutil.rmtree(target)
     tmp = local_skills / f'_tmp_{name}'
     try:
-        subprocess.check_call(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], capture_output=True)
+        subprocess.run(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], check=True, capture_output=True)
         src = tmp / subdir if subdir != '.' else tmp; src.rename(target)
         print(f'  ✓ Updated {name}')
     except subprocess.CalledProcessError as e:
@@ -447,13 +439,13 @@ export SKILLS_UPDATE_PY
 .PHONY: skills-install
 skills-install: ## Install external skills from skills-registry.yaml into local_skills/
 	@echo "$(BLUE)Installing external skills...$(NC)"
-	@python3 -c "$$SKILLS_INSTALL_PY"
+	@uv run python -c "$$SKILLS_INSTALL_PY"
 	@echo "$(GREEN)✓ External skills installed$(NC)"
 
 .PHONY: skills-update
 skills-update: ## Update all installed external skills from skills-registry.yaml
 	@echo "$(BLUE)Updating external skills...$(NC)"
-	@python3 -c "$$SKILLS_UPDATE_PY"
+	@uv run python -c "$$SKILLS_UPDATE_PY"
 	@echo "$(GREEN)✓ External skills updated$(NC)"
 
 .PHONY: skills-sync
