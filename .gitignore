@@ -160,6 +160,9 @@ dist/
 # protected datafiles
 #local_resources/data_files/cryoet_portal_metadata/
 
+# External skills (installed via skills-registry.yaml)
+local_skills/
+
 # Deployment secrets
 deploy/ssh-keys/*.pem
 deploy/ssh-keys/*.pem.pub

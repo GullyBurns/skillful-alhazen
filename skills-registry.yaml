@@ -1,0 +1,41 @@
+# Alhazen External Skills Registry
+# ==================================
+# Lists external skills to install from git repositories.
+#
+# Install all registered skills:
+#   make skills-install
+#
+# Update all installed external skills:
+#   make skills-update
+#
+# Installed skills land in local_skills/ (gitignored, project-scoped).
+#
+# Format:
+#   skills:
+#     - name: my-skill          # Required: unique skill name (no spaces)
+#       git: https://...        # Required: git clone URL
+#       ref: main               # Optional: branch, tag, or commit hash (default: main)
+#       subdir: .               # Optional: subdirectory within the repo (default: .)
+#
+# The skill directory at {subdir}/ must contain:
+#   - SKILL.md (required)
+#   - A Python script named {name}.py (recommended)
+#   - schema.tql (optional: TypeDB schema extension)
+#   - dashboard/ (optional: Next.js dashboard components)
+#     - components/             → dashboard/src/components/{name}/
+#     - routes/                 → dashboard/src/app/api/{name}/
+#     - pages/                  → dashboard/src/app/({name})/{name}/
+#     - lib/                    → dashboard/src/lib/{name}.ts (if single file)
+
+skills: []
+
+# Example:
+# skills:
+#   - name: semantic-scholar
+#     git: https://github.com/example/alhazen-semantic-scholar
+#     ref: main
+#
+#   - name: clinical-trials
+#     git: https://github.com/example/alhazen-clinical-trials
+#     ref: v1.2.0
+#     subdir: skill

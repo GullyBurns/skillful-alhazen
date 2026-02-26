@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run python local_resources/skilllog/skill_logger.py"
+          }
+        ]
+      }
+    ]
+  }
+}

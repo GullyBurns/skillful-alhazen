@@ -34,6 +34,28 @@ This skill follows the **curation design pattern**:
 
 ---
 
+## Web Interface
+
+A Next.js dashboard is available for visualizing your job search pipeline.
+
+**Start the dashboard:**
+```bash
+make dashboard-dev    # starts on http://localhost:3000
+```
+
+**Views:**
+- **Pipeline Board** (`/jobhunt`) — Kanban columns by application status (researching → applied → interviewing → offer)
+- **Position Detail** (`/jobhunt/position/{id}`) — Full position profile: requirements, notes, gap analysis, fit score
+- **Collection Detail** (`/jobhunt/collection/{id}`) — Notes and resources grouped by collection
+
+**Internal organization** (for contributors):
+- Pages: `dashboard/src/app/(jobhunt)/jobhunt/`
+- Components: `dashboard/src/components/jobhunt/`
+- API routes: `dashboard/src/app/api/jobhunt/` (thin wrappers that call `jobhunt.py`)
+- TypeScript wrapper: `dashboard/src/lib/jobhunt.ts`
+
+---
+
 ## Your Skill Profile
 
 Before analyzing jobs, set up your skill profile for gap analysis.

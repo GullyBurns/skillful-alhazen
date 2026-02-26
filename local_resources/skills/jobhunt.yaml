@@ -119,6 +119,29 @@ skill_levels:
   - learning
   - none
 
+# Dashboard
+dashboard:
+  enabled: true
+  name: "Job Hunt Dashboard"
+  url_path: "/jobhunt"
+  port: 3001
+  description: "Pipeline kanban, skills matrix, learning plan, and candidates triage"
+  views:
+    - name: Pipeline Board
+      path: /jobhunt
+      description: "Kanban view of applications by status"
+    - name: Position Detail
+      path: /jobhunt/position/{id}
+      description: "Full detail page for a single position"
+    - name: Collection Detail
+      path: /jobhunt/collection/{id}
+      description: "Notes and resources in a collection"
+  internal:
+    pages: dashboard/src/app/(jobhunt)/jobhunt/
+    components: dashboard/src/components/jobhunt/
+    api_routes: dashboard/src/app/api/jobhunt/
+    lib: dashboard/src/lib/jobhunt.ts
+
 # Integration with other skills
 integrates_with:
   - typedb-notebook

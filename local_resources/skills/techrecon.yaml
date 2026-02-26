@@ -116,6 +116,32 @@ investigation_statuses:
   - completed
   - archived
 
+# Dashboard
+dashboard:
+  enabled: true
+  name: "TechRecon Dashboard"
+  url_path: "/techrecon"
+  port: 3001
+  description: "Investigations grid, systems browser, architecture maps, and artifact viewer"
+  views:
+    - name: Investigations
+      path: /techrecon
+      description: "Grid of all active and completed investigations"
+    - name: System Detail
+      path: /techrecon/system/{id}
+      description: "Full system profile with components, concepts, and notes"
+    - name: Architecture
+      path: /techrecon/architecture/{id}
+      description: "Architecture map for a system"
+    - name: Investigation Detail
+      path: /techrecon/investigation/{id}
+      description: "Investigation progress and linked systems"
+  internal:
+    pages: dashboard/src/app/(techrecon)/techrecon/
+    components: dashboard/src/components/techrecon/
+    api_routes: dashboard/src/app/api/techrecon/
+    lib: dashboard/src/lib/techrecon.ts
+
 # Integration with other skills
 integrates_with:
   - typedb-notebook

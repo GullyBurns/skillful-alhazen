@@ -36,6 +36,30 @@ This skill follows the **curation design pattern**:
 
 ---
 
+## Web Interface
+
+A Next.js dashboard is available for browsing investigations, systems, and architecture maps.
+
+**Start the dashboard:**
+```bash
+make dashboard-dev    # starts on http://localhost:3000
+```
+
+**Views:**
+- **Investigations** (`/techrecon`) — Grid of all active and completed investigations
+- **System Detail** (`/techrecon/system/{id}`) — Full system profile: components, concepts, data models, notes
+- **Architecture** (`/techrecon/architecture/{id}`) — Architecture map for a system
+- **Investigation Detail** (`/techrecon/investigation/{id}`) — Investigation progress and linked systems
+- **Artifact Viewer** (`/techrecon/artifact/{id}`) — Raw ingested content (READMEs, source, docs)
+
+**Internal organization** (for contributors):
+- Pages: `dashboard/src/app/(techrecon)/techrecon/`
+- Components: `dashboard/src/components/techrecon/`
+- API routes: `dashboard/src/app/api/techrecon/` (thin wrappers that call `techrecon.py`)
+- TypeScript wrapper: `dashboard/src/lib/techrecon.ts`
+
+---
+
 ## Starting an Investigation
 
 **Triggers:** "investigate", "study", "research [system]", "look into", "tech recon"

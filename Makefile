@@ -15,6 +15,8 @@ TYPEDB_CONTAINER := alhazen-typedb
 TYPEDB_DATABASE := alhazen_notebook
 SKILLS_MANIFEST_DIR := $(PROJECT_ROOT)/local_resources/skills
 TYPEDB_SCHEMAS_DIR := $(PROJECT_ROOT)/local_resources/typedb
+LOCAL_SKILLS_DIR := $(PROJECT_ROOT)/local_skills
+SKILLS_REGISTRY := $(PROJECT_ROOT)/skills-registry.yaml
 
 # OS detection
 UNAME_S := $(shell uname -s)
@@ -44,7 +46,7 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(setup|db-)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
 	@echo "$(GREEN)Skill Deployment:$(NC)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(deploy|skills)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(deploy|skills|monitoring|textgrad)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
 	@echo "$(GREEN)Database Management:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'db-' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
@@ -57,6 +59,15 @@ help: ## Show this help message
 	@echo
 	@echo "$(GREEN)Documentation:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'docs-' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
+	@echo "$(GREEN)TextGrad Optimization:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'optimize-skill' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
+	@echo "$(GREEN)Observability:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(skills-token|skills-invocations)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
+	@echo "$(GREEN)Dashboard:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'dashboard' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
 	@echo "$(GREEN)Development:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(test|lint|clean)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
@@ -299,15 +310,41 @@ deploy-goose: ## Generate MCP config for Goose (future implementation)
 # Skill Management
 # =============================================================================
 
+.PHONY: monitoring-on
+monitoring-on: ## Enable skill usage logging (sets monitoring.enabled: true in alhazen.yaml)
+	@python3 -c "import re; p='alhazen.yaml'; c=open(p).read(); c=re.sub(r'(monitoring:.*?\n\s*enabled:)\s*false',r'\1 true',c,flags=re.DOTALL); open(p,'w').write(c); print('Monitoring enabled in alhazen.yaml')"
+
+.PHONY: monitoring-off
+monitoring-off: ## Disable skill usage logging (sets monitoring.enabled: false in alhazen.yaml)
+	@python3 -c "import re; p='alhazen.yaml'; c=open(p).read(); c=re.sub(r'(monitoring:.*?\n\s*enabled:)\s*true',r'\1 false',c,flags=re.DOTALL); open(p,'w').write(c); print('Monitoring disabled in alhazen.yaml')"
+
+.PHONY: textgrad-on
+textgrad-on: ## Enable TextGrad optimization (sets textgrad.enabled: true in alhazen.yaml)
+	@python3 -c "import re; p='alhazen.yaml'; c=open(p).read(); c=re.sub(r'(textgrad:.*?\n\s*enabled:)\s*false',r'\1 true',c,flags=re.DOTALL); open(p,'w').write(c); print('TextGrad enabled in alhazen.yaml')"
+
+.PHONY: textgrad-off
+textgrad-off: ## Disable TextGrad optimization (sets textgrad.enabled: false in alhazen.yaml)
+	@python3 -c "import re; p='alhazen.yaml'; c=open(p).read(); c=re.sub(r'(textgrad:.*?\n\s*enabled:)\s*true',r'\1 false',c,flags=re.DOTALL); open(p,'w').write(c); print('TextGrad disabled in alhazen.yaml')"
+
 .PHONY: skills-list
-skills-list: ## Show all available skills
-	@echo "$(BLUE)Available Skills:$(NC)"
+skills-list: ## Show all available skills (built-in and external)
+	@echo "$(BLUE)Built-in Skills:$(NC)"
 	@echo "================"
 	@for skill_yaml in $(SKILLS_MANIFEST_DIR)/*.yaml; do \
 		skill_name=$$(basename $$skill_yaml .yaml); \
 		description=$$(grep '^description:' $$skill_yaml | sed 's/description: *"//;s/"$$//'); \
 		printf "$(GREEN)%-20s$(NC) %s\n" "$$skill_name" "$$description"; \
 	done
+	@if [ -d "$(LOCAL_SKILLS_DIR)" ] && ls $(LOCAL_SKILLS_DIR)/*/SKILL.md 2>/dev/null | head -1 | grep -q .; then \
+		echo; \
+		echo "$(BLUE)External Skills (local_skills/):$(NC)"; \
+		echo "================================"; \
+		for skill_md in $(LOCAL_SKILLS_DIR)/*/SKILL.md; do \
+			skill_name=$$(basename $$(dirname $$skill_md)); \
+			description=$$(grep '^description:' $$skill_md | sed 's/description: *"//;s/"$$//'); \
+			printf "$(YELLOW)%-20s$(NC) %s\n" "$$skill_name" "$$description"; \
+		done; \
+	fi
 
 .PHONY: skills-validate
 skills-validate: ## Validate SKILL.md frontmatter
@@ -337,6 +374,87 @@ skills-validate: ## Validate SKILL.md frontmatter
 		echo "$(RED)✗ Validation failed$(NC)"; \
 		exit 1; \
 	fi
+
+define SKILLS_INSTALL_PY
+import subprocess, sys, shutil
+from pathlib import Path
+try:
+    import yaml
+except ImportError:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyyaml', '-q'])
+    import yaml
+registry = Path('skills-registry.yaml')
+if not registry.exists():
+    print('No skills-registry.yaml found'); sys.exit(0)
+cfg = yaml.safe_load(registry.read_text()) or {}
+skills = cfg.get('skills') or []
+if not skills:
+    print('No external skills registered in skills-registry.yaml'); sys.exit(0)
+local_skills = Path('local_skills'); local_skills.mkdir(exist_ok=True)
+for skill in skills:
+    name = skill['name']; git_url = skill['git']
+    ref = skill.get('ref', 'main'); subdir = skill.get('subdir', '.')
+    target = local_skills / name
+    if target.exists():
+        print(f'  Skipping {name} (already installed -- run make skills-update to refresh)'); continue
+    print(f'  Installing {name} from {git_url}@{ref}...')
+    tmp = local_skills / f'_tmp_{name}'
+    try:
+        subprocess.check_call(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], capture_output=True)
+        src = tmp / subdir if subdir != '.' else tmp; src.rename(target)
+        print(f'  ✓ Installed {name}')
+    except subprocess.CalledProcessError as e:
+        print(f'  ✗ Failed to install {name}: {e}', file=sys.stderr)
+    finally:
+        if tmp.exists(): shutil.rmtree(tmp, ignore_errors=True)
+endef
+export SKILLS_INSTALL_PY
+
+define SKILLS_UPDATE_PY
+import subprocess, sys, shutil
+from pathlib import Path
+try:
+    import yaml
+except ImportError:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyyaml', '-q'])
+    import yaml
+registry = Path('skills-registry.yaml')
+if not registry.exists():
+    print('No skills-registry.yaml found'); sys.exit(0)
+cfg = yaml.safe_load(registry.read_text()) or {}
+skills = cfg.get('skills') or []
+if not skills:
+    print('No external skills registered'); sys.exit(0)
+local_skills = Path('local_skills'); local_skills.mkdir(exist_ok=True)
+for skill in skills:
+    name = skill['name']; git_url = skill['git']
+    ref = skill.get('ref', 'main'); subdir = skill.get('subdir', '.')
+    target = local_skills / name
+    print(f'  Updating {name}...')
+    if target.exists(): shutil.rmtree(target)
+    tmp = local_skills / f'_tmp_{name}'
+    try:
+        subprocess.check_call(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], capture_output=True)
+        src = tmp / subdir if subdir != '.' else tmp; src.rename(target)
+        print(f'  ✓ Updated {name}')
+    except subprocess.CalledProcessError as e:
+        print(f'  ✗ Failed to update {name}: {e}', file=sys.stderr)
+    finally:
+        if tmp.exists(): shutil.rmtree(tmp, ignore_errors=True)
+endef
+export SKILLS_UPDATE_PY
+
+.PHONY: skills-install
+skills-install: ## Install external skills from skills-registry.yaml into local_skills/
+	@echo "$(BLUE)Installing external skills...$(NC)"
+	@python3 -c "$$SKILLS_INSTALL_PY"
+	@echo "$(GREEN)✓ External skills installed$(NC)"
+
+.PHONY: skills-update
+skills-update: ## Update all installed external skills from skills-registry.yaml
+	@echo "$(BLUE)Updating external skills...$(NC)"
+	@python3 -c "$$SKILLS_UPDATE_PY"
+	@echo "$(GREEN)✓ External skills updated$(NC)"
 
 .PHONY: skills-sync
 skills-sync: ## Sync gold-standard metadata to deployed copies
@@ -370,6 +488,95 @@ skills-sync: ## Sync gold-standard metadata to deployed copies
 		echo "$(GREEN)  ✓ Updated$(NC)"; \
 	done
 	@echo "$(GREEN)✓ All skills synchronized$(NC)"
+
+# =============================================================================
+# TextGrad Optimization
+# =============================================================================
+
+SKILL_OPTIMIZER := $(PROJECT_ROOT)/local_resources/textgrad/skill_optimizer.py
+
+.PHONY: optimize-skill
+optimize-skill: ## Run TextGrad optimization on a skill (requires SKILL=name, textgrad.enabled: true)
+ifndef SKILL
+	@echo "$(RED)Error: SKILL variable required. Usage: make optimize-skill SKILL=jobhunt$(NC)"
+	@exit 1
+endif
+	@echo "$(BLUE)Optimizing skill: $(SKILL)$(NC)"
+	uv run python $(SKILL_OPTIMIZER) --skill $(SKILL) --create-pr
+
+.PHONY: optimize-skill-dry-run
+optimize-skill-dry-run: ## Preview TextGrad optimization without making changes (requires SKILL=name)
+ifndef SKILL
+	@echo "$(RED)Error: SKILL variable required. Usage: make optimize-skill-dry-run SKILL=jobhunt$(NC)"
+	@exit 1
+endif
+	uv run python $(SKILL_OPTIMIZER) --skill $(SKILL) --dry-run
+
+# =============================================================================
+# Skill Observability
+# =============================================================================
+
+SKILL_LOGGER := $(PROJECT_ROOT)/local_resources/skilllog/skill_logger.py
+
+.PHONY: skills-token-report
+skills-token-report: ## Show token usage summary across all logged skill invocations
+	uv run python $(SKILL_LOGGER) token-report
+
+.PHONY: skills-token-report-skill
+skills-token-report-skill: ## Show token usage for a specific skill (requires SKILL=name)
+ifndef SKILL
+	@echo "$(RED)Error: SKILL variable required. Usage: make skills-token-report-skill SKILL=jobhunt$(NC)"
+	@exit 1
+endif
+	uv run python $(SKILL_LOGGER) token-report --skill $(SKILL)
+
+.PHONY: skills-invocations
+skills-invocations: ## List recent skill invocations (use SKILL=name to filter)
+	@if [ -n "$(SKILL)" ]; then \
+		uv run python $(SKILL_LOGGER) list-invocations --skill $(SKILL); \
+	else \
+		uv run python $(SKILL_LOGGER) list-invocations; \
+	fi
+
+# =============================================================================
+# Dashboard
+# =============================================================================
+
+DASHBOARD_DIR := $(PROJECT_ROOT)/dashboard
+
+.PHONY: dashboard-dev
+dashboard-dev: ## Start the Next.js dashboard in development mode (http://localhost:3000)
+	@echo "$(BLUE)Starting dashboard in development mode...$(NC)"
+	@if [ ! -d "$(DASHBOARD_DIR)/node_modules" ]; then \
+		echo "$(YELLOW)Installing dashboard dependencies...$(NC)"; \
+		cd $(DASHBOARD_DIR) && npm install; \
+	fi
+	cd $(DASHBOARD_DIR) && npm run dev
+
+.PHONY: dashboard-build
+dashboard-build: ## Build the Next.js dashboard for production
+	@echo "$(BLUE)Building dashboard...$(NC)"
+	@if [ ! -d "$(DASHBOARD_DIR)/node_modules" ]; then \
+		echo "$(YELLOW)Installing dashboard dependencies...$(NC)"; \
+		cd $(DASHBOARD_DIR) && npm install; \
+	fi
+	cd $(DASHBOARD_DIR) && ./node_modules/.bin/next build
+	@echo "$(GREEN)✓ Dashboard built$(NC)"
+
+.PHONY: dashboard-skills
+dashboard-skills: ## List skills that have dashboards (from YAML manifests)
+	@echo "$(BLUE)Skills with dashboards:$(NC)"
+	@echo "======================"
+	@for skill_yaml in $(SKILLS_MANIFEST_DIR)/*.yaml; do \
+		skill_name=$$(basename $$skill_yaml .yaml); \
+		if grep -q '^dashboard:' $$skill_yaml 2>/dev/null; then \
+			enabled=$$(awk '/^dashboard:/{f=1} f && /enabled:/{print $$2; f=0}' $$skill_yaml); \
+			if [ "$$enabled" = "true" ]; then \
+				url_path=$$(awk '/^dashboard:/{f=1} f && /url_path:/{gsub(/"/, "", $$2); print $$2; f=0}' $$skill_yaml); \
+				printf "$(GREEN)%-20s$(NC) http://localhost:3000%s\n" "$$skill_name" "$$url_path"; \
+			fi; \
+		fi; \
+	done
 
 # =============================================================================
 # Development

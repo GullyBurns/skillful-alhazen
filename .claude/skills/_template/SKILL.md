@@ -35,6 +35,29 @@ This skill follows the **curation design pattern**:
 
 ---
 
+## Web Interface
+
+<!-- Optional: remove this section if this skill has no dashboard -->
+
+A Next.js dashboard is available at `http://localhost:3000/<your-domain>` when running `make dashboard-dev`.
+
+**Start the dashboard:**
+```bash
+make dashboard-dev    # starts on http://localhost:3000
+```
+
+**Views:**
+- **[View Name]** (`/<your-domain>`) — Description of the main view
+- **[Item Detail]** (`/<your-domain>/item/{id}`) — Full detail page for a single item
+
+**Internal organization** (for contributors):
+- Pages: `dashboard/src/app/(<your-domain>)/<your-domain>/`
+- Components: `dashboard/src/components/<your-domain>/`
+- API routes: `dashboard/src/app/api/<your-domain>/`
+- TypeScript wrapper: `dashboard/src/lib/<your-domain>.ts`
+
+---
+
 ## Ingestion Commands
 
 ### Ingest from URL
