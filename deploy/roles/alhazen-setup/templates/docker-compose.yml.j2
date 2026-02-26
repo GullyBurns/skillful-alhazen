@@ -176,44 +176,6 @@ services:
     restart: "no"
 
 {% endif %}
-  alhazen-mcp:
-    build:
-      context: {{ repo_dir }}
-      dockerfile: Dockerfile.mcp
-    container_name: {{ container_prefix | default('alhazen') }}-mcp
-    restart: unless-stopped
-    environment:
-      - TYPEDB_HOST={{ 'alhazen-typedb' if target_type == 'macmini' else 'typedb' }}
-      - TYPEDB_PORT=1729
-      - TYPEDB_DATABASE=alhazen_notebook
-      - HTTP_PROXY=http://squid:3128
-      - HTTPS_PROXY=http://squid:3128
-      - NO_PROXY=typedb,alhazen-typedb,litellm,searxng,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
-      - http_proxy=http://squid:3128
-      - https_proxy=http://squid:3128
-      - no_proxy=typedb,alhazen-typedb,litellm,searxng,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
-      - SEARXNG_URL=http://searxng:8080
-    depends_on:
-{% if target_type != 'macmini' %}
-      - typedb
-{% endif %}
-      - squid
-      - searxng
-    networks:
-      - openclaw-internal
-{% if target_type == 'macmini' %}
-      - alhazen-network
-{% endif %}
-    ports:
-      - "127.0.0.1:{{ mcp_host_port | default('3000') }}:3000"
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=100m
-    mem_limit: 1g
-    cpus: 1.0
-
   alhazen-dashboard:
     build:
       context: {{ repo_dir }}
