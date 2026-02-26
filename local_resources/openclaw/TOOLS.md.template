@@ -15,9 +15,9 @@ All skills follow: `uv run python .claude/skills/<name>/<name>.py <subcommand> [
 Use `--help` on any script for available subcommands.
 
 ## Web Search
-- Use the `web_search` MCP tool (from the alhazen MCP server) for all web searches.
-- Do NOT use the built-in web search — it requires API keys that are not configured.
-- The `web_search` tool queries SearXNG (self-hosted) and returns results from Google, DuckDuckGo, and Bing.
+- Use the `alhazen_search` MCP tool (from the alhazen MCP server) for all web searches.
+- Do NOT use the built-in `web_search` — it requires API keys that are not configured.
+- The `alhazen_search` tool queries SearXNG (self-hosted) and returns results from Google, DuckDuckGo, and Bing.
 
 ## Project Root
 ALHAZEN_PROJECT_ROOT = ${PROJECT_ROOT}

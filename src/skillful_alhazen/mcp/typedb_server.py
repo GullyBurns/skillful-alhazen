@@ -377,9 +377,10 @@ def traverse_provenance(entity_id: str) -> str:
 
 
 @mcp.tool()
-def web_search(query: str, num_results: int = 5) -> str:
+def alhazen_search(query: str, num_results: int = 5) -> str:
     """
     Search the web using SearXNG (self-hosted metasearch engine).
+    Use this tool for all web searches — it works without API keys.
     Aggregates results from Google, DuckDuckGo, Bing, and other engines.
 
     Args:
