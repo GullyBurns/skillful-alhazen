@@ -27,9 +27,13 @@
 #     - pages/                  → dashboard/src/app/({name})/{name}/
 #     - lib/                    → dashboard/src/lib/{name}.ts (if single file)
 
-skills: []
+skills:
+  - name: jobhunt
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/demo/jobhunt
 
-# Example:
+# Additional skills can be added below:
 # skills:
 #   - name: semantic-scholar
 #     git: https://github.com/example/alhazen-semantic-scholar
