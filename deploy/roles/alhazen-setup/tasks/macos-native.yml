@@ -1,0 +1,360 @@
+---
+# macOS Native Service Deployment (Mac Mini)
+# Runs openclaw, litellm, and alhazen-mcp as launchd daemons under the openclaw user.
+# Existing Docker containers (alhazen-typedb on 1729, alhazen-hub on 8080) are
+# operated by gullyburns via Docker Desktop and accessed via localhost.
+
+# --- Directory Structure ---
+
+- name: Create openclaw Directory Structure
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ openclaw_home }}/.openclaw",  mode: "0700" }
+    - { path: "{{ openclaw_home }}/workspace",  mode: "0755" }
+    - { path: "{{ openclaw_home }}/logs",        mode: "0755" }
+
+# --- Secrets Management ---
+
+- name: Check for Existing Secrets File
+  slurp:
+    src: "{{ openclaw_home }}/secrets.env"
+  register: existing_secrets_file
+  ignore_errors: true
+
+- name: Extract Existing LiteLLM Master Key
+  set_fact:
+    existing_master_key: "{{ (existing_secrets_file.content | b64decode | regex_findall('LITELLM_MASTER_KEY=(.*)'))[0] | default('') }}"
+  when: not existing_secrets_file.failed
+
+- name: Extract Existing Gateway Token
+  set_fact:
+    existing_openclaw_token: "{{ (existing_secrets_file.content | b64decode | regex_findall('OPENCLAW_GATEWAY_TOKEN=(.*)'))[0] | default('') }}"
+  when: not existing_secrets_file.failed
+
+- name: Generate LiteLLM Master Key (if missing)
+  command: "openssl rand -base64 32"
+  register: litellm_master_key_gen
+  when: existing_master_key | default('') | length == 0
+
+- name: Generate OpenClaw Gateway Token (if missing)
+  command: "openssl rand -base64 32"
+  register: openclaw_token_gen
+  when: existing_openclaw_token | default('') | length == 0
+
+- name: Set Final Secrets
+  set_fact:
+    litellm_key: "{{ existing_master_key | default('') if (existing_master_key | default('') | length > 0) else litellm_master_key_gen.stdout }}"
+    openclaw_token: "{{ existing_openclaw_token | default('') if (existing_openclaw_token | default('') | length > 0) else openclaw_token_gen.stdout }}"
+
+- name: Write Secrets File
+  copy:
+    content: |
+      LITELLM_MASTER_KEY={{ litellm_key }}
+      OPENCLAW_GATEWAY_TOKEN={{ openclaw_token }}
+    dest: "{{ openclaw_home }}/secrets.env"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0600'
+
+# --- Clone Repository ---
+
+- name: Clone Alhazen Repository
+  git:
+    repo: "https://github.com/GullyBurns/skillful-alhazen.git"
+    dest: "{{ repo_dir }}"
+    version: "{{ deploy_branch | default('main') }}"
+    update: yes
+  become: true
+  become_user: "{{ openclaw_user }}"
+
+# --- npm Global Prefix + openclaw Package ---
+
+- name: Configure npm Global Prefix for openclaw
+  shell: |
+    mkdir -p {{ openclaw_home }}/.npm-global
+    npm config set prefix '{{ openclaw_home }}/.npm-global'
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    HOME: "{{ openclaw_home }}"
+    PATH: "{{ macos_path }}"
+
+- name: Install openclaw npm Package
+  shell: npm install -g openclaw@latest
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    HOME: "{{ openclaw_home }}"
+    PATH: "{{ openclaw_home }}/.npm-global/bin:{{ macos_path }}"
+    npm_config_prefix: "{{ openclaw_home }}/.npm-global"
+
+# --- Install LiteLLM ---
+
+- name: Install litellm via uv tool
+  shell: uv tool install --force --with prisma 'litellm[proxy]'
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    HOME: "{{ openclaw_home }}"
+    PATH: "{{ macos_path }}"
+
+# --- Install Python Dependencies for MCP Server ---
+
+- name: Install Alhazen Python Dependencies
+  shell: uv sync --all-extras
+  args:
+    chdir: "{{ repo_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    HOME: "{{ openclaw_home }}"
+    PATH: "{{ macos_path }}"
+
+# --- Copy Skills and Workspace Identity Files ---
+
+- name: Copy Alhazen Skills to openclaw Managed Skills Dir
+  shell: |
+    mkdir -p {{ openclaw_home }}/.openclaw/skills
+    for skill_dir in {{ repo_dir }}/.claude/skills/*/; do
+      skill_name=$(basename "$skill_dir")
+      [ "$skill_name" = "_template" ] && continue
+      cp -r "$skill_dir" "{{ openclaw_home }}/.openclaw/skills/$skill_name"
+    done
+  become: true
+  become_user: "{{ openclaw_user }}"
+
+- name: Copy SOUL.md to Workspace
+  copy:
+    src: "{{ repo_dir }}/local_resources/openclaw/SOUL.md"
+    dest: "{{ openclaw_home }}/workspace/SOUL.md"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0644'
+    remote_src: true
+  ignore_errors: true
+
+- name: Copy AGENTS.md to Workspace
+  copy:
+    src: "{{ repo_dir }}/local_resources/openclaw/AGENTS.md"
+    dest: "{{ openclaw_home }}/workspace/AGENTS.md"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0644'
+    remote_src: true
+  ignore_errors: true
+
+- name: Copy Identity Templates to Workspace
+  copy:
+    src: "{{ repo_dir }}/local_resources/openclaw/{{ item }}"
+    dest: "{{ openclaw_home }}/workspace/{{ item | replace('.template', '') }}"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0644'
+    remote_src: true
+    force: false
+  loop:
+    - HEARTBEAT.md.template
+    - MEMORY.md.template
+    - TOOLS.md.template
+    - USER.md.template
+  ignore_errors: true
+
+- name: Copy CLAUDE.md to Workspace
+  copy:
+    src: "{{ repo_dir }}/CLAUDE.md"
+    dest: "{{ openclaw_home }}/workspace/CLAUDE.md"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0644'
+    remote_src: true
+  ignore_errors: true
+
+# --- Render Config Files ---
+
+- name: Deploy SSL Certificate
+  copy:
+    content: "{{ hostvars['localhost']['deploy_ssl_cert'] }}"
+    dest: "{{ openclaw_home }}/.openclaw/gateway.crt"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0644'
+
+- name: Deploy SSL Key
+  copy:
+    content: "{{ hostvars['localhost']['deploy_ssl_key'] }}"
+    dest: "{{ openclaw_home }}/.openclaw/gateway.key"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0600'
+
+- name: Create openclaw.json
+  template:
+    src: openclaw.json.j2
+    dest: "{{ openclaw_home }}/.openclaw/openclaw.json"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0600'
+
+- name: Create LiteLLM Config
+  template:
+    src: litellm-config.yaml.j2
+    dest: "{{ openclaw_home }}/litellm-config.yaml"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0600'
+
+- name: Create LiteLLM Env (API keys)
+  template:
+    src: litellm.env.j2
+    dest: "{{ openclaw_home }}/litellm.env"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0600'
+
+- name: Create Hardened Tools Allowlist
+  template:
+    src: tools.yaml.j2
+    dest: "{{ openclaw_home }}/.openclaw/tools.yaml"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0600'
+
+- name: Create Secure MCP Config
+  template:
+    src: mcp.json.j2
+    dest: "{{ openclaw_home }}/.openclaw/mcp.json"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0600'
+
+- name: Create Exec Approvals Config
+  template:
+    src: exec-approvals.json.j2
+    dest: "{{ openclaw_home }}/.openclaw/exec-approvals.json"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0600'
+
+# --- SearXNG Self-Hosted Search ---
+
+- name: Generate SearXNG Secret Key
+  command: "openssl rand -hex 32"
+  register: searxng_secret_gen
+
+- name: Set SearXNG Secret
+  set_fact:
+    searxng_secret: "{{ searxng_secret_gen.stdout }}"
+
+- name: Create SearXNG Config Directory
+  file:
+    path: "{{ openclaw_home }}/.searxng"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0755'
+
+- name: Create SearXNG Settings
+  template:
+    src: searxng-settings.yml.j2
+    dest: "{{ openclaw_home }}/.searxng/settings.yml"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0644'
+
+- name: Stop Existing SearXNG Container
+  shell: docker stop alhazen-searxng && docker rm alhazen-searxng
+  become: false
+  ignore_errors: true
+
+- name: Start SearXNG Container
+  shell: |
+    docker run -d \
+      --name alhazen-searxng \
+      --restart unless-stopped \
+      -p 127.0.0.1:8888:8080 \
+      -v {{ openclaw_home }}/.searxng:/etc/searxng:rw \
+      docker.io/searxng/searxng:latest
+  become: false
+  environment:
+    PATH: "{{ macos_path }}"
+
+# --- Generate Dynamic Skill Entries in openclaw.json ---
+
+- name: Generate Alhazen Skill Entries in openclaw.json
+  shell: |
+    patch='{}'
+    for skill_yaml in {{ repo_dir }}/local_resources/skills/*.yaml; do
+      skill_name=$(basename "$skill_yaml" .yaml)
+      patch=$(echo "$patch" | jq --arg name "$skill_name" \
+        --arg root "{{ openclaw_home }}/workspace" \
+        --arg typedb_host "localhost" \
+        --arg typedb_port "1729" \
+        --arg typedb_db "alhazen_notebook" \
+        '. + {($name): {"env": {"ALHAZEN_PROJECT_ROOT": $root, "TYPEDB_HOST": $typedb_host, "TYPEDB_PORT": $typedb_port, "TYPEDB_DATABASE": $typedb_db}}}')
+    done
+    jq --argjson entries "$patch" '.skills.entries = $entries' \
+      "{{ openclaw_home }}/.openclaw/openclaw.json" > "{{ openclaw_home }}/.openclaw/openclaw.json.tmp" && \
+      mv "{{ openclaw_home }}/.openclaw/openclaw.json.tmp" "{{ openclaw_home }}/.openclaw/openclaw.json"
+  become: true
+  become_user: "{{ openclaw_user }}"
+
+- name: Add Heartbeat Config to openclaw.json
+  shell: |
+    if ! jq -e '.agents.defaults.heartbeat' "{{ openclaw_home }}/.openclaw/openclaw.json" >/dev/null 2>&1; then
+      jq '.agents.defaults.heartbeat = {"every": "2h", "target": "last", "activeHours": {"start": "08:00", "end": "22:00", "timezone": "America/Los_Angeles"}}' \
+        "{{ openclaw_home }}/.openclaw/openclaw.json" > "{{ openclaw_home }}/.openclaw/openclaw.json.tmp" && \
+        mv "{{ openclaw_home }}/.openclaw/openclaw.json.tmp" "{{ openclaw_home }}/.openclaw/openclaw.json"
+    fi
+  become: true
+  become_user: "{{ openclaw_user }}"
+
+# --- Deploy and Load launchd Plists ---
+
+- name: Deploy launchd Plists
+  template:
+    src: "{{ item.src }}"
+    dest: "/Library/LaunchDaemons/{{ item.name }}.plist"
+    owner: root
+    group: wheel
+    mode: '0644'
+  loop:
+    - { src: com.alhazen.litellm.plist.j2,  name: com.alhazen.litellm }
+    - { src: com.alhazen.openclaw.plist.j2, name: com.alhazen.openclaw }
+
+- name: Unload Existing Services (if running)
+  shell: launchctl unload /Library/LaunchDaemons/{{ item }}.plist 2>/dev/null || true
+  loop:
+    - com.alhazen.litellm
+    - com.alhazen.mcp
+    - com.alhazen.openclaw
+
+- name: Load Services
+  shell: launchctl load /Library/LaunchDaemons/{{ item }}.plist
+  loop:
+    - com.alhazen.litellm
+    - com.alhazen.openclaw
+
+# --- Health Checks ---
+
+- name: Wait for LiteLLM to be Ready
+  shell: curl -sf http://localhost:4000/health/liveliness
+  retries: 15
+  delay: 4
+  register: litellm_health
+  until: litellm_health.rc == 0
+  ignore_errors: true
+
+- name: Show Service Status
+  shell: launchctl list | grep com.alhazen
+  register: launchd_status
+  changed_when: false
+  failed_when: false
+
+- name: Display Service Status
+  debug:
+    var: launchd_status.stdout_lines

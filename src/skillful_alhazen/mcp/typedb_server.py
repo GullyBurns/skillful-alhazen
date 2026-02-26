@@ -24,6 +24,7 @@ from .typedb_client import TypeDBClient
 TYPEDB_HOST = os.getenv("TYPEDB_HOST", "localhost")
 TYPEDB_PORT = int(os.getenv("TYPEDB_PORT", "1729"))
 TYPEDB_DATABASE = os.getenv("TYPEDB_DATABASE", "alhazen")
+SEARXNG_URL = os.getenv("SEARXNG_URL", "")
 
 # Initialize MCP server
 mcp = FastMCP("alhazen-typedb")
@@ -375,9 +376,59 @@ def traverse_provenance(entity_id: str) -> str:
         return json.dumps({"success": False, "error": str(e)})
 
 
+@mcp.tool()
+def alhazen_search(query: str, num_results: int = 5) -> str:
+    """
+    Search the web using SearXNG (self-hosted metasearch engine).
+    Use this tool for all web searches — it works without API keys.
+    Aggregates results from Google, DuckDuckGo, Bing, and other engines.
+
+    Args:
+        query: Search query string
+        num_results: Number of results to return (default 5, max 10)
+
+    Returns:
+        JSON with search results (title, url, snippet) or error message
+    """
+    import urllib.parse
+    import urllib.request
+
+    if not SEARXNG_URL:
+        return json.dumps({"success": False, "error": "SEARXNG_URL not configured"})
+
+    params = urllib.parse.urlencode({"q": query, "format": "json"})
+    try:
+        with urllib.request.urlopen(f"{SEARXNG_URL}/search?{params}", timeout=15) as resp:
+            data = json.loads(resp.read())
+        results = data.get("results", [])[: min(num_results, 10)]
+        return json.dumps(
+            {
+                "success": True,
+                "query": query,
+                "results": [
+                    {
+                        "title": r.get("title"),
+                        "url": r.get("url"),
+                        "snippet": r.get("content", ""),
+                    }
+                    for r in results
+                ],
+            },
+            indent=2,
+        )
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)})
+
+
 # -----------------------------------------------------------------------------
 # Main Entry Point
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp_port = int(os.getenv("MCP_PORT", "0"))
+    if mcp_port:
+        mcp.settings.host = "0.0.0.0"
+        mcp.settings.port = mcp_port
+        mcp.run(transport="sse")
+    else:
+        mcp.run()

@@ -1,0 +1,25 @@
+FROM node:22-alpine
+
+# Install system dependencies
+RUN apk add --no-cache git python3 make g++ cmake linux-headers openssl curl bash
+
+# Install Chromium and dependencies for browser automation
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont font-noto-emoji
+
+# Install OpenClaw globally
+RUN npm install -g openclaw@latest
+
+# Install Playwright (uses system Chromium, skips bundled browser download)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+RUN npm install -g playwright
+
+# Install uv for Alhazen skill scripts
+USER 1000:1000
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/home/node/.local/bin:$PATH"
+
+WORKDIR /home/node
+
+# Default command (force bind to 0.0.0.0 for container networking)
+CMD ["openclaw", "gateway", "--allow-unconfigured", "--bind", "lan"]
