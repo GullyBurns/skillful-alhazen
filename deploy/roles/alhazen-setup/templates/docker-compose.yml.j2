@@ -78,6 +78,26 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: {{ container_prefix | default('alhazen') }}-searxng
+    restart: unless-stopped
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    networks:
+      - openclaw-internal
+      - openclaw-external
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    mem_limit: 512m
+    cpus: 0.5
+
   # --- Alhazen Services ---
 
 {% if target_type != 'macmini' %}
@@ -168,15 +188,17 @@ services:
       - TYPEDB_DATABASE=alhazen_notebook
       - HTTP_PROXY=http://squid:3128
       - HTTPS_PROXY=http://squid:3128
-      - NO_PROXY=typedb,alhazen-typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+      - NO_PROXY=typedb,alhazen-typedb,litellm,searxng,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
       - http_proxy=http://squid:3128
       - https_proxy=http://squid:3128
-      - no_proxy=typedb,alhazen-typedb,litellm,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+      - no_proxy=typedb,alhazen-typedb,litellm,searxng,127.0.0.1,localhost,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+      - SEARXNG_URL=http://searxng:8080
     depends_on:
 {% if target_type != 'macmini' %}
       - typedb
 {% endif %}
       - squid
+      - searxng
     networks:
       - openclaw-internal
 {% if target_type == 'macmini' %}

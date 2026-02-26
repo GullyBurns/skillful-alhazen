@@ -297,6 +297,30 @@
     group: "{{ openclaw_group | default(openclaw_user) }}"
     mode: '0600'
 
+- name: Create SearXNG Config Directory
+  file:
+    path: "{{ docker_dir }}/searxng"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
+    mode: '0755'
+
+- name: Generate SearXNG Secret Key
+  command: "openssl rand -hex 32"
+  register: searxng_secret_gen
+
+- name: Set SearXNG Secret
+  set_fact:
+    searxng_secret: "{{ searxng_secret_gen.stdout }}"
+
+- name: Create SearXNG Settings
+  template:
+    src: searxng-settings.yml.j2
+    dest: "{{ docker_dir }}/searxng/settings.yml"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_group | default(openclaw_user) }}"
+    mode: '0644'
+
 # SSL Certificates
 - name: Deploy SSL Certificate
   copy:

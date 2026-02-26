@@ -240,6 +240,49 @@
     group: staff
     mode: '0600'
 
+# --- SearXNG Self-Hosted Search ---
+
+- name: Generate SearXNG Secret Key
+  command: "openssl rand -hex 32"
+  register: searxng_secret_gen
+
+- name: Set SearXNG Secret
+  set_fact:
+    searxng_secret: "{{ searxng_secret_gen.stdout }}"
+
+- name: Create SearXNG Config Directory
+  file:
+    path: "{{ openclaw_home }}/.searxng"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0755'
+
+- name: Create SearXNG Settings
+  template:
+    src: searxng-settings.yml.j2
+    dest: "{{ openclaw_home }}/.searxng/settings.yml"
+    owner: "{{ openclaw_user }}"
+    group: staff
+    mode: '0644'
+
+- name: Stop Existing SearXNG Container
+  shell: docker stop alhazen-searxng && docker rm alhazen-searxng
+  become: false
+  ignore_errors: true
+
+- name: Start SearXNG Container
+  shell: |
+    docker run -d \
+      --name alhazen-searxng \
+      --restart unless-stopped \
+      -p 127.0.0.1:8888:8080 \
+      -v {{ openclaw_home }}/.searxng:/etc/searxng:rw \
+      docker.io/searxng/searxng:latest
+  become: false
+  environment:
+    PATH: "{{ macos_path }}"
+
 # --- Generate Dynamic Skill Entries in openclaw.json ---
 
 - name: Generate Alhazen Skill Entries in openclaw.json
