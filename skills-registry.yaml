@@ -1,57 +1,67 @@
-# Alhazen External Skills Registry
-# ==================================
-# Lists external skills to install from git repositories.
+# Alhazen Skills Registry
+# ========================
+# Single source of truth for all skills — core (path-based) and external (git-based).
 #
-# Install all registered skills:
-#   make skills-install
+# Build all skills locally:
+#   make build-skills
 #
-# Update all installed external skills:
+# Update installed skills:
 #   make skills-update
 #
-# Installed skills land in local_skills/ (gitignored, project-scoped).
+# Skills resolve to local_skills/ (gitignored build artifact).
 #
-# Format:
-#   skills:
-#     - name: my-skill          # Required: unique skill name (no spaces)
-#       git: https://...        # Required: git clone URL
-#       ref: main               # Optional: branch, tag, or commit hash (default: main)
-#       subdir: .               # Optional: subdirectory within the repo (default: .)
+# Entry formats:
 #
-# The skill directory at {subdir}/ must contain:
-#   - SKILL.md (required)
-#   - A Python script named {name}.py (recommended)
-#   - schema.tql (optional: TypeDB schema extension)
-#   - dashboard/ (optional: Next.js dashboard components)
-#     - components/             → dashboard/src/components/{name}/
-#     - routes/                 → dashboard/src/app/api/{name}/
-#     - pages/                  → dashboard/src/app/({name})/{name}/
-#     - lib/                    → dashboard/src/lib/{name}.ts (if single file)
+#   Core skills (from this repo, symlinked into local_skills/):
+#     - name: my-skill
+#       path: skills/my-skill       # path relative to repo root
+#
+#   External skills (cloned from a git repository):
+#     - name: my-skill
+#       git: https://...            # git clone URL
+#       ref: main                   # branch, tag, or commit hash (default: main)
+#       subdir: .                   # subdirectory within the repo (default: .)
+#
+# Each skill directory must contain:
+#   - SKILL.md     (required: Claude Code skill definition)
+#   - skill.yaml   (recommended: structured metadata)
+#   - {name}.py    (recommended: CLI entry point)
+#   - schema.tql   (optional: TypeDB schema extension — loaded by make build-db)
+#   - dashboard/   (optional: Next.js dashboard components)
 
 skills:
+  # ── Core skills (path-based: symlinked from skills/ in this repo) ──────────
+  - name: typedb-notebook
+    path: skills/typedb-notebook
+
+  - name: web-search
+    path: skills/web-search
+
+  - name: domain-modeling
+    path: skills/domain-modeling
+
+  # ── External skills (git-based: cloned from alhazen-skill-examples) ────────
   - name: jobhunt
     git: https://github.com/GullyBurns/alhazen-skill-examples
     ref: main
     subdir: skills/demo/jobhunt
+
   - name: techrecon
     git: https://github.com/GullyBurns/alhazen-skill-examples
     ref: main
     subdir: skills/demo/techrecon
+
   - name: epmc-search
     git: https://github.com/GullyBurns/alhazen-skill-examples
     ref: main
     subdir: skills/biomed/epmc-search
+
   - name: apm
     git: https://github.com/GullyBurns/alhazen-skill-examples
     ref: main
     subdir: skills/biomed/apm
 
-# Additional skills can be added below:
-# skills:
-#   - name: semantic-scholar
-#     git: https://github.com/example/alhazen-semantic-scholar
-#     ref: main
-#
-#   - name: clinical-trials
-#     git: https://github.com/example/alhazen-clinical-trials
-#     ref: v1.2.0
-#     subdir: skill
+# To add more external skills:
+# - name: semantic-scholar
+#   git: https://github.com/example/alhazen-semantic-scholar
+#   ref: main

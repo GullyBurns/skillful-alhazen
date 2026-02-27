@@ -1,0 +1,14 @@
+name: web-search
+description: "Search the web using SearXNG (self-hosted metasearch - no API key needed)"
+license: Apache-2.0
+compatibility: "Requires SearXNG running on localhost:8888 and curl/python3"
+
+requires:
+  bins: [curl, python3]
+  env: []
+  optional_env: []
+
+apis:
+  searxng:
+    endpoint: "http://localhost:8888/search"
+    documentation: "https://docs.searxng.org/dev/search_api.html"
