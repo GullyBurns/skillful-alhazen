@@ -5,6 +5,9 @@
       "autoUpdate": false,
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory@0.3.0"]
+    },
+    "alhazen": {
+      "url": "http://{{ 'localhost' if target_type == 'macmini' else 'alhazen-mcp' }}:3000/sse"
     }
   },
 

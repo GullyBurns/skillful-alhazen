@@ -54,7 +54,6 @@ PROJECT_ROOT = os.getenv(
 )
 
 TEMPLATES_DIR = Path(PROJECT_ROOT) / "local_resources" / "openclaw"
-SKILLS_MANIFEST_DIR = Path(PROJECT_ROOT) / "local_resources" / "skills"
 
 # Delimiters for preserving static sections
 DYNAMIC_START = "<!-- DYNAMIC:"
@@ -314,12 +313,16 @@ def preserve_static_section(
 
 
 def load_skill_manifests() -> list[dict]:
-    """Load skill manifests from YAML files."""
+    """Load skill manifests from local_skills/*/skill.yaml files."""
     manifests = []
-    if not SKILLS_MANIFEST_DIR.exists():
+    skills_dir = Path(PROJECT_ROOT) / "local_skills"
+    if not skills_dir.exists():
         return manifests
 
-    for yaml_file in sorted(SKILLS_MANIFEST_DIR.glob("*.yaml")):
+    for skill_dir in sorted(skills_dir.iterdir()):
+        yaml_file = skill_dir / "skill.yaml"
+        if not yaml_file.exists():
+            continue
         manifest = {}
         with open(yaml_file) as f:
             for line in f:
