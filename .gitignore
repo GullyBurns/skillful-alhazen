@@ -168,3 +168,6 @@ deploy/ssh-keys/*.pem
 deploy/ssh-keys/*.pem.pub
 deploy/ssh-keys/*.key
 deploy/ssh-keys/*.crt
+
+# Local Claude Files
+.claude

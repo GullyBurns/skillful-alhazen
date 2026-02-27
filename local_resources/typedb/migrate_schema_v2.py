@@ -37,7 +37,11 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from typedb.driver import SessionType, TransactionType, TypeDB
+    from typedb.driver import TransactionType, TypeDB
+    try:
+        from typedb.driver import SessionType  # TypeDB 2.x only
+    except ImportError:
+        SessionType = None  # TypeDB 3.x — no sessions
     TYPEDB_AVAILABLE = True
 except ImportError:
     TYPEDB_AVAILABLE = False
@@ -58,6 +62,16 @@ NAMESPACE_DIR = PROJECT_ROOT / "local_resources" / "typedb" / "namespaces"
 
 def get_driver():
     return TypeDB.core_driver(f"{TYPEDB_HOST}:{TYPEDB_PORT}")
+
+
+def get_driver_v3():
+    """Create TypeDB 3.x driver (no sessions, credentials required)."""
+    from typedb.driver import Credentials, DriverOptions
+    return TypeDB.driver(
+        f"{TYPEDB_HOST}:{TYPEDB_PORT}",
+        Credentials("admin", "password"),
+        DriverOptions(is_tls_enabled=False),
+    )
 
 
 def slugify(s):
@@ -91,8 +105,13 @@ def extract_value(attr_data):
 
 
 def parse_entity(result, var_name="$e"):
-    """Parse a TypeDB fetch result into a flat dict."""
-    entity_data = result.get(var_name, {})
+    """Parse a TypeDB fetch result into a flat dict.
+
+    TypeDB 2.x Python driver (2.29.x) strips the $ from variable names,
+    so try both '$e' and 'e' forms.
+    """
+    key_stripped = var_name.lstrip("$")
+    entity_data = result.get(var_name) or result.get(key_stripped) or {}
     parsed = {}
     for attr_name, attr_value in entity_data.items():
         if attr_name == "type":
@@ -185,7 +204,7 @@ def export_entities(driver, database):
                 'match $e isa scilit-paper, has id $id; '
                 'fetch $e: id, name, description, abstract-text, publication-date, source-uri, '
                 'doi, pmid, pmcid, arxiv-id, journal-name, journal-volume, journal-issue, '
-                'page-range, publication-year, keyword, created-at, content;'
+                'page-range, publication-year, keyword, created-at;'
             ))
             for r in results:
                 parsed = parse_entity(r, "$e")
@@ -231,21 +250,29 @@ def export_entities(driver, database):
                 if eid and eid in entities:
                     entities[eid].update(parsed)
 
-        # your-skill (no id in old schema - needs special handling)
+        # your-skill — may have id (if sub domain-thing) or not (old schema)
         print("Exporting your-skill entities...", file=sys.stderr)
         your_skills = []
         with session.transaction(TransactionType.READ) as tx:
             results = list(tx.query.fetch(
                 'match $e isa your-skill; '
-                'fetch $e: skill-name, skill-level, last-updated, description;'
+                'fetch $e: id, skill-name, skill-level, last-updated, description;'
             ))
             for r in results:
                 parsed = parse_entity(r, "$e")
                 parsed["_type"] = "your-skill"
-                # Generate an id from skill-name
-                skill_name = parsed.get("skill-name", "unknown")
-                parsed["id"] = f"skill-{slugify(skill_name)}"
-                your_skills.append(parsed)
+                eid = parsed.get("id")
+                if eid:
+                    # Schema has id on your-skill (sub domain-thing) — merge into entities dict
+                    if eid in entities:
+                        entities[eid].update(parsed)
+                    else:
+                        entities[eid] = parsed
+                else:
+                    # Old schema: no id attribute — generate one from skill-name
+                    skill_name = parsed.get("skill-name", "unknown")
+                    parsed["id"] = f"skill-{slugify(skill_name)}"
+                    your_skills.append(parsed)
 
         print(f"  Found {len(your_skills)} your-skill entities", file=sys.stderr)
 
@@ -580,112 +607,128 @@ def format_attr(attr_name, value):
 
 
 def import_entities(driver, database, entities, your_skills):
-    """Import entities into the new schema."""
+    """Import entities into the new schema (TypeDB 3.x)."""
     imported = 0
     errors = 0
 
-    with driver.session(database, SessionType.DATA) as session:
-        # Import regular entities (those with id)
-        for eid, entity in entities.items():
-            etype = entity.get("_type", "entity")
-            attrs = []
-            for attr_name, attr_value in entity.items():
-                formatted = format_attr(attr_name, attr_value)
-                if formatted:
-                    attrs.append(formatted)
+    # Import regular entities (those with id)
+    for eid, entity in entities.items():
+        etype = entity.get("_type", "entity")
+        attrs = []
+        for attr_name, attr_value in entity.items():
+            formatted = format_attr(attr_name, attr_value)
+            if formatted:
+                attrs.append(formatted)
 
-            if not attrs:
-                continue
+        if not attrs:
+            continue
 
-            query = f'insert $e isa {etype}, {", ".join(attrs)};'
+        query = f'insert $e isa {etype}, {", ".join(attrs)};'
 
-            with session.transaction(TransactionType.WRITE) as tx:
-                try:
-                    tx.query.insert(query)
-                    tx.commit()
-                    imported += 1
-                except Exception as e:
-                    errors += 1
-                    print(f"  Error inserting {etype} '{eid}': {e}", file=sys.stderr)
-                    # Try without problematic attributes
-                    # (e.g., attributes that moved between types)
+        with driver.transaction(database, TransactionType.WRITE) as tx:
+            try:
+                tx.query(query).resolve()
+                tx.commit()
+                imported += 1
+            except Exception as e:
+                errors += 1
+                print(f"  Error inserting {etype} '{eid}': {e}", file=sys.stderr)
 
-        # Import your-skill entities (now with id)
-        for skill in your_skills:
-            attrs = []
-            for attr_name, attr_value in skill.items():
-                formatted = format_attr(attr_name, attr_value)
-                if formatted:
-                    attrs.append(formatted)
+    # Import your-skill entities (now with id)
+    for skill in your_skills:
+        attrs = []
+        for attr_name, attr_value in skill.items():
+            formatted = format_attr(attr_name, attr_value)
+            if formatted:
+                attrs.append(formatted)
 
-            if not attrs:
-                continue
+        if not attrs:
+            continue
 
-            query = f'insert $e isa your-skill, {", ".join(attrs)};'
+        query = f'insert $e isa your-skill, {", ".join(attrs)};'
 
-            with session.transaction(TransactionType.WRITE) as tx:
-                try:
-                    tx.query.insert(query)
-                    tx.commit()
-                    imported += 1
-                except Exception as e:
-                    errors += 1
-                    print(f"  Error inserting your-skill: {e}", file=sys.stderr)
+        with driver.transaction(database, TransactionType.WRITE) as tx:
+            try:
+                tx.query(query).resolve()
+                tx.commit()
+                imported += 1
+            except Exception as e:
+                errors += 1
+                print(f"  Error inserting your-skill: {e}", file=sys.stderr)
 
     return imported, errors
 
 
-def import_relations(driver, database, relations):
-    """Import relations into the new schema."""
+def import_relations(driver, database, relations, entities=None, your_skills=None):
+    """Import relations into the new schema (TypeDB 3.x).
+
+    TypeDB 3.x requires type constraints on matched variables for role inference.
+    We include 'isa <type>' in the match clause using the entity type from the export.
+    """
     imported = 0
     errors = 0
 
-    with driver.session(database, SessionType.DATA) as session:
-        for rel in relations:
-            rel_type = rel["type"]
-            roles = rel.get("roles", {})
-            attrs = rel.get("attrs", {})
+    # Build a lookup from entity id -> concrete type for match constraints
+    id_to_type = {}
+    if entities:
+        for eid, edata in entities.items():
+            etype = edata.get("_type")
+            if etype:
+                id_to_type[eid] = etype
+    if your_skills:
+        for skill in your_skills:
+            sid = skill.get("id")
+            if sid:
+                id_to_type[sid] = "your-skill"
 
-            # Build match clause
-            match_parts = []
-            role_parts = []
-            var_counter = 0
+    for rel in relations:
+        rel_type = rel["type"]
+        roles = rel.get("roles", {})
+        attrs = rel.get("attrs", {})
 
-            for role_name, entity_id in roles.items():
-                if entity_id is None:
-                    continue
-                var = f"$v{var_counter}"
-                var_counter += 1
-                # Use identifiable-entity as the broadest match type
-                # (covers thing, collection, ICE subtypes, agent, tag)
-                match_parts.append(f'{var} has id "{entity_id}"')
-                role_parts.append(f"{role_name}: {var}")
+        # Build match clause
+        match_parts = []
+        role_parts = []
+        var_counter = 0
 
-            if len(role_parts) < 2:
+        for role_name, entity_id in roles.items():
+            if entity_id is None:
                 continue
+            var = f"$v{var_counter}"
+            var_counter += 1
+            # Include type constraint so TypeDB 3.x can infer role compatibility
+            etype = id_to_type.get(entity_id)
+            if etype:
+                match_parts.append(f'{var} isa {etype}, has id "{entity_id}"')
+            else:
+                match_parts.append(f'{var} has id "{entity_id}"')
+            role_parts.append(f"{role_name}: {var}")
 
-            # Build insert clause
-            attr_parts = []
-            for attr_name, attr_value in attrs.items():
-                formatted = format_attr(attr_name, attr_value)
-                if formatted:
-                    attr_parts.append(formatted)
+        if len(role_parts) < 2:
+            continue
 
-            insert_rel = f'({", ".join(role_parts)}) isa {rel_type}'
-            if attr_parts:
-                insert_rel += f', {", ".join(attr_parts)}'
-            insert_rel += ";"
+        # Build insert clause
+        attr_parts = []
+        for attr_name, attr_value in attrs.items():
+            formatted = format_attr(attr_name, attr_value)
+            if formatted:
+                attr_parts.append(formatted)
 
-            query = f'match {"; ".join(match_parts)}; insert {insert_rel}'
+        insert_rel = f'({", ".join(role_parts)}) isa {rel_type}'
+        if attr_parts:
+            insert_rel += f', {", ".join(attr_parts)}'
+        insert_rel += ";"
 
-            with session.transaction(TransactionType.WRITE) as tx:
-                try:
-                    tx.query.insert(query)
-                    tx.commit()
-                    imported += 1
-                except Exception as e:
-                    errors += 1
-                    print(f"  Error inserting {rel_type}: {e}", file=sys.stderr)
+        query = f'match {"; ".join(match_parts)}; insert {insert_rel}'
+
+        with driver.transaction(database, TransactionType.WRITE) as tx:
+            try:
+                tx.query(query).resolve()
+                tx.commit()
+                imported += 1
+            except Exception as e:
+                errors += 1
+                print(f"  Error inserting {rel_type}: {e}", file=sys.stderr)
 
     return imported, errors
 
@@ -747,13 +790,14 @@ def cmd_import(args):
     for entry in log:
         print(f"  {entry}", file=sys.stderr)
 
-    print("Connecting to TypeDB...", file=sys.stderr)
-    with get_driver() as driver:
+    print("Connecting to TypeDB 3.x...", file=sys.stderr)
+    with get_driver_v3() as driver:
         print("Importing entities...", file=sys.stderr)
         e_imported, e_errors = import_entities(driver, TYPEDB_DATABASE, entities, your_skills)
 
         print("Importing relations...", file=sys.stderr)
-        r_imported, r_errors = import_relations(driver, TYPEDB_DATABASE, relations)
+        r_imported, r_errors = import_relations(driver, TYPEDB_DATABASE, relations,
+                                                entities=entities, your_skills=your_skills)
 
     print(json.dumps({
         "success": True,

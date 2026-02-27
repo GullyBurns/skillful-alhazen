@@ -11,6 +11,8 @@ Environment Variables:
     TYPEDB_HOST: TypeDB server hostname (default: localhost)
     TYPEDB_PORT: TypeDB server port (default: 1729)
     TYPEDB_DATABASE: Database name (default: alhazen)
+    TYPEDB_USERNAME: TypeDB username (default: admin)
+    TYPEDB_PASSWORD: TypeDB password (default: password)
 """
 
 import json
@@ -24,6 +26,8 @@ from .typedb_client import TypeDBClient
 TYPEDB_HOST = os.getenv("TYPEDB_HOST", "localhost")
 TYPEDB_PORT = int(os.getenv("TYPEDB_PORT", "1729"))
 TYPEDB_DATABASE = os.getenv("TYPEDB_DATABASE", "alhazen")
+TYPEDB_USERNAME = os.getenv("TYPEDB_USERNAME", "admin")
+TYPEDB_PASSWORD = os.getenv("TYPEDB_PASSWORD", "password")
 SEARXNG_URL = os.getenv("SEARXNG_URL", "")
 
 # Initialize MCP server
@@ -32,7 +36,10 @@ mcp = FastMCP("alhazen-typedb")
 
 def get_client() -> TypeDBClient:
     """Get a configured TypeDB client."""
-    return TypeDBClient(host=TYPEDB_HOST, port=TYPEDB_PORT, database=TYPEDB_DATABASE)
+    return TypeDBClient(
+        host=TYPEDB_HOST, port=TYPEDB_PORT, database=TYPEDB_DATABASE,
+        username=TYPEDB_USERNAME, password=TYPEDB_PASSWORD,
+    )
 
 
 # -----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 # =============================================================================
-# SKILLLOG NAMESPACE - TypeDB 2.x Schema
+# SKILLLOG NAMESPACE - TypeDB 3.x Schema
 # =============================================================================
 # Tracks skill invocations for token observability, evaluation, and TextGrad
 # optimization. Logs are written by the PostToolUse Claude Code hook.
@@ -17,20 +17,20 @@ define
 # ATTRIBUTES
 # -----------------------------------------------------------------------------
 
-skill-name sub attribute, value string;
-command-name sub attribute, value string;
-session-id sub attribute, value string;
-exit-code sub attribute, value long;
-duration-ms sub attribute, value long;
+attribute skill-name, value string;
+attribute command-name, value string;
+attribute session-id, value string;
+attribute exit-code, value integer;
+attribute duration-ms, value integer;
 
 # Token estimates (tiktoken cl100k_base encoding)
-input-tokens-estimate sub attribute, value long;
-output-tokens-estimate sub attribute, value long;
-total-tokens-estimate sub attribute, value long;
+attribute input-tokens-estimate, value integer;
+attribute output-tokens-estimate, value integer;
+attribute total-tokens-estimate, value integer;
 
 # Evaluation label for TextGrad dataset building
 # Values: unlabeled | golden | rejected
-evaluation-label sub attribute, value string;
+attribute evaluation-label, value string;
 
 
 # -----------------------------------------------------------------------------
@@ -39,12 +39,12 @@ evaluation-label sub attribute, value string;
 
 # A Claude Code session — groups related invocations together.
 # Stored as a collection for queryability across invocations.
-skilllog-session sub collection,
+entity skilllog-session sub collection,
     owns session-id;
 
 
 # One recorded skill command execution.
-skilllog-invocation sub domain-thing,
+entity skilllog-invocation sub domain-thing,
     owns skill-name,
     owns command-name,
     owns session-id,
@@ -57,8 +57,8 @@ skilllog-invocation sub domain-thing,
 
 
 # Raw command string + args captured as input artifact.
-skilllog-input sub artifact;
+entity skilllog-input sub artifact;
 
 
 # Raw stdout/stderr captured as output artifact.
-skilllog-output sub artifact;
+entity skilllog-output sub artifact;

@@ -109,17 +109,8 @@ db-start: ## Start TypeDB container
 	@echo "$(BLUE)Starting TypeDB container...$(NC)"
 	docker compose -f docker-compose-typedb.yml up -d
 	@echo "$(BLUE)Waiting for TypeDB to be ready...$(NC)"
-	@for i in {1..30}; do \
-		if docker exec $(TYPEDB_CONTAINER) /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 <<< 'exit' 2>/dev/null; then \
-			echo "$(GREEN)✓ TypeDB is ready$(NC)"; \
-			break; \
-		fi; \
-		sleep 2; \
-		if [ $$i -eq 30 ]; then \
-			echo "$(RED)✗ TypeDB failed to start within 60 seconds$(NC)"; \
-			exit 1; \
-		fi; \
-	done
+	uv run python scripts/db_init.py --wait-only --timeout 60
+	@echo "$(GREEN)✓ TypeDB is ready$(NC)"
 
 .PHONY: db-stop
 db-stop: ## Stop TypeDB container
@@ -129,47 +120,20 @@ db-stop: ## Stop TypeDB container
 
 .PHONY: db-init
 db-init: ## Create database and load schemas
-	@echo "$(BLUE)Initializing TypeDB database...$(NC)"
-	@echo "$(BLUE)Creating database: $(TYPEDB_DATABASE)$(NC)"
-	docker exec -i $(TYPEDB_CONTAINER) /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << 'EOF' || true
-	database create $(TYPEDB_DATABASE)
-	exit
-	EOF
-	@echo "$(BLUE)Loading core schema...$(NC)"
-	docker exec -i $(TYPEDB_CONTAINER) /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << 'EOF'
-	transaction $(TYPEDB_DATABASE) schema write
-	source /schema/alhazen_notebook.tql
-	commit
-	exit
-	EOF
-	@echo "$(BLUE)Loading skill schemas (from local_skills/*/schema.tql)...$(NC)"
-	@if [ -d "$(LOCAL_SKILLS_DIR)" ]; then \
+	@echo "$(BLUE)Initializing TypeDB database '$(TYPEDB_DATABASE)'...$(NC)"
+	@SCHEMAS="$(TYPEDB_SCHEMAS_DIR)/alhazen_notebook.tql"; \
+	if [ -d "$(LOCAL_SKILLS_DIR)" ]; then \
 		for skill_dir in $(LOCAL_SKILLS_DIR)/*/; do \
 			schema=$$(readlink -f $$skill_dir)/schema.tql; \
 			[ -f "$$schema" ] || continue; \
-			skill_name=$$(basename $$skill_dir); \
-			echo "$(BLUE)Loading $$skill_name schema...$(NC)"; \
-			docker cp "$$schema" $(TYPEDB_CONTAINER):/tmp/schema_$${skill_name}.tql; \
-			docker exec -i $(TYPEDB_CONTAINER) /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << EOF || true; \
-			transaction $(TYPEDB_DATABASE) schema write; \
-			source /tmp/schema_$${skill_name}.tql; \
-			commit; \
-			exit; \
-			EOF \
+			SCHEMAS="$$SCHEMAS $$schema"; \
 		done; \
-	fi
-	@echo "$(BLUE)Loading infrastructure schemas (local_resources/typedb/namespaces/)...$(NC)"
-	@for schema in $(TYPEDB_SCHEMAS_DIR)/namespaces/*.tql; do \
+	fi; \
+	for schema in $(TYPEDB_SCHEMAS_DIR)/namespaces/*.tql; do \
 		[ -f "$$schema" ] || continue; \
-		schema_name=$$(basename $$schema); \
-		echo "$(BLUE)Loading $$schema_name...$(NC)"; \
-		docker exec -i $(TYPEDB_CONTAINER) /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << EOF || true; \
-		transaction $(TYPEDB_DATABASE) schema write; \
-		source /schema/namespaces/$$schema_name; \
-		commit; \
-		exit; \
-		EOF \
-	done
+		SCHEMAS="$$SCHEMAS $$schema"; \
+	done; \
+	uv run python scripts/db_init.py $$SCHEMAS
 	@echo "$(GREEN)✓ Database initialized$(NC)"
 
 .PHONY: db-export

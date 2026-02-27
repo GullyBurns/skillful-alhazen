@@ -105,24 +105,47 @@ make clean            # Clean generated files
 
 ## TypeDB Version
 
-**Current: TypeDB 2.x (2.25.0 server, 2.29.x driver)**
+**Current: TypeDB 3.x (3.8.0 server, 3.8.x Python driver)**
 
-We are staying on TypeDB 2.x because:
-- TypeDB 3.0 was released Dec 2024 but Python driver is still alpha (3.0.0a9)
-- Significant breaking changes in query syntax and API
-- Production stability is important for this project
+Migration from TypeDB 2.x to 3.x was completed Feb 2026. Key changes:
+- Docker image: `typedb/typedb:3.8.0` (was `vaticle/typedb:2.25.0`)
+- Python driver: `typedb-driver>=3.8.0` (was `typedb-driver>=2.25.0,<3.0.0`)
+- No more sessions — use `driver.transaction(database, TransactionType.X)` directly
+- Unified query method: `tx.query(query_string).resolve()` for all query types
+- Fetch syntax: `fetch { "key": $var.attr };` (JSON-style, replaces `fetch $var: attr1, attr2;`)
+- Schema: `attribute X, value T;` syntax (not `X sub attribute, value T;`)
+- Abstract sub-entities: `entity X @abstract, sub Y,` (comma after `@abstract`, before `sub`)
+- `agent` is now `sub domain-thing` (inherits description, created-at, etc. from identifiable-entity)
 
-**TypeDB 2.x Documentation Reference:**
-- `.claude/skills/typedb-notebook/typedb-2x-documentation.md` - Comprehensive TypeQL 2.x reference
-- Includes: queries, patterns, statements, types, values, modifiers, keywords, Python driver
-- **Always consult this file when writing TypeDB schemas or queries**
+**TypeDB 3.x `redefine` for schema changes:**
+```typeql
+redefine entity agent sub identifiable-entity;  -- in-place schema change without data migration
+```
 
-**Future Migration (planned for Q2-Q3 2025):**
-When TypeDB 3.0 drivers reach stable, migration will require:
-- Schema updates (Rules → Functions)
-- Query syntax changes throughout codebase
-- API changes (sessions eliminated, simplified transactions)
-- See: https://typedb.com/blog/typedb-3-0-is-now-live/
+**TypeDB 3.x Connection (Python):**
+```python
+from typedb.driver import TypeDB, Credentials, DriverOptions, TransactionType
+
+driver = TypeDB.driver(
+    f"{TYPEDB_HOST}:{TYPEDB_PORT}",
+    Credentials(TYPEDB_USERNAME, TYPEDB_PASSWORD),
+    DriverOptions(is_tls_enabled=False),
+)
+
+# Write transaction
+with driver.transaction(database, TransactionType.WRITE) as tx:
+    tx.query("insert $x isa collection, has id 'abc', has name 'Test';").resolve()
+    tx.commit()
+
+# Read transaction (fetch returns plain Python dicts)
+with driver.transaction(database, TransactionType.READ) as tx:
+    results = list(tx.query('''
+        match $c isa collection;
+        fetch { "id": $c.id, "name": $c.name };
+    ''').resolve())
+```
+
+**Data migration note:** TypeDB 2.x `.typedb` binary exports are NOT directly importable into TypeDB 3.x. Data must be re-ingested using the skills after upgrading.
 
 ## Architecture
 
@@ -394,6 +417,9 @@ cd deploy
 
 When Claude makes a mistake, add it to this section so it doesn't happen again.
 
-### TypeDB 2.x Query Notes
-- **No `optional` in fetch queries** - TypeDB 2.x doesn't support optional joins in fetch. Use separate queries instead.
-- **Fetch syntax** - Use `fetch $var: attr1, attr2;` not `fetch $var.attr1, $var.attr2;`
+### TypeDB 3.x Query Notes
+- **Fetch syntax** - Use `fetch { "key": $var.attr };` JSON-style (NOT `fetch $var: attr1, attr2;` — that is 2.x syntax)
+- **Abstract sub-entities** - Syntax is `entity X @abstract, sub Y,` (comma between `@abstract` and `sub`)
+- **No sessions** - Use `driver.transaction(database, TransactionType.X)` directly (no `driver.session(...)` wrapper)
+- **All queries use same method** - `tx.query(query_string).resolve()` for insert, fetch, delete, define
+- **Fetch results are plain dicts** - No `.get("value")` unwrapping needed; access keys directly

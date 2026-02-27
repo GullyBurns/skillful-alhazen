@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from typedb.driver import SessionType, TransactionType, TypeDB
+from typedb.driver import Credentials, DriverOptions, TransactionType, TypeDB
 
 
 class TypeDBClient:
@@ -25,7 +25,8 @@ class TypeDBClient:
     - Notes (agent-generated annotations)
     """
 
-    def __init__(self, host: str = "localhost", port: int = 1729, database: str = "alhazen"):
+    def __init__(self, host: str = "localhost", port: int = 1729, database: str = "alhazen",
+                 username: str = "admin", password: str = "password"):
         """
         Initialize TypeDB client.
 
@@ -33,14 +34,22 @@ class TypeDBClient:
             host: TypeDB server hostname
             port: TypeDB server port
             database: Database name to use
+            username: TypeDB username (default: admin)
+            password: TypeDB password (default: password)
         """
         self.address = f"{host}:{port}"
         self.database = database
+        self.username = username
+        self.password = password
         self._driver = None
 
     def connect(self) -> None:
         """Establish connection to TypeDB server."""
-        self._driver = TypeDB.core_driver(self.address)
+        self._driver = TypeDB.driver(
+            self.address,
+            Credentials(self.username, self.password),
+            DriverOptions(is_tls_enabled=False),
+        )
 
     def disconnect(self) -> None:
         """Close connection to TypeDB server."""
@@ -91,10 +100,9 @@ class TypeDBClient:
         with open(schema_path) as f:
             schema = f.read()
 
-        with self._driver.session(self.database, SessionType.SCHEMA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.define(schema)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.SCHEMA) as tx:
+            tx.query(schema).resolve()
+            tx.commit()
 
     def database_exists(self) -> bool:
         """Check if the database exists."""
@@ -146,10 +154,9 @@ class TypeDBClient:
         if logical_query:
             query = query.rstrip(";") + f', has logical-query "{logical_query}";'
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
         return cid
 
@@ -168,14 +175,20 @@ class TypeDBClient:
 
         query = f"""
             match $c isa collection, has id "{collection_id}";
-            fetch $c: id, name, description, logical-query, is-extensional, created-at;
+            fetch {{
+                "id": $c.id,
+                "name": $c.name,
+                "description": $c.description,
+                "logical-query": $c.logical-query,
+                "is-extensional": $c.is-extensional,
+                "created-at": $c.created-at
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                if results:
-                    return self._parse_fetch_result(results[0])
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            if results:
+                return self._parse_fetch_result(results[0])
         return None
 
     def get_collection_members(self, collection_id: str) -> list[dict[str, Any]]:
@@ -195,13 +208,16 @@ class TypeDBClient:
             match
                 $c isa collection, has id "{collection_id}";
                 (collection: $c, member: $m) isa collection-membership;
-            fetch $m: id, name, description;
+            fetch {{
+                "id": $m.id,
+                "name": $m.name,
+                "description": $m.description
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                return [self._parse_fetch_result(r) for r in results]
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            return [self._parse_fetch_result(r) for r in results]
 
     # -------------------------------------------------------------------------
     # Thing Operations
@@ -248,10 +264,9 @@ class TypeDBClient:
         if source_uri:
             query = query.rstrip(";") + f', has source-uri "{source_uri}";'
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
         # Add to collection if specified
         if collection_id:
@@ -274,14 +289,18 @@ class TypeDBClient:
 
         query = f"""
             match $t isa domain-thing, has id "{thing_id}";
-            fetch $t: id, name, description, source-uri;
+            fetch {{
+                "id": $t.id,
+                "name": $t.name,
+                "description": $t.description,
+                "source-uri": $t.source-uri
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                if results:
-                    return self._parse_fetch_result(results[0])
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            if results:
+                return self._parse_fetch_result(results[0])
         return None
 
     def add_to_collection(self, collection_id: str, member_id: str) -> None:
@@ -306,10 +325,9 @@ class TypeDBClient:
                     has created-at {timestamp};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
     # -------------------------------------------------------------------------
     # Artifact Operations
@@ -358,10 +376,9 @@ class TypeDBClient:
         if source_uri:
             query = query.rstrip(";") + f', has source-uri "{source_uri}";'
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
         # Create representation relation
         rel_query = f"""
@@ -372,10 +389,9 @@ class TypeDBClient:
                 (artifact: $a, referent: $t) isa representation;
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(rel_query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(rel_query).resolve()
+            tx.commit()
 
         return aid
 
@@ -396,13 +412,17 @@ class TypeDBClient:
             match
                 $t isa domain-thing, has id "{thing_id}";
                 (artifact: $a, referent: $t) isa representation;
-            fetch $a: id, format, source-uri, created-at;
+            fetch {{
+                "id": $a.id,
+                "format": $a.format,
+                "source-uri": $a.source-uri,
+                "created-at": $a.created-at
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                return [self._parse_fetch_result(r) for r in results]
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            return [self._parse_fetch_result(r) for r in results]
 
     # -------------------------------------------------------------------------
     # Fragment Operations
@@ -453,10 +473,9 @@ class TypeDBClient:
         if section_type and fragment_type == "scilit-section":
             query = query.rstrip(";") + f', has section-type "{section_type}";'
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
         # Create fragmentation relation
         rel_query = f"""
@@ -467,10 +486,9 @@ class TypeDBClient:
                 (whole: $a, part: $f) isa fragmentation;
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(rel_query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(rel_query).resolve()
+            tx.commit()
 
         return fid
 
@@ -524,10 +542,9 @@ class TypeDBClient:
         if note_type:
             query = query.rstrip(";") + f', has format "{note_type}";'
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
         # Create aboutness relations for each subject
         for subject_id in subject_ids:
@@ -538,10 +555,9 @@ class TypeDBClient:
                 insert
                     (note: $n, subject: $s) isa aboutness;
             """
-            with self._driver.session(self.database, SessionType.DATA) as session:
-                with session.transaction(TransactionType.WRITE) as tx:
-                    tx.query.insert(rel_query)
-                    tx.commit()
+            with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+                tx.query(rel_query).resolve()
+                tx.commit()
 
         # Apply tags
         if tags:
@@ -558,10 +574,9 @@ class TypeDBClient:
                     (author: $a, work: $n) isa authorship,
                         has created-at {timestamp};
             """
-            with self._driver.session(self.database, SessionType.DATA) as session:
-                with session.transaction(TransactionType.WRITE) as tx:
-                    tx.query.insert(auth_query)
-                    tx.commit()
+            with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+                tx.query(auth_query).resolve()
+                tx.commit()
 
         return nid
 
@@ -582,13 +597,18 @@ class TypeDBClient:
             match
                 $s isa identifiable-entity, has id "{subject_id}";
                 (note: $n, subject: $s) isa aboutness;
-            fetch $n: id, content, confidence, format, created-at;
+            fetch {{
+                "id": $n.id,
+                "content": $n.content,
+                "confidence": $n.confidence,
+                "format": $n.format,
+                "created-at": $n.created-at
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                return [self._parse_fetch_result(r) for r in results]
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            return [self._parse_fetch_result(r) for r in results]
 
     # -------------------------------------------------------------------------
     # Tagging Operations
@@ -619,10 +639,9 @@ class TypeDBClient:
         if description:
             query = query.rstrip(";") + f', has description "{description}";'
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
         return tag_id
 
@@ -642,15 +661,14 @@ class TypeDBClient:
         # Check if tag exists
         check_query = f"""
             match $t isa tag, has name "{tag_name}";
-            fetch $t: id;
+            fetch {{ "id": $t.id }};
         """
 
         tag_id = None
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(check_query))
-                if results:
-                    tag_id = self._parse_fetch_result(results[0]).get("id")
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(check_query).resolve())
+            if results:
+                tag_id = self._parse_fetch_result(results[0]).get("id")
 
         # Create tag if needed
         if not tag_id:
@@ -666,10 +684,9 @@ class TypeDBClient:
                     has created-at {timestamp};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(rel_query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(rel_query).resolve()
+            tx.commit()
 
     def search_by_tag(self, tag_name: str, entity_type: str | None = None) -> list[dict[str, Any]]:
         """
@@ -692,13 +709,16 @@ class TypeDBClient:
                 $t isa tag, has name "{tag_name}";
                 (tagged-entity: $e, tag: $t) isa tagging;
                 $e isa {type_constraint};
-            fetch $e: id, name, description;
+            fetch {{
+                "id": $e.id,
+                "name": $e.name,
+                "description": $e.description
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                return [self._parse_fetch_result(r) for r in results]
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            return [self._parse_fetch_result(r) for r in results]
 
     # -------------------------------------------------------------------------
     # Agent Operations
@@ -738,10 +758,9 @@ class TypeDBClient:
         if model_name:
             query = query.rstrip(";") + f', has model-name "{model_name}";'
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
         return aid
 
@@ -807,10 +826,9 @@ class TypeDBClient:
                 {insert_base}
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
     def traverse_provenance(self, entity_id: str) -> list[dict[str, Any]]:
         """
@@ -829,14 +847,16 @@ class TypeDBClient:
             match
                 $e isa identifiable-entity, has id "{entity_id}";
                 $p (produced-entity: $e) isa provenance-record;
-            fetch
-                $p: operation-type, operation-timestamp, operation-parameters;
+            fetch {{
+                "operation-type": $p.operation-type,
+                "operation-timestamp": $p.operation-timestamp,
+                "operation-parameters": $p.operation-parameters
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                return [self._parse_fetch_result(r) for r in results]
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            return [self._parse_fetch_result(r) for r in results]
 
     # -------------------------------------------------------------------------
     # Utility Methods
@@ -847,20 +867,8 @@ class TypeDBClient:
         return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
     def _parse_fetch_result(self, result: dict) -> dict[str, Any]:
-        """Parse a TypeDB fetch result into a simple dictionary."""
-        parsed = {}
-        for key, value in result.items():
-            if isinstance(value, dict):
-                # Nested entity
-                for attr_name, attr_value in value.items():
-                    if attr_name != "type":
-                        if isinstance(attr_value, list) and len(attr_value) == 1:
-                            parsed[attr_name] = attr_value[0].get("value")
-                        elif isinstance(attr_value, dict):
-                            parsed[attr_name] = attr_value.get("value")
-            else:
-                parsed[key] = value
-        return parsed
+        """Parse a TypeDB 3.x fetch result (already a plain dict) into a simple dictionary."""
+        return {k: v for k, v in result.items() if v is not None}
 
     # -------------------------------------------------------------------------
     # Scientific Literature Operations (EPMC Integration)
@@ -928,10 +936,9 @@ class TypeDBClient:
             for kw in keywords:
                 query = query.rstrip(";") + f', has keyword "{self._escape_string(kw)}";'
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
         # Add to collection if specified
         if collection_id:
@@ -954,14 +961,22 @@ class TypeDBClient:
 
         query = f"""
             match $p isa scilit-paper, has doi "{doi}";
-            fetch $p: id, name, doi, pmid, pmcid, abstract-text, publication-year, journal-name;
+            fetch {{
+                "id": $p.id,
+                "name": $p.name,
+                "doi": $p.doi,
+                "pmid": $p.pmid,
+                "pmcid": $p.pmcid,
+                "abstract-text": $p.abstract-text,
+                "publication-year": $p.publication-year,
+                "journal-name": $p.journal-name
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                if results:
-                    return self._parse_fetch_result(results[0])
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            if results:
+                return self._parse_fetch_result(results[0])
         return None
 
     def search_papers(
@@ -996,14 +1011,19 @@ class TypeDBClient:
 
         query = f"""
             match {"; ".join(match_clauses)};
-            fetch $p: id, name, doi, publication-year, journal-name;
             limit {limit};
+            fetch {{
+                "id": $p.id,
+                "name": $p.name,
+                "doi": $p.doi,
+                "publication-year": $p.publication-year,
+                "journal-name": $p.journal-name
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                return [self._parse_fetch_result(r) for r in results]
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            return [self._parse_fetch_result(r) for r in results]
 
     def get_papers_in_collection(self, collection_id: str) -> list[dict[str, Any]]:
         """
@@ -1023,10 +1043,17 @@ class TypeDBClient:
                 $c isa collection, has id "{collection_id}";
                 (collection: $c, member: $p) isa collection-membership;
                 $p isa scilit-paper;
-            fetch $p: id, name, doi, pmid, abstract-text, publication-year, journal-name;
+            fetch {{
+                "id": $p.id,
+                "name": $p.name,
+                "doi": $p.doi,
+                "pmid": $p.pmid,
+                "abstract-text": $p.abstract-text,
+                "publication-year": $p.publication-year,
+                "journal-name": $p.journal-name
+            }};
         """
 
-        with self._driver.session(self.database, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                results = list(tx.query.fetch(query))
-                return [self._parse_fetch_result(r) for r in results]
+        with self._driver.transaction(self.database, TransactionType.READ) as tx:
+            results = list(tx.query(query).resolve())
+            return [self._parse_fetch_result(r) for r in results]
