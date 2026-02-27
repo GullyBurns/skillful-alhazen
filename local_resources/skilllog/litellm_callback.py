@@ -123,8 +123,14 @@ class TypeDBTokenLogger(CustomLogger):
             output_tok   = getattr(usage, "completion_tokens", 0) or 0
             cache_create = getattr(usage, "cache_creation_input_tokens", 0) or 0
             cache_read   = getattr(usage, "cache_read_input_tokens", 0) or 0
-            elapsed      = end_time - start_time
-            duration_ms  = int(elapsed.total_seconds() * 1000 if hasattr(elapsed, "total_seconds") else elapsed * 1000)
+            try:
+                elapsed = end_time - start_time
+                if hasattr(elapsed, "total_seconds"):
+                    duration_ms = int(elapsed.total_seconds() * 1000)
+                else:
+                    duration_ms = int(elapsed * 1000)
+            except Exception:
+                duration_ms = 0
             model        = kwargs.get("model", "unknown")
 
             # Session ID — populated if OpenClaw passes it in metadata (Phase 2)
