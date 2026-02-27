@@ -117,54 +117,18 @@
 
 # --- Copy Skills and Workspace Identity Files ---
 
-# Resolve skills from skills-registry.yaml into local_skills/ on the remote Mac
-- name: Resolve skills from skills-registry.yaml into local_skills/
-  shell: |
-    python3 - << 'PYEOF'
-    import subprocess, sys, shutil
-    from pathlib import Path
-    try:
-        import yaml
-    except ImportError:
-        print("PyYAML not available — skipping skill resolution"); sys.exit(0)
-    registry = Path('skills-registry.yaml')
-    if not registry.exists():
-        print("No skills-registry.yaml found"); sys.exit(0)
-    cfg = yaml.safe_load(registry.read_text()) or {}
-    local_skills = Path('local_skills'); local_skills.mkdir(exist_ok=True)
-    for skill in cfg.get('skills') or []:
-        name = skill['name']
-        target = local_skills / name
-        if 'path' in skill:
-            src = Path(skill['path'])
-            if target.is_symlink(): target.unlink()
-            elif target.exists(): shutil.rmtree(str(target))
-            target.symlink_to(f'../{src}')
-            print(f'  Linked (core): {name}')
-            continue
-        git_url = skill['git']
-        ref = skill.get('ref', 'main'); subdir = skill.get('subdir', '.')
-        if target.exists() and not target.is_symlink():
-            print(f'  Skipping {name} (already installed)')
-            continue
-        if target.is_symlink(): target.unlink()
-        print(f'  Cloning {name}...')
-        tmp = local_skills / f'_tmp_{name}'
-        try:
-            subprocess.run(['git','clone','--depth=1','--branch',ref,git_url,str(tmp)],
-                           check=True, capture_output=True)
-            src = tmp / subdir if subdir != '.' else tmp
-            src.rename(target)
-            print(f'  Installed {name}')
-        except subprocess.CalledProcessError as e:
-            print(f'  Failed {name}: {e}', file=sys.stderr)
-        finally:
-            if tmp.exists(): shutil.rmtree(str(tmp), ignore_errors=True)
-    PYEOF
+# Update all skills from registry (force re-clone external, re-link core)
+# Using make skills-update instead of inline Python to ensure external skills
+# are always refreshed on each deploy (fixes stale 2.x code/deps issue).
+- name: Update all skills from registry (force re-clone external)
+  shell: make skills-update
   args:
     chdir: "{{ repo_dir }}"
   become: true
   become_user: "{{ openclaw_user }}"
+  environment:
+    HOME: "{{ openclaw_home }}"
+    PATH: "{{ macos_path }}"
 
 - name: Copy Alhazen Skills to openclaw Managed Skills Dir
   shell: |
