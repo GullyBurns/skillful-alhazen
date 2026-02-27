@@ -69,6 +69,7 @@
     dest: "{{ repo_dir }}"
     version: "{{ deploy_branch | default('main') }}"
     update: yes
+    force: yes
   become: true
   become_user: "{{ openclaw_user }}"
 
