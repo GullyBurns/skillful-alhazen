@@ -163,8 +163,13 @@ endif
 # Skill Deployment
 # =============================================================================
 
+.PHONY: deploy-claude-settings
+deploy-claude-settings: ## Write .claude/settings.json with absolute-path PostToolUse hook
+	@printf '{\n  "hooks": {\n    "PostToolUse": [\n      {\n        "matcher": "Bash",\n        "hooks": [\n          {\n            "type": "command",\n            "command": "cd $(PROJECT_ROOT) && uv run python $(SKILL_LOGGER)"\n          }\n        ]\n      }\n    ]\n  }\n}\n' > $(PROJECT_ROOT)/.claude/settings.json
+	@echo "$(GREEN)  ✓ Wrote .claude/settings.json$(NC)"
+
 .PHONY: deploy-claude
-deploy-claude: ## Symlink external skills from local_skills/ into .claude/skills/ (for Claude Code)
+deploy-claude: deploy-claude-settings ## Symlink external skills from local_skills/ into .claude/skills/ (for Claude Code)
 	@echo "$(BLUE)Deploying external skills to Claude Code...$(NC)"
 	@if [ ! -d "$(LOCAL_SKILLS_DIR)" ]; then \
 		echo "$(YELLOW)→ No local_skills/ directory — run 'make skills-install' first$(NC)"; \
