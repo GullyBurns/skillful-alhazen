@@ -11,7 +11,7 @@ services:
       - typedb-data:/var/lib/typedb/data
       - ./local_resources/typedb:/schema:ro
     healthcheck:
-      test: ["CMD-SHELL", "typedb console --server=localhost:1729 --command 'database list' 2>/dev/null || exit 1"]
+      test: ["CMD-SHELL", "timeout 3 bash -c 'echo > /dev/tcp/localhost/1729' 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10

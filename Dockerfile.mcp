@@ -36,11 +36,11 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV TYPEDB_HOST=localhost
 ENV TYPEDB_PORT=1729
-ENV TYPEDB_DATABASE=alhazen
+ENV TYPEDB_DATABASE=alhazen_notebook
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import socket; s=socket.socket(); s.connect(('localhost', 3000)); s.close()" || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD python -c "import socket; s=socket.socket(); s.settimeout(5); s.connect(('localhost', 3000)); s.close()" || exit 1
 
 # Run the MCP server
 CMD ["python", "-m", "skillful_alhazen.mcp.typedb_server"]

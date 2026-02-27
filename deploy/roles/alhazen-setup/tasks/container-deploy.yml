@@ -633,11 +633,11 @@
   ignore_errors: true
   when: target_type == 'macmini'
 
-# Health check: wait for TypeDB
+# Health check: wait for TypeDB (uses bash /dev/tcp — TypeDB 3.x has no bundled console)
 - name: Wait for TypeDB to be Ready (Linux/Podman)
   shell: |
     for i in $(seq 1 30); do
-      echo 'exit' | {{ container_cmd }} exec -i {{ container_prefix | default('alhazen') }}-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null && exit 0
+      {{ container_cmd }} exec {{ container_prefix | default('alhazen') }}-typedb bash -c 'timeout 2 bash -c "echo > /dev/tcp/localhost/1729"' 2>/dev/null && exit 0
       sleep 2
     done
     echo "TypeDB failed to start within 60 seconds" && exit 1
@@ -651,7 +651,7 @@
 - name: Wait for TypeDB to be Ready (macOS/Docker)
   shell: |
     for i in $(seq 1 30); do
-      echo 'exit' | {{ container_cmd }} exec -i alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 2>/dev/null && exit 0
+      {{ container_cmd }} exec {{ container_prefix | default('alhazen') }}-typedb bash -c 'timeout 2 bash -c "echo > /dev/tcp/localhost/1729"' 2>/dev/null && exit 0
       sleep 2
     done
     echo "TypeDB failed to start within 60 seconds" && exit 1

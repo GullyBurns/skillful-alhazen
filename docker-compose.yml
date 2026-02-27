@@ -22,7 +22,7 @@ services:
       - typedb-data:/var/lib/typedb/data
       - ./local_resources/typedb:/schema:ro
     healthcheck:
-      test: ["CMD-SHELL", "typedb console --server=localhost:1729 --command 'database list' 2>/dev/null || exit 1"]
+      test: ["CMD-SHELL", "timeout 3 bash -c 'echo > /dev/tcp/localhost/1729' 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -35,31 +35,31 @@ services:
   # Schema Initialization (runs once)
   # ============================================
   typedb-init:
-    image: typedb/typedb:3.8.0
+    image: python:3.11-slim
     container_name: alhazen-typedb-init
     depends_on:
       typedb:
         condition: service_healthy
     volumes:
       - ./local_resources/typedb:/schema:ro
+      - ./scripts:/scripts:ro
     networks:
       - alhazen-network
+    environment:
+      - TYPEDB_HOST=typedb
+      - TYPEDB_PORT=1729
+      - TYPEDB_DATABASE=alhazen_notebook
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        echo "Checking if database exists..."
-        if typedb console --server=typedb:1729 --command 'database list' 2>/dev/null | grep -q "alhazen_notebook"; then
-          echo "Database already exists, skipping initialization"
-          exit 0
-        fi
-
-        echo "Creating database..."
-        typedb console --server=typedb:1729 --command 'database create alhazen_notebook' 2>/dev/null || true
-
-        echo "Loading main schema..."
-        typedb console --server=typedb:1729 --script /schema/init_schema.tqls
-
-        echo "Schema initialization complete!"
+        pip install typedb-driver -q
+        python /scripts/db_init.py \
+          /schema/alhazen_notebook.tql \
+          /schema/namespaces/scilit.tql \
+          /schema/namespaces/jobhunt.tql \
+          /schema/namespaces/apm.tql \
+          /schema/namespaces/techrecon.tql
+    restart: "no"
 
   # ============================================
   # Hub - Master Landing Page

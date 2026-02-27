@@ -20,7 +20,7 @@ $CONTAINER_CMD exec {{ container_prefix | default('openclaw') }}-agent openclaw 
 
 # 3. Check TypeDB Status
 echo "[*] Checking TypeDB..." >> "$REPORT_FILE"
-$CONTAINER_CMD exec {{ container_prefix | default('alhazen') }}-typedb /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 <<< 'exit' >> "$REPORT_FILE" 2>&1
+$CONTAINER_CMD exec {{ container_prefix | default('alhazen') }}-typedb bash -c 'timeout 2 bash -c "echo > /dev/tcp/localhost/1729"' >> "$REPORT_FILE" 2>&1
 if [ $? -eq 0 ]; then
   echo "  TypeDB: HEALTHY" >> "$REPORT_FILE"
 else
