@@ -51,13 +51,13 @@ except ImportError:
 
 # TypeDB driver
 try:
-    from typedb.driver import SessionType, TransactionType, TypeDB
+    from typedb.driver import Credentials, DriverOptions, TransactionType, TypeDB
 
     TYPEDB_AVAILABLE = True
 except ImportError:
     TYPEDB_AVAILABLE = False
     print(
-        "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=2.25.0,<3.0.0'",
+        "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=3.0.0'",
         file=sys.stderr,
     )
 
@@ -92,6 +92,8 @@ except ImportError:
 TYPEDB_HOST = os.getenv("TYPEDB_HOST", "localhost")
 TYPEDB_PORT = int(os.getenv("TYPEDB_PORT", "1729"))
 TYPEDB_DATABASE = os.getenv("TYPEDB_DATABASE", "alhazen_notebook")
+TYPEDB_USERNAME = os.getenv("TYPEDB_USERNAME", "admin")
+TYPEDB_PASSWORD = os.getenv("TYPEDB_PASSWORD", "password")
 
 # TODO: Update these constants for your domain
 DOMAIN_PREFIX = "domain"  # e.g., "jobhunt", "scilit"
@@ -106,7 +108,11 @@ ARTIFACT_TYPE = f"{DOMAIN_PREFIX}-artifact"
 
 def get_driver():
     """Get TypeDB driver connection."""
-    return TypeDB.core_driver(f"{TYPEDB_HOST}:{TYPEDB_PORT}")
+    return TypeDB.driver(
+        f"{TYPEDB_HOST}:{TYPEDB_PORT}",
+        Credentials(TYPEDB_USERNAME, TYPEDB_PASSWORD),
+        DriverOptions(is_tls_enabled=False),
+    )
 
 
 def generate_id(prefix: str) -> str:
@@ -122,17 +128,14 @@ def escape_string(s: str) -> str:
 
 
 def get_attr(entity: dict, attr_name: str, default=None):
-    """Safely extract attribute value from TypeDB fetch result.
+    """Safely extract attribute value from a TypeDB 3.x fetch result.
 
-    TypeDB fetch returns attributes as arrays, e.g.:
-    {'id': [{'value': 'abc', 'type': {...}}], 'name': [...]}
+    TypeDB 3.x fetch returns plain Python dicts, e.g.:
+    {'id': 'abc', 'name': 'My Entity'}
 
-    This helper extracts the first value or returns default.
+    This helper returns the value or default if not present.
     """
-    attr_list = entity.get(attr_name, [])
-    if attr_list and len(attr_list) > 0:
-        return attr_list[0].get("value", default)
-    return default
+    return entity.get(attr_name, default)
 
 
 def get_timestamp() -> str:
@@ -215,76 +218,75 @@ def cmd_ingest(args):
     placeholder_name = title if title else f"Content from {url[:50]}"
 
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            # Create entity placeholder
-            with session.transaction(TransactionType.WRITE) as tx:
-                entity_query = f'''insert $e isa {ENTITY_TYPE},
-                    has id "{entity_id}",
-                    has name "{escape_string(placeholder_name)}",
+        # Create entity placeholder
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            entity_query = f'''insert $e isa {ENTITY_TYPE},
+                has id "{entity_id}",
+                has name "{escape_string(placeholder_name)}",
+                has created-at {timestamp};'''
+            tx.query(entity_query).resolve()
+            tx.commit()
+
+        # Create artifact with content (inline or cached)
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            # Check if content should be cached externally (>50KB)
+            if CACHE_AVAILABLE and should_cache(content):
+                # Store in cache
+                cache_result = save_to_cache(
+                    artifact_id=artifact_id,
+                    content=content,
+                    mime_type="text/html",
+                )
+                artifact_query = f'''insert $a isa {ARTIFACT_TYPE},
+                    has id "{artifact_id}",
+                    has name "Content: {escape_string(placeholder_name)}",
+                    has cache-path "{cache_result['cache_path']}",
+                    has mime-type "text/html",
+                    has file-size {cache_result['file_size']},
+                    has content-hash "{cache_result['content_hash']}",
+                    has source-uri "{escape_string(url)}",
                     has created-at {timestamp};'''
-                tx.query.insert(entity_query)
-                tx.commit()
+            else:
+                # Store inline in TypeDB
+                artifact_query = f'''insert $a isa {ARTIFACT_TYPE},
+                    has id "{artifact_id}",
+                    has name "Content: {escape_string(placeholder_name)}",
+                    has content "{escape_string(content)}",
+                    has source-uri "{escape_string(url)}",
+                    has created-at {timestamp};'''
+            tx.query(artifact_query).resolve()
+            tx.commit()
 
-            # Create artifact with content (inline or cached)
-            with session.transaction(TransactionType.WRITE) as tx:
-                # Check if content should be cached externally (>50KB)
-                if CACHE_AVAILABLE and should_cache(content):
-                    # Store in cache
-                    cache_result = save_to_cache(
-                        artifact_id=artifact_id,
-                        content=content,
-                        mime_type="text/html",
-                    )
-                    artifact_query = f'''insert $a isa {ARTIFACT_TYPE},
-                        has id "{artifact_id}",
-                        has name "Content: {escape_string(placeholder_name)}",
-                        has cache-path "{cache_result['cache_path']}",
-                        has mime-type "text/html",
-                        has file-size {cache_result['file_size']},
-                        has content-hash "{cache_result['content_hash']}",
-                        has source-uri "{escape_string(url)}",
-                        has created-at {timestamp};'''
-                else:
-                    # Store inline in TypeDB
-                    artifact_query = f'''insert $a isa {ARTIFACT_TYPE},
-                        has id "{artifact_id}",
-                        has name "Content: {escape_string(placeholder_name)}",
-                        has content "{escape_string(content)}",
-                        has source-uri "{escape_string(url)}",
-                        has created-at {timestamp};'''
-                tx.query.insert(artifact_query)
-                tx.commit()
+        # Link artifact to entity
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            rep_query = f'''match
+                $a isa {ARTIFACT_TYPE}, has id "{artifact_id}";
+                $e isa {ENTITY_TYPE}, has id "{entity_id}";
+            insert (artifact: $a, referent: $e) isa representation;'''
+            tx.query(rep_query).resolve()
+            tx.commit()
 
-            # Link artifact to entity
-            with session.transaction(TransactionType.WRITE) as tx:
-                rep_query = f'''match
-                    $a isa {ARTIFACT_TYPE}, has id "{artifact_id}";
-                    $e isa {ENTITY_TYPE}, has id "{entity_id}";
-                insert (artifact: $a, referent: $e) isa representation;'''
-                tx.query.insert(rep_query)
-                tx.commit()
+        # Add tags if specified
+        if args.tags:
+            for tag_name in args.tags:
+                tag_id = generate_id("tag")
+                with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+                    tag_check = f'match $t isa tag, has name "{tag_name}"; fetch {{ "id": $t.id }};'
+                    existing_tag = list(tx.query(tag_check).resolve())
 
-            # Add tags if specified
-            if args.tags:
-                for tag_name in args.tags:
-                    tag_id = generate_id("tag")
-                    with session.transaction(TransactionType.READ) as tx:
-                        tag_check = f'match $t isa tag, has name "{tag_name}"; fetch $t: id;'
-                        existing_tag = list(tx.query.fetch(tag_check))
-
-                    if not existing_tag:
-                        with session.transaction(TransactionType.WRITE) as tx:
-                            tx.query.insert(
-                                f'insert $t isa tag, has id "{tag_id}", has name "{tag_name}";'
-                            )
-                            tx.commit()
-
-                    with session.transaction(TransactionType.WRITE) as tx:
-                        tx.query.insert(f'''match
-                            $e isa {ENTITY_TYPE}, has id "{entity_id}";
-                            $t isa tag, has name "{tag_name}";
-                        insert (tagged-entity: $e, tag: $t) isa tagging;''')
+                if not existing_tag:
+                    with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                        tx.query(
+                            f'insert $t isa tag, has id "{tag_id}", has name "{tag_name}";'
+                        ).resolve()
                         tx.commit()
+
+                with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                    tx.query(f'''match
+                        $e isa {ENTITY_TYPE}, has id "{entity_id}";
+                        $t isa tag, has name "{tag_name}";
+                    insert (tagged-entity: $e, tag: $t) isa tagging;''').resolve()
+                    tx.commit()
 
     print(
         json.dumps(
@@ -318,10 +320,9 @@ def cmd_add_entity(args):
     query += ";"
 
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
     print(json.dumps({"success": True, "entity_id": entity_id, "name": args.name}))
 
@@ -334,45 +335,44 @@ def cmd_add_entity(args):
 def cmd_list_artifacts(args):
     """List artifacts, optionally filtered by analysis status."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                query = f"""match
-                    $a isa {ARTIFACT_TYPE};
-                fetch $a: id, name, source-uri, created-at;"""
-                artifacts = list(tx.query.fetch(query))
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            query = f"""match
+                $a isa {ARTIFACT_TYPE};
+            fetch {{ "id": $a.id, "name": $a.name, "source-uri": $a.source-uri, "created-at": $a.created-at }};"""
+            artifacts = list(tx.query(query).resolve())
 
-                results = []
-                for art in artifacts:
-                    artifact_id = get_attr(art["a"], "id")
+            results = []
+            for art in artifacts:
+                artifact_id = art.get("id")
 
-                    # Check for notes (simple heuristic for "analyzed")
-                    notes_query = f'''match
-                        $a isa {ARTIFACT_TYPE}, has id "{artifact_id}";
-                        (artifact: $a, referent: $e) isa representation;
-                        (note: $n, subject: $e) isa aboutness;
-                    fetch $n: id;'''
+                # Check for notes (simple heuristic for "analyzed")
+                notes_query = f'''match
+                    $a isa {ARTIFACT_TYPE}, has id "{artifact_id}";
+                    (artifact: $a, referent: $e) isa representation;
+                    (note: $n, subject: $e) isa aboutness;
+                fetch {{ "id": $n.id }};'''
 
-                    try:
-                        notes = list(tx.query.fetch(notes_query))
-                        has_notes = len(notes) > 0
-                    except Exception:
-                        has_notes = False
+                try:
+                    notes = list(tx.query(notes_query).resolve())
+                    has_notes = len(notes) > 0
+                except Exception:
+                    has_notes = False
 
-                    status = "analyzed" if has_notes else "raw"
+                status = "analyzed" if has_notes else "raw"
 
-                    if args.status and args.status != "all":
-                        if args.status != status:
-                            continue
+                if args.status and args.status != "all":
+                    if args.status != status:
+                        continue
 
-                    results.append(
-                        {
-                            "id": artifact_id,
-                            "name": get_attr(art["a"], "name"),
-                            "source_url": get_attr(art["a"], "source-uri"),
-                            "created_at": get_attr(art["a"], "created-at"),
-                            "status": status,
-                        }
-                    )
+                results.append(
+                    {
+                        "id": artifact_id,
+                        "name": art.get("name"),
+                        "source_url": art.get("source-uri"),
+                        "created_at": art.get("created-at"),
+                        "status": status,
+                    }
+                )
 
     print(
         json.dumps(
@@ -390,29 +390,28 @@ def cmd_list_artifacts(args):
 def cmd_show_artifact(args):
     """Get artifact content for Claude to read during sensemaking."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                # Include cache attributes in fetch
-                query = f'''match
-                    $a isa {ARTIFACT_TYPE}, has id "{args.id}";
-                fetch $a: id, name, content, cache-path, mime-type, file-size, source-uri, created-at;'''
-                result = list(tx.query.fetch(query))
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            # Include cache attributes in fetch
+            query = f'''match
+                $a isa {ARTIFACT_TYPE}, has id "{args.id}";
+            fetch {{ "id": $a.id, "name": $a.name, "content": $a.content, "cache-path": $a.cache-path, "mime-type": $a.mime-type, "file-size": $a.file-size, "source-uri": $a.source-uri, "created-at": $a.created-at }};'''
+            result = list(tx.query(query).resolve())
 
-                if not result:
-                    print(json.dumps({"success": False, "error": "Artifact not found"}))
-                    return
+            if not result:
+                print(json.dumps({"success": False, "error": "Artifact not found"}))
+                return
 
-                # Get linked entity
-                entity_query = f'''match
-                    $a isa {ARTIFACT_TYPE}, has id "{args.id}";
-                    (artifact: $a, referent: $e) isa representation;
-                fetch $e: id, name;'''
-                entity_result = list(tx.query.fetch(entity_query))
+            # Get linked entity
+            entity_query = f'''match
+                $a isa {ARTIFACT_TYPE}, has id "{args.id}";
+                (artifact: $a, referent: $e) isa representation;
+            fetch {{ "id": $e.id, "name": $e.name }};'''
+            entity_result = list(tx.query(entity_query).resolve())
 
-    art = result[0]["a"]
+    art = result[0]
 
     # Get content - either from inline content or from cache
-    cache_path = get_attr(art, "cache-path")
+    cache_path = art.get("cache-path")
     if cache_path and CACHE_AVAILABLE:
         # Load from cache
         try:
@@ -423,30 +422,30 @@ def cmd_show_artifact(args):
             storage = "cache_missing"
     else:
         # Get inline content
-        content = get_attr(art, "content")
+        content = art.get("content")
         storage = "inline"
 
     output = {
         "success": True,
         "artifact": {
-            "id": get_attr(art, "id"),
-            "name": get_attr(art, "name"),
-            "source_url": get_attr(art, "source-uri"),
-            "created_at": get_attr(art, "created-at"),
+            "id": art.get("id"),
+            "name": art.get("name"),
+            "source_url": art.get("source-uri"),
+            "created_at": art.get("created-at"),
             "content": content,
             "storage": storage,
             "cache_path": cache_path,
-            "mime_type": get_attr(art, "mime-type"),
-            "file_size": get_attr(art, "file-size"),
+            "mime_type": art.get("mime-type"),
+            "file_size": art.get("file-size"),
         },
         "entity": None,
     }
 
     if entity_result:
-        ent = entity_result[0]["e"]
+        ent = entity_result[0]
         output["entity"] = {
-            "id": get_attr(ent, "id"),
-            "name": get_attr(ent, "name"),
+            "id": ent.get("id"),
+            "name": ent.get("name"),
         }
 
     print(json.dumps(output, indent=2))
@@ -460,20 +459,19 @@ def cmd_show_artifact(args):
 def cmd_list_entities(args):
     """List all entities."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                query = f"""match
-                    $e isa {ENTITY_TYPE};
-                fetch $e: id, name, created-at;"""
-                results = list(tx.query.fetch(query))
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            query = f"""match
+                $e isa {ENTITY_TYPE};
+            fetch {{ "id": $e.id, "name": $e.name, "created-at": $e.created-at }};"""
+            results = list(tx.query(query).resolve())
 
     entities = []
     for r in results:
         entities.append(
             {
-                "id": get_attr(r["e"], "id"),
-                "name": get_attr(r["e"], "name"),
-                "created_at": get_attr(r["e"], "created-at"),
+                "id": r.get("id"),
+                "name": r.get("name"),
+                "created_at": r.get("created-at"),
             }
         )
 
@@ -483,36 +481,35 @@ def cmd_list_entities(args):
 def cmd_show_entity(args):
     """Get entity details."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                query = f'''match
-                    $e isa {ENTITY_TYPE}, has id "{args.id}";
-                fetch $e: id, name, description, created-at;'''
-                result = list(tx.query.fetch(query))
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            query = f'''match
+                $e isa {ENTITY_TYPE}, has id "{args.id}";
+            fetch {{ "id": $e.id, "name": $e.name, "description": $e.description, "created-at": $e.created-at }};'''
+            result = list(tx.query(query).resolve())
 
-                if not result:
-                    print(json.dumps({"success": False, "error": "Entity not found"}))
-                    return
+            if not result:
+                print(json.dumps({"success": False, "error": "Entity not found"}))
+                return
 
-                # Get notes
-                notes_query = f'''match
-                    $e isa {ENTITY_TYPE}, has id "{args.id}";
-                    (note: $n, subject: $e) isa aboutness;
-                fetch $n: id, name, content;'''
-                notes_result = list(tx.query.fetch(notes_query))
+            # Get notes
+            notes_query = f'''match
+                $e isa {ENTITY_TYPE}, has id "{args.id}";
+                (note: $n, subject: $e) isa aboutness;
+            fetch {{ "id": $n.id, "name": $n.name, "content": $n.content }};'''
+            notes_result = list(tx.query(notes_query).resolve())
 
-                # Get tags
-                tags_query = f'''match
-                    $e isa {ENTITY_TYPE}, has id "{args.id}";
-                    (tagged-entity: $e, tag: $t) isa tagging;
-                fetch $t: name;'''
-                tags_result = list(tx.query.fetch(tags_query))
+            # Get tags
+            tags_query = f'''match
+                $e isa {ENTITY_TYPE}, has id "{args.id}";
+                (tagged-entity: $e, tag: $t) isa tagging;
+            fetch {{ "name": $t.name }};'''
+            tags_result = list(tx.query(tags_query).resolve())
 
     output = {
         "success": True,
-        "entity": result[0]["e"],
-        "notes": [n["n"] for n in notes_result],
-        "tags": [get_attr(t["t"], "name") for t in tags_result],
+        "entity": result[0],
+        "notes": notes_result,
+        "tags": [t.get("name") for t in tags_result],
     }
 
     print(json.dumps(output, indent=2, default=str))
@@ -541,39 +538,38 @@ def cmd_add_note(args):
     query += ";"
 
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
-            with session.transaction(TransactionType.WRITE) as tx:
-                about_query = f'''match
-                    $n isa note, has id "{note_id}";
-                    $s isa entity, has id "{args.about}";
-                insert (note: $n, subject: $s) isa aboutness;'''
-                tx.query.insert(about_query)
-                tx.commit()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            about_query = f'''match
+                $n isa note, has id "{note_id}";
+                $s isa entity, has id "{args.about}";
+            insert (note: $n, subject: $s) isa aboutness;'''
+            tx.query(about_query).resolve()
+            tx.commit()
 
-            if args.tags:
-                for tag_name in args.tags:
-                    tag_id = generate_id("tag")
-                    with session.transaction(TransactionType.READ) as tx:
-                        tag_check = f'match $t isa tag, has name "{tag_name}"; fetch $t: id;'
-                        existing_tag = list(tx.query.fetch(tag_check))
+        if args.tags:
+            for tag_name in args.tags:
+                tag_id = generate_id("tag")
+                with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+                    tag_check = f'match $t isa tag, has name "{tag_name}"; fetch {{ "id": $t.id }};'
+                    existing_tag = list(tx.query(tag_check).resolve())
 
-                    if not existing_tag:
-                        with session.transaction(TransactionType.WRITE) as tx:
-                            tx.query.insert(
-                                f'insert $t isa tag, has id "{tag_id}", has name "{tag_name}";'
-                            )
-                            tx.commit()
-
-                    with session.transaction(TransactionType.WRITE) as tx:
-                        tx.query.insert(f'''match
-                            $n isa note, has id "{note_id}";
-                            $t isa tag, has name "{tag_name}";
-                        insert (tagged-entity: $n, tag: $t) isa tagging;''')
+                if not existing_tag:
+                    with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                        tx.query(
+                            f'insert $t isa tag, has id "{tag_id}", has name "{tag_name}";'
+                        ).resolve()
                         tx.commit()
+
+                with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                    tx.query(f'''match
+                        $n isa note, has id "{note_id}";
+                        $t isa tag, has name "{tag_name}";
+                    insert (tagged-entity: $n, tag: $t) isa tagging;''').resolve()
+                    tx.commit()
 
     print(json.dumps({"success": True, "note_id": note_id, "about": args.about}))
 
@@ -581,23 +577,22 @@ def cmd_add_note(args):
 def cmd_tag(args):
     """Tag an entity."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            tag_id = generate_id("tag")
-            with session.transaction(TransactionType.READ) as tx:
-                tag_check = f'match $t isa tag, has name "{args.tag}"; fetch $t: id;'
-                existing_tag = list(tx.query.fetch(tag_check))
+        tag_id = generate_id("tag")
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            tag_check = f'match $t isa tag, has name "{args.tag}"; fetch {{ "id": $t.id }};'
+            existing_tag = list(tx.query(tag_check).resolve())
 
-            if not existing_tag:
-                with session.transaction(TransactionType.WRITE) as tx:
-                    tx.query.insert(f'insert $t isa tag, has id "{tag_id}", has name "{args.tag}";')
-                    tx.commit()
-
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(f'''match
-                    $e isa entity, has id "{args.entity}";
-                    $t isa tag, has name "{args.tag}";
-                insert (tagged-entity: $e, tag: $t) isa tagging;''')
+        if not existing_tag:
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                tx.query(f'insert $t isa tag, has id "{tag_id}", has name "{args.tag}";').resolve()
                 tx.commit()
+
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(f'''match
+                $e isa entity, has id "{args.entity}";
+                $t isa tag, has name "{args.tag}";
+            insert (tagged-entity: $e, tag: $t) isa tagging;''').resolve()
+            tx.commit()
 
     print(json.dumps({"success": True, "entity": args.entity, "tag": args.tag}))
 
@@ -605,20 +600,19 @@ def cmd_tag(args):
 def cmd_search_tag(args):
     """Search entities by tag."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                query = f'''match
-                    $t isa tag, has name "{args.tag}";
-                    (tagged-entity: $e, tag: $t) isa tagging;
-                fetch $e: id, name;'''
-                results = list(tx.query.fetch(query))
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            query = f'''match
+                $t isa tag, has name "{args.tag}";
+                (tagged-entity: $e, tag: $t) isa tagging;
+            fetch {{ "id": $e.id, "name": $e.name }};'''
+            results = list(tx.query(query).resolve())
 
     print(
         json.dumps(
             {
                 "success": True,
                 "tag": args.tag,
-                "entities": [r["e"] for r in results],
+                "entities": results,
                 "count": len(results),
             },
             indent=2,

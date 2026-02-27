@@ -42,10 +42,10 @@ dev = [
     "ruff>=0.4.0",
 ]
 typedb = [
-    "typedb-driver>=2.25.0,<3.0.0",
+    "typedb-driver>=3.8.0",
 ]
 mcp = [
-    "typedb-driver>=2.25.0,<3.0.0",
+    "typedb-driver>=3.8.0",
     "mcp>=1.0.0",
 ]
 skills = [

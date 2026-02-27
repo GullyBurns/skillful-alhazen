@@ -44,6 +44,8 @@ if str(_src_dir) not in sys.path:
 TYPEDB_HOST = os.getenv("TYPEDB_HOST", "localhost")
 TYPEDB_PORT = int(os.getenv("TYPEDB_PORT", "1729"))
 TYPEDB_DATABASE = os.getenv("TYPEDB_DATABASE", "alhazen_notebook")
+TYPEDB_USERNAME = os.getenv("TYPEDB_USERNAME", "admin")
+TYPEDB_PASSWORD = os.getenv("TYPEDB_PASSWORD", "password")
 
 # Project root detection
 PROJECT_ROOT = os.getenv(
@@ -70,8 +72,12 @@ AUTO_GEN_END = "<!-- END AUTO-GENERATED -->"
 def get_typedb_driver():
     """Get a TypeDB driver, or None if unavailable."""
     try:
-        from typedb.driver import TypeDB
-        return TypeDB.core_driver(f"{TYPEDB_HOST}:{TYPEDB_PORT}")
+        from typedb.driver import Credentials, DriverOptions, TypeDB
+        return TypeDB.driver(
+            f"{TYPEDB_HOST}:{TYPEDB_PORT}",
+            Credentials(TYPEDB_USERNAME, TYPEDB_PASSWORD),
+            DriverOptions(is_tls_enabled=False),
+        )
     except Exception:
         return None
 
@@ -95,18 +101,17 @@ def typedb_available() -> bool:
 
 def run_query(query: str, *, write: bool = False) -> list:
     """Run a TypeQL query and return results (for fetch queries)."""
-    from typedb.driver import SessionType, TransactionType
+    from typedb.driver import TransactionType
     driver = get_typedb_driver()
     if driver is None:
         return []
     try:
         tx_type = TransactionType.WRITE if write else TransactionType.READ
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(tx_type) as tx:
-                results = list(tx.query.fetch(query))
-                if write:
-                    tx.commit()
-                return results
+        with driver.transaction(TYPEDB_DATABASE, tx_type) as tx:
+            results = list(tx.query(query).resolve())
+            if write:
+                tx.commit()
+            return results
     except Exception as e:
         print(f"TypeDB query error: {e}", file=sys.stderr)
         return []
@@ -118,27 +123,22 @@ def run_query(query: str, *, write: bool = False) -> list:
 
 
 def run_count_query(query: str) -> int:
-    """Run a TypeQL match-aggregate count query."""
-    from typedb.driver import SessionType, TransactionType
-    driver = get_typedb_driver()
-    if driver is None:
+    """Count matching entities for a TypeQL match query.
+
+    Converts TypeDB 2.x-style `get $var; count;` queries to TypeDB 3.x by
+    fetching entity IDs and counting results in Python.
+    """
+    import re
+    match = re.search(r'get\s+(\$\w+);\s*count;', query)
+    if not match:
         return 0
-    try:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                promise = tx.query.get_aggregate(query)
-                result = promise.resolve()
-                if result and result.is_long():
-                    return result.as_long()
-                return 0
-    except Exception as e:
-        print(f"TypeDB count query error: {e}", file=sys.stderr)
-        return 0
-    finally:
-        try:
-            driver.close()
-        except Exception:
-            pass
+    var = match.group(1)
+    fetch_query = re.sub(
+        r'get\s+\$\w+;\s*count;',
+        f'fetch {{ "id": {var}.id }};',
+        query,
+    )
+    return len(run_query(fetch_query))
 
 
 def _unescape_content(value):
@@ -149,21 +149,12 @@ def _unescape_content(value):
 
 
 def parse_fetch_result(result: dict) -> dict:
-    """Parse a TypeDB fetch result into a flat dictionary."""
-    parsed = {}
-    for key, value in result.items():
-        if isinstance(value, dict):
-            for attr_name, attr_value in value.items():
-                if attr_name != "type":
-                    if isinstance(attr_value, list) and len(attr_value) == 1:
-                        parsed[attr_name] = _unescape_content(attr_value[0].get("value"))
-                    elif isinstance(attr_value, list) and len(attr_value) > 1:
-                        parsed[attr_name] = [_unescape_content(v.get("value")) for v in attr_value]
-                    elif isinstance(attr_value, dict):
-                        parsed[attr_name] = _unescape_content(attr_value.get("value"))
-        else:
-            parsed[key] = value
-    return parsed
+    """Parse a TypeDB 3.x fetch result into a flat dictionary.
+
+    TypeDB 3.x fetch returns plain Python dicts with string/number/bool values.
+    """
+    return {k: _unescape_content(v) if isinstance(v, str) else v
+            for k, v in result.items() if v is not None}
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +164,8 @@ def parse_fetch_result(result: dict) -> dict:
 def query_collections() -> list[dict]:
     """Get all collections with member counts."""
     collections = run_query(
-        "match $c isa collection; fetch $c: id, name, description, logical-query;"
+        'match $c isa collection; '
+        'fetch { "id": $c.id, "name": $c.name, "description": $c.description, "logical-query": $c.logical-query };'
     )
     result = []
     for c in collections:
@@ -193,9 +185,9 @@ def query_recent_notes(days: int = 7, limit: int = 20) -> list[dict]:
     """Get recent notes with their aboutness context."""
     # Get recent notes ordered by created-at
     notes = run_query(
-        f"match $n isa note, has created-at $t; "
-        f"fetch $n: id, content, confidence, created-at; "
-        f"sort $t desc; limit {limit};"
+        f'match $n isa note, has created-at $t; '
+        f'fetch {{ "id": $n.id, "content": $n.content, "confidence": $n.confidence, "created-at": $n.created-at }}; '
+        f'sort $t desc; limit {limit};'
     )
     result = []
     for n in notes:
@@ -205,7 +197,7 @@ def query_recent_notes(days: int = 7, limit: int = 20) -> list[dict]:
         subjects = run_query(
             f'match $n isa note, has id "{nid}"; '
             f'(note: $n, subject: $s) isa aboutness; '
-            f'fetch $s: id, name;'
+            f'fetch {{ "id": $s.id, "name": $s.name }};'
         )
         parsed["subjects"] = [parse_fetch_result(s) for s in subjects]
         result.append(parsed)
@@ -218,7 +210,7 @@ def query_tagged_notes(tag_name: str, limit: int = 20) -> list[dict]:
         f'match $t isa tag, has name "{tag_name}"; '
         f'(tagged-entity: $n, tag: $t) isa tagging; '
         f'$n isa note; '
-        f'fetch $n: id, content, confidence, created-at; '
+        f'fetch {{ "id": $n.id, "content": $n.content, "confidence": $n.confidence, "created-at": $n.created-at }}; '
         f'limit {limit};'
     )
     return [parse_fetch_result(n) for n in notes]
@@ -227,9 +219,9 @@ def query_tagged_notes(tag_name: str, limit: int = 20) -> list[dict]:
 def query_user_questions(resolved: bool = False, limit: int = 10) -> list[dict]:
     """Get open user questions."""
     questions = run_query(
-        f"match $q isa user-question; "
-        f"fetch $q: id, name, description, created-at; "
-        f"limit {limit};"
+        f'match $q isa user-question; '
+        f'fetch {{ "id": $q.id, "name": $q.name, "description": $q.description, "created-at": $q.created-at }}; '
+        f'limit {limit};'
     )
     return [parse_fetch_result(q) for q in questions]
 
@@ -238,7 +230,7 @@ def query_collection_detail(collection_id: str) -> dict:
     """Get detailed collection info with members and notes."""
     collections = run_query(
         f'match $c isa collection, has id "{collection_id}"; '
-        f'fetch $c: id, name, description, logical-query;'
+        f'fetch {{ "id": $c.id, "name": $c.name, "description": $c.description, "logical-query": $c.logical-query }};'
     )
     if not collections:
         return {}
@@ -249,7 +241,7 @@ def query_collection_detail(collection_id: str) -> dict:
     members = run_query(
         f'match $c isa collection, has id "{collection_id}"; '
         f'(collection: $c, member: $m) isa collection-membership; '
-        f'fetch $m: id, name, description; limit 50;'
+        f'fetch {{ "id": $m.id, "name": $m.name, "description": $m.description }}; limit 50;'
     )
     info["members"] = [parse_fetch_result(m) for m in members]
 
@@ -715,7 +707,7 @@ def render_collections(workspace: Path) -> None:
                 member_notes = run_query(
                     f'match $s isa identifiable-entity, has id "{mid}"; '
                     f'(note: $n, subject: $s) isa aboutness; '
-                    f'fetch $n: id, content, confidence; limit 3;'
+                    f'fetch {{ "id": $n.id, "content": $n.content, "confidence": $n.confidence }}; limit 3;'
                 )
                 for n in member_notes:
                     parsed = parse_fetch_result(n)

@@ -48,13 +48,13 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 try:
-    from typedb.driver import SessionType, TransactionType, TypeDB
+    from typedb.driver import Credentials, DriverOptions, TransactionType, TypeDB
 
     TYPEDB_AVAILABLE = True
 except ImportError:
     TYPEDB_AVAILABLE = False
     print(
-        "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=2.25.0,<3.0.0'",
+        "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=3.8.0'",
         file=sys.stderr,
     )
 
@@ -63,11 +63,17 @@ except ImportError:
 TYPEDB_HOST = os.getenv("TYPEDB_HOST", "localhost")
 TYPEDB_PORT = int(os.getenv("TYPEDB_PORT", "1729"))
 TYPEDB_DATABASE = os.getenv("TYPEDB_DATABASE", "alhazen")
+TYPEDB_USERNAME = os.getenv("TYPEDB_USERNAME", "admin")
+TYPEDB_PASSWORD = os.getenv("TYPEDB_PASSWORD", "password")
 
 
 def get_driver():
     """Get TypeDB driver connection."""
-    return TypeDB.core_driver(f"{TYPEDB_HOST}:{TYPEDB_PORT}")
+    return TypeDB.driver(
+        f"{TYPEDB_HOST}:{TYPEDB_PORT}",
+        Credentials(TYPEDB_USERNAME, TYPEDB_PASSWORD),
+        DriverOptions(is_tls_enabled=False),
+    )
 
 
 def generate_id(prefix: str) -> str:
@@ -92,10 +98,9 @@ def insert_collection(args):
     query += ";"
 
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
     print(json.dumps({"success": True, "collection_id": cid, "name": args.name}))
 
@@ -116,17 +121,16 @@ def insert_paper(args):
     query += ";"
 
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
-            # Add to collection if specified
-            if args.collection:
-                with session.transaction(TransactionType.WRITE) as tx:
-                    add_query = f'match $c isa collection, has id "{args.collection}"; $p isa scilit-paper, has id "{pid}"; insert (collection: $c, member: $p) isa collection-membership;'
-                    tx.query.insert(add_query)
-                    tx.commit()
+        # Add to collection if specified
+        if args.collection:
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                add_query = f'match $c isa collection, has id "{args.collection}"; $p isa scilit-paper, has id "{pid}"; insert (collection: $c, member: $p) isa collection-membership;'
+                tx.query(add_query).resolve()
+                tx.commit()
 
     print(json.dumps({"success": True, "paper_id": pid, "name": args.name}))
 
@@ -144,36 +148,32 @@ def insert_note(args):
     query += ";"
 
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(query)
-                tx.commit()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
 
-            # Create aboutness relation
-            with session.transaction(TransactionType.WRITE) as tx:
-                rel_query = f'match $s isa identifiable-entity, has id "{args.subject}"; $n isa note, has id "{nid}"; insert (note: $n, subject: $s) isa aboutness;'
-                tx.query.insert(rel_query)
-                tx.commit()
+        # Create aboutness relation
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            rel_query = f'match $s isa identifiable-entity, has id "{args.subject}"; $n isa note, has id "{nid}"; insert (note: $n, subject: $s) isa aboutness;'
+            tx.query(rel_query).resolve()
+            tx.commit()
 
-            # Add tags if specified
-            if args.tags:
-                for tag in args.tags:
-                    with session.transaction(TransactionType.WRITE) as tx:
-                        # Create tag if not exists, then tag the note
-                        tag_id = generate_id("tag")
-                        try:
-                            tx.query.insert(
-                                f'insert $t isa tag, has id "{tag_id}", has name "{tag}";'
-                            )
-                            tx.commit()
-                        except Exception:
-                            pass  # Tag might already exist
-
-                    with session.transaction(TransactionType.WRITE) as tx:
-                        tx.query.insert(
-                            f'match $n isa note, has id "{nid}"; $t isa tag, has name "{tag}"; insert (tagged-entity: $n, tag: $t) isa tagging;'
-                        )
+        # Add tags if specified
+        if args.tags:
+            for tag in args.tags:
+                tag_id = generate_id("tag")
+                with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                    try:
+                        tx.query(f'insert $t isa tag, has id "{tag_id}", has name "{tag}";').resolve()
                         tx.commit()
+                    except Exception:
+                        tx.rollback()  # Tag might already exist
+
+                with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                    tx.query(
+                        f'match $n isa note, has id "{nid}"; $t isa tag, has name "{tag}"; insert (tagged-entity: $n, tag: $t) isa tagging;'
+                    ).resolve()
+                    tx.commit()
 
     print(json.dumps({"success": True, "note_id": nid, "subject": args.subject}))
 
@@ -181,78 +181,79 @@ def insert_note(args):
 def query_collection(args):
     """Get collection info and members."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                # Get collection
-                result = list(
-                    tx.query.fetch(
-                        f'match $c isa collection, has id "{args.id}"; fetch $c: id, name, description;'
-                    )
-                )
-                if not result:
-                    print(json.dumps({"success": False, "error": "Collection not found"}))
-                    return
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            # Get collection
+            result = list(tx.query(
+                f'match $c isa collection, has id "{args.id}"; '
+                f'fetch {{ "id": $c.id, "name": $c.name, "description": $c.description }};'
+            ).resolve())
+            if not result:
+                print(json.dumps({"success": False, "error": "Collection not found"}))
+                return
 
-                # Get members
-                members = list(
-                    tx.query.fetch(
-                        f'match $c isa collection, has id "{args.id}"; (collection: $c, member: $m) isa collection-membership; fetch $m: id, name;'
-                    )
-                )
+            # Get members
+            members = list(tx.query(
+                f'match $c isa collection, has id "{args.id}"; '
+                f'(collection: $c, member: $m) isa collection-membership; '
+                f'fetch {{ "id": $m.id, "name": $m.name }};'
+            ).resolve())
 
-                print(
-                    json.dumps(
-                        {
-                            "success": True,
-                            "collection": result[0],
-                            "members": members,
-                            "member_count": len(members),
-                        },
-                        indent=2,
-                    )
-                )
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "collection": {k: v for k, v in result[0].items() if v is not None},
+                    "members": [{k: v for k, v in m.items() if v is not None} for m in members],
+                    "member_count": len(members),
+                },
+                indent=2,
+            )
+        )
 
 
 def query_notes(args):
     """Find notes about an entity."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                query = f'match $s isa identifiable-entity, has id "{args.subject}"; (note: $n, subject: $s) isa aboutness; fetch $n: id, name, content, confidence;'
-                results = list(tx.query.fetch(query))
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            query = (
+                f'match $s isa identifiable-entity, has id "{args.subject}"; '
+                f'(note: $n, subject: $s) isa aboutness; '
+                f'fetch {{ "id": $n.id, "name": $n.name, "content": $n.content, "confidence": $n.confidence }};'
+            )
+            results = [{k: v for k, v in r.items() if v is not None}
+                       for r in tx.query(query).resolve()]
 
-                print(
-                    json.dumps(
-                        {
-                            "success": True,
-                            "subject": args.subject,
-                            "notes": results,
-                            "count": len(results),
-                        },
-                        indent=2,
-                    )
-                )
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "subject": args.subject,
+                    "notes": results,
+                    "count": len(results),
+                },
+                indent=2,
+            )
+        )
 
 
 def tag_entity(args):
     """Tag an entity."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            # Create tag if not exists
-            tag_id = generate_id("tag")
-            with session.transaction(TransactionType.WRITE) as tx:
-                try:
-                    tx.query.insert(f'insert $t isa tag, has id "{tag_id}", has name "{args.tag}";')
-                    tx.commit()
-                except Exception:
-                    pass
-
-            # Create tagging relation
-            with session.transaction(TransactionType.WRITE) as tx:
-                tx.query.insert(
-                    f'match $e isa identifiable-entity, has id "{args.entity}"; $t isa tag, has name "{args.tag}"; insert (tagged-entity: $e, tag: $t) isa tagging;'
-                )
+        # Create tag if not exists
+        tag_id = generate_id("tag")
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            try:
+                tx.query(f'insert $t isa tag, has id "{tag_id}", has name "{args.tag}";').resolve()
                 tx.commit()
+            except Exception:
+                tx.rollback()  # Tag might already exist
+
+        # Create tagging relation
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(
+                f'match $e isa identifiable-entity, has id "{args.entity}"; $t isa tag, has name "{args.tag}"; insert (tagged-entity: $e, tag: $t) isa tagging;'
+            ).resolve()
+            tx.commit()
 
     print(json.dumps({"success": True, "entity": args.entity, "tag": args.tag}))
 
@@ -260,30 +261,35 @@ def tag_entity(args):
 def search_tag(args):
     """Search entities by tag."""
     with get_driver() as driver:
-        with driver.session(TYPEDB_DATABASE, SessionType.DATA) as session:
-            with session.transaction(TransactionType.READ) as tx:
-                query = f'match $t isa tag, has name "{args.tag}"; (tagged-entity: $e, tag: $t) isa tagging; fetch $e: id, name;'
-                results = list(tx.query.fetch(query))
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            query = (
+                f'match $t isa tag, has name "{args.tag}"; '
+                f'(tagged-entity: $e, tag: $t) isa tagging; '
+                f'fetch {{ "id": $e.id, "name": $e.name }};'
+            )
+            results = [{k: v for k, v in r.items() if v is not None}
+                       for r in tx.query(query).resolve()]
 
-                print(
-                    json.dumps(
-                        {
-                            "success": True,
-                            "tag": args.tag,
-                            "entities": results,
-                            "count": len(results),
-                        },
-                        indent=2,
-                    )
-                )
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "tag": args.tag,
+                    "entities": results,
+                    "count": len(results),
+                },
+                indent=2,
+            )
+        )
 
 
 def export_db(args):
-    """Export the full TypeDB database to a timestamped zip in the cache."""
+    """Export the full TypeDB database using the TypeDB Python driver API."""
+    if not TYPEDB_AVAILABLE:
+        print(json.dumps({"success": False, "error": "typedb-driver not installed"}))
+        return
+
     database = args.database or TYPEDB_DATABASE
-    container = args.container or "alhazen-typedb"
-    typedb_bin = args.typedb_bin or "/opt/typedb-all-linux-x86_64/typedb"
-    port = args.port or TYPEDB_PORT
 
     # Build timestamped folder name
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -300,50 +306,14 @@ def export_db(args):
 
     schema_file = f"{database}_schema.typeql"
     data_file = f"{database}_data.typedb"
-    container_schema = f"/tmp/{schema_file}"
-    container_data = f"/tmp/{data_file}"
+    local_schema = export_dir / schema_file
+    local_data = export_dir / data_file
 
-    print(f"Exporting database '{database}' from container '{container}'...", file=sys.stderr)
+    print(f"Exporting database '{database}' via Python driver...", file=sys.stderr)
 
-    # Run export inside the Docker container
-    export_cmd = [
-        "docker", "exec", container,
-        typedb_bin, "server", "export",
-        f"--database={database}",
-        f"--port={port}",
-        f"--schema={container_schema}",
-        f"--data={container_data}",
-    ]
-    result = subprocess.run(export_cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        # Check if the error is just noisy progress output (exit code 0 with stderr)
-        # TypeDB export prints progress to stderr but may still succeed
-        if "Exception" in result.stderr or "Error" in result.stderr:
-            print(json.dumps({
-                "success": False,
-                "error": f"Export failed: {result.stderr[-500:]}"
-            }))
-            return
-
-    print("Copying files from container...", file=sys.stderr)
-
-    # Copy files from container to local export directory
-    for filename in [schema_file, data_file]:
-        cp_cmd = ["docker", "cp", f"{container}:/tmp/{filename}", str(export_dir / filename)]
-        cp_result = subprocess.run(cp_cmd, capture_output=True, text=True)
-        if cp_result.returncode != 0:
-            print(json.dumps({
-                "success": False,
-                "error": f"Failed to copy {filename}: {cp_result.stderr}"
-            }))
-            return
-
-    # Clean up temp files in container
-    for filename in [schema_file, data_file]:
-        subprocess.run(
-            ["docker", "exec", container, "rm", f"/tmp/{filename}"],
-            capture_output=True,
-        )
+    with get_driver() as driver:
+        db = driver.databases.get(database)
+        db.export_to_file(str(local_schema), str(local_data))
 
     # Create zip archive
     zip_path = export_dir.parent / f"{folder_name}.zip"
@@ -353,8 +323,8 @@ def export_db(args):
             zf.write(filepath, f"{folder_name}/{filepath.name}")
 
     # Get file sizes
-    schema_size = (export_dir / schema_file).stat().st_size
-    data_size = (export_dir / data_file).stat().st_size
+    schema_size = local_schema.stat().st_size
+    data_size = local_data.stat().st_size
     zip_size = zip_path.stat().st_size
 
     # Remove unzipped folder (keep only the zip)
@@ -374,18 +344,18 @@ def export_db(args):
 
 
 def import_db(args):
-    """Import a TypeDB database from a previously exported zip."""
+    """Import a TypeDB database from a previously exported zip using the Python driver API."""
+    if not TYPEDB_AVAILABLE:
+        print(json.dumps({"success": False, "error": "typedb-driver not installed"}))
+        return
+
     zip_path = Path(args.zip).expanduser()
     if not zip_path.exists():
         print(json.dumps({"success": False, "error": f"File not found: {zip_path}"}))
         return
 
     database = args.database
-    container = args.container or "alhazen-typedb"
-    typedb_bin = args.typedb_bin or "/opt/typedb-all-linux-x86_64/typedb"
-    port = args.port or TYPEDB_PORT
 
-    # Extract zip to temp directory
     import tempfile
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -408,44 +378,12 @@ def import_db(args):
             }))
             return
 
-        print(f"Importing into database '{database}' on container '{container}'...", file=sys.stderr)
+        print(f"Importing database '{database}' via Python driver...", file=sys.stderr)
 
-        # Copy files into container
-        for local_file in [schema_file, data_file]:
-            cp_cmd = ["docker", "cp", str(local_file), f"{container}:/tmp/{local_file.name}"]
-            cp_result = subprocess.run(cp_cmd, capture_output=True, text=True)
-            if cp_result.returncode != 0:
-                print(json.dumps({
-                    "success": False,
-                    "error": f"Failed to copy {local_file.name}: {cp_result.stderr}"
-                }))
-                return
+        schema_text = schema_file.read_text()
 
-        # Run import
-        import_cmd = [
-            "docker", "exec", container,
-            typedb_bin, "server", "import",
-            f"--database={database}",
-            f"--port={port}",
-            f"--schema=/tmp/{schema_file.name}",
-            f"--data=/tmp/{data_file.name}",
-        ]
-        result = subprocess.run(import_cmd, capture_output=True, text=True)
-
-        # Clean up temp files in container
-        for local_file in [schema_file, data_file]:
-            subprocess.run(
-                ["docker", "exec", container, "rm", f"/tmp/{local_file.name}"],
-                capture_output=True,
-            )
-
-        if result.returncode != 0:
-            if "Exception" in result.stderr or "Error" in result.stderr:
-                print(json.dumps({
-                    "success": False,
-                    "error": f"Import failed: {result.stderr[-500:]}"
-                }))
-                return
+        with get_driver() as driver:
+            driver.databases.import_from_file(database, schema_text, str(data_file))
 
     print(json.dumps({
         "success": True,
@@ -506,17 +444,11 @@ def main():
     # export-db
     p = subparsers.add_parser("export-db", help="Export database to timestamped zip")
     p.add_argument("--database", help=f"Database name (default: {TYPEDB_DATABASE})")
-    p.add_argument("--container", help="Docker container name (default: alhazen-typedb)")
-    p.add_argument("--typedb-bin", help="Path to typedb binary in container")
-    p.add_argument("--port", type=int, help=f"TypeDB port (default: {TYPEDB_PORT})")
 
     # import-db
     p = subparsers.add_parser("import-db", help="Import database from exported zip")
     p.add_argument("--zip", required=True, help="Path to the export zip file")
     p.add_argument("--database", required=True, help="Target database name (must not exist)")
-    p.add_argument("--container", help="Docker container name (default: alhazen-typedb)")
-    p.add_argument("--typedb-bin", help="Path to typedb binary in container")
-    p.add_argument("--port", type=int, help=f"TypeDB port (default: {TYPEDB_PORT})")
 
     args = parser.parse_args()
 
@@ -524,8 +456,7 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    # export-db and import-db use Docker CLI, not the TypeDB driver
-    if not TYPEDB_AVAILABLE and args.command not in ("export-db", "import-db"):
+    if not TYPEDB_AVAILABLE:
         print(json.dumps({"success": False, "error": "typedb-driver not installed"}))
         sys.exit(1)
 
