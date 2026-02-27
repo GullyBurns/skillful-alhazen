@@ -117,13 +117,62 @@
 
 # --- Copy Skills and Workspace Identity Files ---
 
+# Resolve skills from skills-registry.yaml into local_skills/ on the remote Mac
+- name: Resolve skills from skills-registry.yaml into local_skills/
+  shell: |
+    python3 - << 'PYEOF'
+    import subprocess, sys, shutil
+    from pathlib import Path
+    try:
+        import yaml
+    except ImportError:
+        print("PyYAML not available — skipping skill resolution"); sys.exit(0)
+    registry = Path('skills-registry.yaml')
+    if not registry.exists():
+        print("No skills-registry.yaml found"); sys.exit(0)
+    cfg = yaml.safe_load(registry.read_text()) or {}
+    local_skills = Path('local_skills'); local_skills.mkdir(exist_ok=True)
+    for skill in cfg.get('skills') or []:
+        name = skill['name']
+        target = local_skills / name
+        if 'path' in skill:
+            src = Path(skill['path'])
+            if target.is_symlink(): target.unlink()
+            elif target.exists(): shutil.rmtree(str(target))
+            target.symlink_to(f'../{src}')
+            print(f'  Linked (core): {name}')
+            continue
+        git_url = skill['git']
+        ref = skill.get('ref', 'main'); subdir = skill.get('subdir', '.')
+        if target.exists() and not target.is_symlink():
+            print(f'  Skipping {name} (already installed)')
+            continue
+        if target.is_symlink(): target.unlink()
+        print(f'  Cloning {name}...')
+        tmp = local_skills / f'_tmp_{name}'
+        try:
+            subprocess.run(['git','clone','--depth=1','--branch',ref,git_url,str(tmp)],
+                           check=True, capture_output=True)
+            src = tmp / subdir if subdir != '.' else tmp
+            src.rename(target)
+            print(f'  Installed {name}')
+        except subprocess.CalledProcessError as e:
+            print(f'  Failed {name}: {e}', file=sys.stderr)
+        finally:
+            if tmp.exists(): shutil.rmtree(str(tmp), ignore_errors=True)
+    PYEOF
+  args:
+    chdir: "{{ repo_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+
 - name: Copy Alhazen Skills to openclaw Managed Skills Dir
   shell: |
     mkdir -p {{ openclaw_home }}/.openclaw/skills
-    for skill_dir in {{ repo_dir }}/.claude/skills/*/; do
+    for skill_dir in {{ repo_dir }}/local_skills/*/; do
+      [ -d "$skill_dir" ] || continue
       skill_name=$(basename "$skill_dir")
-      [ "$skill_name" = "_template" ] && continue
-      cp -r "$skill_dir" "{{ openclaw_home }}/.openclaw/skills/$skill_name"
+      cp -rL "$skill_dir" "{{ openclaw_home }}/.openclaw/skills/$skill_name"
     done
   become: true
   become_user: "{{ openclaw_user }}"
@@ -288,8 +337,9 @@
 - name: Generate Alhazen Skill Entries in openclaw.json
   shell: |
     patch='{}'
-    for skill_yaml in {{ repo_dir }}/local_resources/skills/*.yaml; do
-      skill_name=$(basename "$skill_yaml" .yaml)
+    for skill_dir in {{ repo_dir }}/local_skills/*/; do
+      [ -d "$skill_dir" ] || continue
+      skill_name=$(basename "$skill_dir")
       patch=$(echo "$patch" | jq --arg name "$skill_name" \
         --arg root "{{ openclaw_home }}/workspace" \
         --arg typedb_host "localhost" \

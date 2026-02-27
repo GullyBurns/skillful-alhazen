@@ -14,25 +14,26 @@ Forked from the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project
 # 1. Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Setup everything (dependencies + TypeDB + database)
-make setup
+# 2. Phase 1 Build: install deps + resolve all skills + start TypeDB
+make build
 
-# 3. Use the skills
+# 3. Use the skills (Claude Code reads from .claude/skills/)
 /typedb-notebook remember "key finding from paper X"
 /jobhunt ingest-job --url "https://example.com/job"
+
+# 4. Phase 2 Deploy: push to a production OpenClaw instance
+make deploy-macmini   # or: make deploy-vps
 ```
 
-**Manual setup (if you prefer):**
+**Individual build steps:**
 ```bash
-# Install dependencies
-make setup-python
+make build-env    # Install Python dependencies (uv sync --all-extras)
+make build-skills # Resolve skills-registry.yaml → local_skills/ + wire .claude/skills/
+make build-db     # Start TypeDB + load all schemas (run after build-skills)
 
-# Start TypeDB and initialize database
-make setup-typedb
-
-# Or individual steps:
+# Or individual db steps:
 make db-start     # Start TypeDB container
-make db-init      # Create database and load schemas
+make db-init      # Create database and load all schemas
 ```
 
 ## Environment Management
@@ -60,52 +61,47 @@ All dependencies are defined in `pyproject.toml`. The `.venv` directory is creat
 
 ## Makefile Usage
 
-The project includes a comprehensive Makefile for managing setup, skill deployment, database operations, and development tasks.
+Two phases, each with a primary entry point:
 
-**Common commands:**
+**Phase 1 — Build (local dev, Claude Code):**
 ```bash
-make help           # Show all available targets
-make setup          # Full setup: Python deps + TypeDB + database
-make status         # Show project status
-make skills-list    # List all available skills
+make build            # Full build: deps + skills + TypeDB
+make build-env        # Install Python dependencies only
+make build-skills     # Resolve skills registry → local_skills/ + wire .claude/skills/
+make build-db         # Start TypeDB + load all schemas
+```
+
+**Phase 2 — Deploy (production OpenClaw):**
+```bash
+make deploy-macmini   # Deploy to Mac Mini (Docker Desktop)
+make deploy-vps       # Deploy to VPS (Podman rootless)
+make deploy-openclaw  # Wire skills + config for local OpenClaw instance
+```
+
+**Skills management:**
+```bash
+make skills-list      # Show all skills from registry with resolution status
+make skills-update    # Re-resolve all skills (re-link core, re-clone external)
+make skills-validate  # Validate all resolved skills have correct SKILL.md
 ```
 
 **Database management:**
 ```bash
-make db-start       # Start TypeDB container
-make db-stop        # Stop TypeDB container 
-make db-init        # Create database and load schemas
-make db-export      # Export database to timestamped zip
+make db-start         # Start TypeDB container
+make db-stop          # Stop TypeDB container
+make db-init          # Create database and load all schemas (discovers local_skills/*/schema.tql)
+make db-export        # Export database to timestamped zip
 make db-import ZIP=/path/to/export.zip  # Import database
 ```
 
 **Development:**
 ```bash
-make test           # Run tests
-make lint           # Run ruff linter
-make clean          # Clean generated files
+make help             # Show all available targets
+make status           # Show project status
+make test             # Run tests
+make lint             # Run ruff linter
+make clean            # Clean generated files
 ```
-
-## Skill Portability System
-
-This repository implements a comprehensive skill portability system that allows skills to work across different AI agent frameworks (Claude Code, OpenClaw, Goose/MCP).
-
-**Gold Standard:** Skills are defined in `local_resources/skills/*.yaml` manifests that serve as the source of truth for metadata.
-
-**Deployment targets:**
-```bash
-make deploy-claude      # Copy/update to .claude/skills/ (Claude Code)
-make deploy-openclaw    # Symlink to OpenClaw + generate config
-make deploy-goose       # Generate MCP config (future)
-```
-
-**Skill management:**
-```bash
-make skills-sync        # Sync metadata from YAML manifests to deployed copies
-make skills-validate    # Validate SKILL.md frontmatter consistency
-```
-
-**Documentation:** See `local_resources/skills/README.md` for comprehensive framework comparison and portability details.
 
 ## TypeDB Version
 
@@ -183,41 +179,48 @@ Large artifacts (PDFs, HTML, images) are stored in a file cache organized by con
 
 ### Skills
 
-Skills follow a **three-component architecture**:
-1. **TypeDB Schema** (`local_resources/typedb/namespaces/<domain>.tql`) - Data model
-2. **Skill Definition** (`.claude/skills/<domain>/SKILL.md` + `<domain>.py`) - Claude's interface
-3. **Dashboard** (optional) (`dashboard/`) - Web UI
+Skills follow a **self-contained directory architecture**:
+```
+skills/<name>/          (core skills, committed to this repo)
+  SKILL.md              — Claude Code skill definition + frontmatter metadata
+  skill.yaml            — structured metadata (name, description, license, etc.)
+  <name>.py             — CLI entry point
+  schema.tql            — TypeDB schema extension (loaded by make build-db)
 
-**Portability:** Skills are designed to work across multiple AI agent frameworks. Metadata is managed through:
-- **Source of truth:** `local_resources/skills/*.yaml` manifests
-- **Deployment automation:** Makefile targets for different frameworks
-- **Documentation:** `local_resources/skills/README.md` - Framework comparison guide
+local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
+  → core skills: symlinked from ../skills/<name>
+  → external skills: cloned from git
+```
 
-**Documentation:**
-- Wiki: [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) - Complete guide for humans
-- `.claude/skills/domain-modeling/SKILL.md` - Design guidance (callable skill for Claude)
-- `.claude/skills/_template/` - Template files for creating new skills
+**Single source of truth:** `skills-registry.yaml` — lists all skills (core with `path:`, external with `git:`).
 
-**Available Skills:**
+**`make build-skills`** resolves the registry into `local_skills/` and wires `.claude/skills/` symlinks.
 
-- **typedb-notebook** - Knowledge operations (remember, recall, organize)
-  - `.claude/skills/typedb-notebook/SKILL.md`
-  - `.claude/skills/typedb-notebook/typedb_notebook.py`
+**Schema loading:** `make build-db` automatically discovers `local_skills/*/schema.tql` — no manual registration needed.
 
-- **epmc-search** - Europe PMC literature search
-  - `.claude/skills/epmc-search/SKILL.md`
-  - `.claude/skills/epmc-search/epmc_search.py`
+**Available Skills** (see `make skills-list` for live status):
 
-- **jobhunt** - Job hunting notebook (positions, companies, skills, learning)
-  - `.claude/skills/jobhunt/SKILL.md`
-  - `.claude/skills/jobhunt/jobhunt.py`
-  - `local_resources/typedb/namespaces/jobhunt.tql`
-  - `dashboard/` (full-stack example)
+- **typedb-notebook** *(core)* — Knowledge operations (remember, recall, organize)
+  - `skills/typedb-notebook/`
+- **web-search** *(core)* — Web search via SearXNG
+  - `skills/web-search/`
+- **domain-modeling** *(core)* — Design guidance for new skills
+  - `skills/domain-modeling/`
+- **jobhunt** *(external)* — Job hunting notebook
+  - registered in `skills-registry.yaml`, resolved to `local_skills/jobhunt/`
+- **techrecon** *(external)* — Systematic investigation of software systems
+  - registered in `skills-registry.yaml`, resolved to `local_skills/techrecon/`
+- **epmc-search** *(external)* — Europe PMC literature search
+  - registered in `skills-registry.yaml`, resolved to `local_skills/epmc-search/`
+- **apm** *(external)* — Precision medicine investigation
+  - registered in `skills-registry.yaml`, resolved to `local_skills/apm/`
 
-- **techrecon** - Systematic investigation of external software systems
-  - `.claude/skills/techrecon/SKILL.md`
-  - `.claude/skills/techrecon/techrecon.py`
-  - `local_resources/typedb/namespaces/techrecon.tql`
+**Adding a new skill:**
+1. Copy template: `cp -r skills/_template skills/<skill-name>`
+2. Implement SKILL.md, skill.yaml, `<skill-name>.py`, schema.tql
+3. Add to `skills-registry.yaml` with `path: skills/<skill-name>`
+4. Run `make build-skills` to wire it into Claude Code
+5. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide
 
 ### Dashboards
 
@@ -251,11 +254,13 @@ cd dashboard && npm run dev
 - Analyzing results returned by scripts
 
 **Writing new skills:** When integrating a new data source or API:
-1. Copy the template: `cp -r .claude/skills/_template .claude/skills/<skill-name>`
-2. Design the TypeDB schema in `schema.tql`, copy to `local_resources/typedb/namespaces/`
+1. Copy the template: `cp -r skills/_template skills/<skill-name>`
+2. Design the TypeDB schema in `skills/<skill-name>/schema.tql` (auto-discovered by `make build-db`)
 3. Implement commands in `<skill-name>.py` following the template
-4. Document in `SKILL.md` with commands and sensemaking workflow
-5. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide
+4. Fill in `SKILL.md` and `skill.yaml` with metadata and commands
+5. Add a `path: skills/<skill-name>` entry to `skills-registry.yaml`
+6. Run `make build-skills` then `make build-db` to wire everything
+7. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide
 
 **Script conventions:**
 - Scripts output JSON to stdout for easy parsing
@@ -303,6 +308,7 @@ make clean          # Clean generated files
 uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "Test"
 uv run python .claude/skills/epmc-search/epmc_search.py count --query "CRISPR"
 uv run python .claude/skills/jobhunt/jobhunt.py list-pipeline
+# Note: .claude/skills/* are symlinks → local_skills/* → skills/* (for core)
 ```
 
 **Dashboard:**
@@ -323,41 +329,46 @@ cd dashboard && npm install && npm run dev
 ## Directory Structure
 
 ```
-src/skillful_alhazen/   # Main package
-├── __init__.py         # Package version
-├── mcp/                # MCP server and TypeDB client
-│   ├── typedb_client.py
-│   └── typedb_server.py
-└── utils/              # Utility modules (placeholder)
+skills/                 # Core skills (committed — mirrors alhazen-skill-examples layout)
+├── _template/          # Template for new skills (excluded from registry)
+├── typedb-notebook/    # SKILL.md, skill.yaml, typedb_notebook.py
+├── web-search/         # SKILL.md, skill.yaml
+└── domain-modeling/    # SKILL.md, skill.yaml
 
-tests/                  # Test files
+skills-registry.yaml    # Single source of truth: path: (core) + git: (external)
+
+local_skills/           # Gitignored build artifact — DO NOT EDIT
+├── typedb-notebook  -> ../skills/typedb-notebook   (symlink, core)
+├── web-search       -> ../skills/web-search        (symlink, core)
+├── jobhunt/            (real clone, external)
+└── ...
+
+.claude/skills/         # Gitignored — symlinks generated by make build-skills
+├── .gitignore          # * / !.gitignore
+├── typedb-notebook  -> ../../local_skills/typedb-notebook
+└── jobhunt          -> ../../local_skills/jobhunt
+
 local_resources/
-└── typedb/             # TypeDB schemas
-    ├── alhazen_notebook.tql
-    └── namespaces/
-        ├── scilit.tql
-        └── jobhunt.tql
+└── typedb/
+    ├── alhazen_notebook.tql    # Core base schema (always loaded first)
+    └── namespaces/             # Infrastructure schemas without a skill home
+        ├── scilit.tql          # (stopgap: epmc-search has no schema.tql yet)
+        └── skilllog.tql
+
+src/skillful_alhazen/   # Main package
+├── mcp/                # MCP server and TypeDB client
+└── utils/              # Utility modules
 
 dashboard/              # Next.js TypeScript dashboard
-├── src/
-│   ├── app/            # App router pages and API routes
-│   ├── components/     # React components (shadcn/ui)
-│   └── lib/            # TypeDB client utilities
-├── package.json
-└── tailwind.config.ts
-
-.claude/
-└── skills/             # Claude Code skills (each with SKILL.md + script)
-    ├── typedb-notebook/
-    ├── epmc-search/
-    └── jobhunt/
+deploy/                 # Ansible deployment scripts for Mac Mini and VPS
+tests/                  # Test files
 ```
 
-## Deployment: A &rarr; B &rarr; C Workflow
+## Deployment: Build → Deploy Workflow
 
-Skills move through three environments:
+**(Phase 1 — Build)** `make build` — local dev with Claude Code. Python deps + skills resolved + TypeDB ready.
 
-**(A) Local Development** &mdash; Claude Code + local TypeDB (`make setup`). Fast iteration, direct file access.
+**(Phase 2 — Deploy)** `make deploy-macmini` or `make deploy-vps` — production OpenClaw.
 
 **(B) Hardened Local Testing** &mdash; Full OpenClaw stack on a Mac Mini or second machine. Tests container networking, Squid proxy, MCP integration, Telegram.
 

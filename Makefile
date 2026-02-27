@@ -9,12 +9,13 @@ SHELL := /bin/bash
 PROJECT_ROOT := $(shell pwd)
 OPENCLAW_WORKSPACE := $(HOME)/.openclaw/workspace
 CLAUDE_SKILLS_DIR := $(PROJECT_ROOT)/.claude/skills
-OPENCLAW_SKILLS_DIR := $(HOME)/.openclaw/skills
+OPENCLAW_SKILLS_DIR := $(OPENCLAW_WORKSPACE)/skills
 OPENCLAW_CONFIG := $(HOME)/.openclaw/openclaw.json
 TYPEDB_CONTAINER := alhazen-typedb
 TYPEDB_DATABASE := alhazen_notebook
-SKILLS_MANIFEST_DIR := $(PROJECT_ROOT)/local_resources/skills
 TYPEDB_SCHEMAS_DIR := $(PROJECT_ROOT)/local_resources/typedb
+LOCAL_SKILLS_DIR := $(PROJECT_ROOT)/local_skills
+SKILLS_REGISTRY := $(PROJECT_ROOT)/skills-registry.yaml
 
 # OS detection
 UNAME_S := $(shell uname -s)
@@ -44,7 +45,7 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(setup|db-)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
 	@echo "$(GREEN)Skill Deployment:$(NC)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(deploy|skills)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(deploy|skills|monitoring|textgrad)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
 	@echo "$(GREEN)Database Management:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'db-' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
@@ -58,6 +59,15 @@ help: ## Show this help message
 	@echo "$(GREEN)Documentation:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'docs-' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo
+	@echo "$(GREEN)TextGrad Optimization:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'optimize-skill' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
+	@echo "$(GREEN)Observability:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(skills-token|skills-invocations)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
+	@echo "$(GREEN)Dashboard:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'dashboard' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo
 	@echo "$(GREEN)Development:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(test|lint|clean)' | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 
@@ -65,19 +75,30 @@ help: ## Show this help message
 # Setup
 # =============================================================================
 
-.PHONY: setup
-setup: setup-python setup-typedb ## Install Python deps, start TypeDB, init database
-	@echo "$(GREEN)✓ Setup complete!$(NC)"
+# Phase 1: Build — local dev (Claude Code)
+.PHONY: build
+build: build-env build-skills build-db ## Phase 1: Install deps + resolve skills + start TypeDB
+	@echo "$(GREEN)✓ Build complete! Use Claude Code with skills in .claude/skills/$(NC)"
 
-.PHONY: setup-python
-setup-python: ## Install Python dependencies
+.PHONY: build-env
+build-env: ## Install Python dependencies
 	@echo "$(BLUE)Installing Python dependencies...$(NC)"
 	uv sync --all-extras
 	@echo "$(GREEN)✓ Python dependencies installed$(NC)"
 
-.PHONY: setup-typedb
-setup-typedb: db-start db-init ## Start TypeDB and initialize database
-	@echo "$(GREEN)✓ TypeDB setup complete$(NC)"
+.PHONY: build-skills
+build-skills: skills-install deploy-claude ## Resolve skills-registry.yaml → local_skills/ + wire .claude/skills/
+	@echo "$(GREEN)✓ Skills built$(NC)"
+
+.PHONY: build-db
+build-db: db-start db-init ## Start TypeDB and load all schemas (run after build-skills)
+	@echo "$(GREEN)✓ TypeDB ready$(NC)"
+
+# Deprecated aliases (kept for backward compatibility)
+.PHONY: setup setup-python setup-typedb
+setup: build ## [deprecated] Use 'make build' instead
+setup-python: build-env ## [deprecated] Use 'make build-env' instead
+setup-typedb: build-db ## [deprecated] Use 'make build-db' instead
 
 # =============================================================================
 # Database Management
@@ -121,8 +142,25 @@ db-init: ## Create database and load schemas
 	commit
 	exit
 	EOF
-	@echo "$(BLUE)Loading namespace schemas...$(NC)"
+	@echo "$(BLUE)Loading skill schemas (from local_skills/*/schema.tql)...$(NC)"
+	@if [ -d "$(LOCAL_SKILLS_DIR)" ]; then \
+		for skill_dir in $(LOCAL_SKILLS_DIR)/*/; do \
+			schema=$$(readlink -f $$skill_dir)/schema.tql; \
+			[ -f "$$schema" ] || continue; \
+			skill_name=$$(basename $$skill_dir); \
+			echo "$(BLUE)Loading $$skill_name schema...$(NC)"; \
+			docker cp "$$schema" $(TYPEDB_CONTAINER):/tmp/schema_$${skill_name}.tql; \
+			docker exec -i $(TYPEDB_CONTAINER) /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << EOF || true; \
+			transaction $(TYPEDB_DATABASE) schema write; \
+			source /tmp/schema_$${skill_name}.tql; \
+			commit; \
+			exit; \
+			EOF \
+		done; \
+	fi
+	@echo "$(BLUE)Loading infrastructure schemas (local_resources/typedb/namespaces/)...$(NC)"
 	@for schema in $(TYPEDB_SCHEMAS_DIR)/namespaces/*.tql; do \
+		[ -f "$$schema" ] || continue; \
 		schema_name=$$(basename $$schema); \
 		echo "$(BLUE)Loading $$schema_name...$(NC)"; \
 		docker exec -i $(TYPEDB_CONTAINER) /opt/typedb-all-linux-x86_64/typedb console --server=localhost:1729 << EOF || true; \
@@ -162,41 +200,73 @@ endif
 # =============================================================================
 
 .PHONY: deploy-claude
-deploy-claude: ## Copy/update skills to .claude/skills/ (for Claude Code)
-	@echo "$(BLUE)Deploying skills to Claude Code...$(NC)"
-	@if [ -d "$(CLAUDE_SKILLS_DIR)" ]; then \
-		echo "$(GREEN)✓ Skills already exist in .claude/skills/$(NC)"; \
-		echo "$(YELLOW)→ Run 'make skills-sync' to update metadata$(NC)"; \
+deploy-claude: ## Symlink external skills from local_skills/ into .claude/skills/ (for Claude Code)
+	@echo "$(BLUE)Deploying external skills to Claude Code...$(NC)"
+	@if [ ! -d "$(LOCAL_SKILLS_DIR)" ]; then \
+		echo "$(YELLOW)→ No local_skills/ directory — run 'make skills-install' first$(NC)"; \
 	else \
-		echo "$(RED)✗ No skills found in .claude/skills/$(NC)"; \
-		echo "$(YELLOW)→ Skills should be committed in the repository$(NC)"; \
-		exit 1; \
+		for skill_dir in $(LOCAL_SKILLS_DIR)/*/; do \
+			[ -d "$$skill_dir" ] || continue; \
+			skill_name=$$(basename $$skill_dir); \
+			target=$(CLAUDE_SKILLS_DIR)/$$skill_name; \
+			if [ -L "$$target" ]; then \
+				rm "$$target"; \
+			elif [ -d "$$target" ]; then \
+				echo "$(YELLOW)  → Skipping $$skill_name (real directory exists, not a symlink)$(NC)"; \
+				continue; \
+			fi; \
+			ln -sfn ../../local_skills/$$skill_name "$$target"; \
+			echo "$(GREEN)  ✓ Linked: $$skill_name$(NC)"; \
+		done; \
+		for target in $(CLAUDE_SKILLS_DIR)/*/; do \
+			link=$${target%/}; \
+			[ -L "$$link" ] || continue; \
+			skill_name=$$(basename "$$link"); \
+			[ -d "$(LOCAL_SKILLS_DIR)/$$skill_name" ] && continue; \
+			echo "$(YELLOW)  → Removing stale symlink: $$skill_name$(NC)"; \
+			rm "$$link"; \
+		done; \
 	fi
+	@echo "$(GREEN)✓ External skills deployed to .claude/skills/$(NC)"
 
 .PHONY: deploy-openclaw
 deploy-openclaw: deploy-openclaw-skills deploy-openclaw-config deploy-openclaw-docs deploy-openclaw-identity ## Symlink skills + configure OpenClaw + update workspace docs + render identity
 
 .PHONY: deploy-openclaw-skills
-deploy-openclaw-skills: ## Symlink skills to OpenClaw workspace
-	@echo "$(BLUE)Deploying skills to OpenClaw...$(NC)"
+deploy-openclaw-skills: ## Symlink core + external skills into OpenClaw workspace/skills/
+	@echo "$(BLUE)Deploying skills to OpenClaw workspace...$(NC)"
 	@mkdir -p $(OPENCLAW_SKILLS_DIR)
+	@# Core skills: real directories in .claude/skills/ (not symlinks, not _template)
 	@for skill_dir in $(CLAUDE_SKILLS_DIR)/*/; do \
-		if [ -d "$$skill_dir" ] && [ "$$(basename $$skill_dir)" != "_template" ]; then \
-			skill_name=$$(basename $$skill_dir); \
-			target_dir=$(OPENCLAW_SKILLS_DIR)/$$skill_name; \
-			if [ -L "$$target_dir" ]; then \
-				echo "$(YELLOW)→ Updating symlink: $$skill_name$(NC)"; \
-				rm "$$target_dir"; \
-			elif [ -d "$$target_dir" ]; then \
-				echo "$(YELLOW)→ Replacing directory with symlink: $$skill_name$(NC)"; \
-				rm -rf "$$target_dir"; \
-			else \
-				echo "$(BLUE)→ Creating symlink: $$skill_name$(NC)"; \
-			fi; \
-			ln -s "$$skill_dir" "$$target_dir"; \
-		fi; \
+		link=$${skill_dir%/}; \
+		[ -L "$$link" ] && continue; \
+		skill_name=$$(basename $$link); \
+		[ "$$skill_name" = "_template" ] && continue; \
+		target=$(OPENCLAW_SKILLS_DIR)/$$skill_name; \
+		[ -L "$$target" ] && rm "$$target"; \
+		[ -d "$$target" ] && rm -rf "$$target"; \
+		ln -s "$(PROJECT_ROOT)/.claude/skills/$$skill_name" "$$target"; \
+		echo "$(GREEN)  ✓ Core: $$skill_name$(NC)"; \
 	done
-	@echo "$(GREEN)✓ Skills symlinked to OpenClaw$(NC)"
+	@# External skills: directories in local_skills/
+	@if [ -d "$(LOCAL_SKILLS_DIR)" ]; then \
+		for skill_dir in $(LOCAL_SKILLS_DIR)/*/; do \
+			[ -d "$$skill_dir" ] || continue; \
+			skill_name=$$(basename $$skill_dir); \
+			target=$(OPENCLAW_SKILLS_DIR)/$$skill_name; \
+			[ -L "$$target" ] && rm "$$target"; \
+			[ -d "$$target" ] && rm -rf "$$target"; \
+			ln -s "$(PROJECT_ROOT)/local_skills/$$skill_name" "$$target"; \
+			echo "$(GREEN)  ✓ External: $$skill_name$(NC)"; \
+		done; \
+	fi
+	@# Remove stale symlinks (point to non-existent targets)
+	@for target in $(OPENCLAW_SKILLS_DIR)/*/; do \
+		link=$${target%/}; \
+		[ -L "$$link" ] || continue; \
+		[ -e "$$link" ] || { echo "$(YELLOW)  → Removing stale symlink: $$(basename $$link)$(NC)"; rm "$$link"; }; \
+	done
+	@echo "$(GREEN)✓ Skills deployed to OpenClaw workspace$(NC)"
 
 .PHONY: deploy-openclaw-config
 deploy-openclaw-config: ## Merge skills.entries into openclaw.json (requires jq)
@@ -209,13 +279,16 @@ deploy-openclaw-config: ## Merge skills.entries into openclaw.json (requires jq)
 		echo "$(RED)✗ OpenClaw config not found: $(OPENCLAW_CONFIG)$(NC)"; \
 		exit 1; \
 	fi
-	@# Build the skills.entries object from skill manifests
+	@# Build the skills.entries object from all resolved skills in local_skills/
 	@patch=$$(echo '{}'); \
-	for skill_yaml in $(SKILLS_MANIFEST_DIR)/*.yaml; do \
-		skill_name=$$(basename $$skill_yaml .yaml); \
-		patch=$$(echo "$$patch" | jq --arg name "$$skill_name" --arg root "$(PROJECT_ROOT)" \
-			'. + {($$name): {"env": {"ALHAZEN_PROJECT_ROOT": $$root, "TYPEDB_DATABASE": "alhazen_notebook"}}}'); \
-	done; \
+	if [ -d "$(LOCAL_SKILLS_DIR)" ]; then \
+		for skill_dir in $(LOCAL_SKILLS_DIR)/*/; do \
+			[ -d "$$skill_dir" ] || continue; \
+			skill_name=$$(basename $$skill_dir); \
+			patch=$$(echo "$$patch" | jq --arg name "$$skill_name" --arg root "$(PROJECT_ROOT)" \
+				'. + {($$name): {"env": {"ALHAZEN_PROJECT_ROOT": $$root, "TYPEDB_DATABASE": "alhazen_notebook"}}}'); \
+		done; \
+	fi; \
 	jq --argjson entries "$$patch" '.skills.entries = $$entries' "$(OPENCLAW_CONFIG)" > "$(OPENCLAW_CONFIG).tmp" && \
 		mv "$(OPENCLAW_CONFIG).tmp" "$(OPENCLAW_CONFIG)"
 	@echo "$(GREEN)✓ Updated skills.entries in $(OPENCLAW_CONFIG)$(NC)"
@@ -299,34 +372,75 @@ deploy-goose: ## Generate MCP config for Goose (future implementation)
 # Skill Management
 # =============================================================================
 
+.PHONY: monitoring-on
+monitoring-on: ## Enable skill usage logging (sets monitoring.enabled: true in alhazen.yaml)
+	@python3 -c "import re; p='alhazen.yaml'; c=open(p).read(); c=re.sub(r'(monitoring:.*?\n\s*enabled:)\s*false',r'\1 true',c,flags=re.DOTALL); open(p,'w').write(c); print('Monitoring enabled in alhazen.yaml')"
+
+.PHONY: monitoring-off
+monitoring-off: ## Disable skill usage logging (sets monitoring.enabled: false in alhazen.yaml)
+	@python3 -c "import re; p='alhazen.yaml'; c=open(p).read(); c=re.sub(r'(monitoring:.*?\n\s*enabled:)\s*true',r'\1 false',c,flags=re.DOTALL); open(p,'w').write(c); print('Monitoring disabled in alhazen.yaml')"
+
+.PHONY: textgrad-on
+textgrad-on: ## Enable TextGrad optimization (sets textgrad.enabled: true in alhazen.yaml)
+	@python3 -c "import re; p='alhazen.yaml'; c=open(p).read(); c=re.sub(r'(textgrad:.*?\n\s*enabled:)\s*false',r'\1 true',c,flags=re.DOTALL); open(p,'w').write(c); print('TextGrad enabled in alhazen.yaml')"
+
+.PHONY: textgrad-off
+textgrad-off: ## Disable TextGrad optimization (sets textgrad.enabled: false in alhazen.yaml)
+	@python3 -c "import re; p='alhazen.yaml'; c=open(p).read(); c=re.sub(r'(textgrad:.*?\n\s*enabled:)\s*true',r'\1 false',c,flags=re.DOTALL); open(p,'w').write(c); print('TextGrad disabled in alhazen.yaml')"
+
+define SKILLS_LIST_PY
+import sys
+from pathlib import Path
+try:
+    import yaml
+except ImportError:
+    print("PyYAML not available — install with: uv sync"); sys.exit(1)
+GREEN = '\033[32m'; YELLOW = '\033[33m'; BLUE = '\033[34m'; NC = '\033[0m'
+reg = Path('skills-registry.yaml')
+if not reg.exists():
+    print("No skills-registry.yaml found"); sys.exit(0)
+cfg = yaml.safe_load(reg.read_text()) or {}
+print(f"{BLUE}Skills (from skills-registry.yaml):{NC}")
+print("=" * 37)
+for skill in cfg.get('skills') or []:
+    name = skill['name']
+    kind = 'core' if 'path' in skill else 'external'
+    color = GREEN if kind == 'core' else YELLOW
+    resolved = Path('local_skills') / name
+    desc = ''
+    for candidate in [resolved / 'SKILL.md', resolved / 'skill.yaml']:
+        if candidate.exists():
+            for line in candidate.read_text().splitlines():
+                if line.startswith('description:'):
+                    desc = line.split(':', 1)[1].strip().strip('"')
+                    break
+            if desc: break
+    status = 'ok' if resolved.exists() else 'run make build-skills'
+    print(f"  {color}{name:<20}{NC} {desc}  {BLUE}[{kind}]{NC}  {status}")
+endef
+export SKILLS_LIST_PY
+
 .PHONY: skills-list
-skills-list: ## Show all available skills
-	@echo "$(BLUE)Available Skills:$(NC)"
-	@echo "================"
-	@for skill_yaml in $(SKILLS_MANIFEST_DIR)/*.yaml; do \
-		skill_name=$$(basename $$skill_yaml .yaml); \
-		description=$$(grep '^description:' $$skill_yaml | sed 's/description: *"//;s/"$$//'); \
-		printf "$(GREEN)%-20s$(NC) %s\n" "$$skill_name" "$$description"; \
-	done
+skills-list: ## Show all skills from skills-registry.yaml (run 'make build-skills' first to resolve)
+	@uv run python -c "$$SKILLS_LIST_PY"
 
 .PHONY: skills-validate
-skills-validate: ## Validate SKILL.md frontmatter
-	@echo "$(BLUE)Validating skills...$(NC)"
+skills-validate: ## Validate all resolved skills have SKILL.md with name: field
+	@echo "$(BLUE)Validating skills (run 'make build-skills' first)...$(NC)"
 	@valid=true; \
-	for skill_yaml in $(SKILLS_MANIFEST_DIR)/*.yaml; do \
-		skill_name=$$(basename $$skill_yaml .yaml); \
-		skill_md=$(CLAUDE_SKILLS_DIR)/$$skill_name/SKILL.md; \
+	for skill_dir in $(LOCAL_SKILLS_DIR)/*/; do \
+		[ -d "$$skill_dir" ] || continue; \
+		skill_name=$$(basename $$skill_dir); \
+		skill_md=$$skill_dir/SKILL.md; \
 		echo "$(BLUE)→ Validating $$skill_name$(NC)"; \
 		if [ ! -f "$$skill_md" ]; then \
-			echo "$(RED)  ✗ Missing SKILL.md file$(NC)"; \
-			valid=false; \
-			continue; \
+			echo "$(RED)  ✗ Missing SKILL.md$(NC)"; valid=false; continue; \
 		fi; \
-		yaml_name=$$(grep '^name:' $$skill_yaml | sed 's/name: *//'); \
-		md_name=$$(grep '^name:' $$skill_md | sed 's/name: *//'); \
-		if [ "$$yaml_name" != "$$md_name" ]; then \
-			echo "$(RED)  ✗ Name mismatch: YAML='$$yaml_name' MD='$$md_name'$(NC)"; \
-			valid=false; \
+		md_name=$$(grep '^name:' $$skill_md | head -1 | sed 's/name:[[:space:]]*//'); \
+		if [ -z "$$md_name" ]; then \
+			echo "$(RED)  ✗ Missing name: in SKILL.md$(NC)"; valid=false; \
+		elif [ "$$md_name" != "$$skill_name" ]; then \
+			echo "$(RED)  ✗ Name mismatch: dir='$$skill_name' SKILL.md='$$md_name'$(NC)"; valid=false; \
 		else \
 			echo "$(GREEN)  ✓ Valid$(NC)"; \
 		fi; \
@@ -334,42 +448,201 @@ skills-validate: ## Validate SKILL.md frontmatter
 	if [ "$$valid" = "true" ]; then \
 		echo "$(GREEN)✓ All skills valid$(NC)"; \
 	else \
-		echo "$(RED)✗ Validation failed$(NC)"; \
-		exit 1; \
+		echo "$(RED)✗ Validation failed$(NC)"; exit 1; \
 	fi
 
+define SKILLS_INSTALL_PY
+import subprocess, sys, shutil
+from pathlib import Path
+import yaml
+registry = Path('skills-registry.yaml')
+if not registry.exists():
+    print('No skills-registry.yaml found'); sys.exit(0)
+cfg = yaml.safe_load(registry.read_text()) or {}
+skills = cfg.get('skills') or []
+if not skills:
+    print('No skills registered in skills-registry.yaml'); sys.exit(0)
+local_skills = Path('local_skills'); local_skills.mkdir(exist_ok=True)
+for skill in skills:
+    name = skill['name']
+    target = local_skills / name
+    if 'path' in skill:
+        # Core skill: create relative symlink local_skills/<name> -> ../<path>
+        src = Path(skill['path'])
+        if target.is_symlink():
+            target.unlink()
+        elif target.exists():
+            print(f'  Skipping {name} (real directory exists at local_skills/{name})'); continue
+        target.symlink_to(f'../{src}')
+        print(f'  ✓ Linked (core): {name}')
+        continue
+    # External skill: clone from git
+    git_url = skill['git']
+    ref = skill.get('ref', 'main'); subdir = skill.get('subdir', '.')
+    if target.exists() and not target.is_symlink():
+        print(f'  Skipping {name} (already installed -- run make skills-update to refresh)'); continue
+    if target.is_symlink():
+        target.unlink()
+    print(f'  Installing {name} from {git_url}@{ref}...')
+    tmp = local_skills / f'_tmp_{name}'
+    try:
+        subprocess.run(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], check=True, capture_output=True)
+        src = tmp / subdir if subdir != '.' else tmp; src.rename(target)
+        print(f'  ✓ Installed {name}')
+    except subprocess.CalledProcessError as e:
+        print(f'  ✗ Failed to install {name}: {e}', file=sys.stderr)
+    finally:
+        if tmp.exists(): shutil.rmtree(tmp, ignore_errors=True)
+endef
+export SKILLS_INSTALL_PY
+
+define SKILLS_UPDATE_PY
+import subprocess, sys, shutil
+from pathlib import Path
+import yaml
+registry = Path('skills-registry.yaml')
+if not registry.exists():
+    print('No skills-registry.yaml found'); sys.exit(0)
+cfg = yaml.safe_load(registry.read_text()) or {}
+skills = cfg.get('skills') or []
+if not skills:
+    print('No skills registered'); sys.exit(0)
+local_skills = Path('local_skills'); local_skills.mkdir(exist_ok=True)
+for skill in skills:
+    name = skill['name']
+    target = local_skills / name
+    if 'path' in skill:
+        # Core skill: re-link (in case path changed)
+        src = Path(skill['path'])
+        if target.is_symlink(): target.unlink()
+        elif target.exists(): shutil.rmtree(target)
+        target.symlink_to(f'../{src}')
+        print(f'  ✓ Re-linked (core): {name}')
+        continue
+    # External skill: re-clone from git
+    git_url = skill['git']
+    ref = skill.get('ref', 'main'); subdir = skill.get('subdir', '.')
+    print(f'  Updating {name}...')
+    if target.is_symlink(): target.unlink()
+    elif target.exists(): shutil.rmtree(target)
+    tmp = local_skills / f'_tmp_{name}'
+    try:
+        subprocess.run(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], check=True, capture_output=True)
+        src = tmp / subdir if subdir != '.' else tmp; src.rename(target)
+        print(f'  ✓ Updated {name}')
+    except subprocess.CalledProcessError as e:
+        print(f'  ✗ Failed to update {name}: {e}', file=sys.stderr)
+    finally:
+        if tmp.exists(): shutil.rmtree(tmp, ignore_errors=True)
+endef
+export SKILLS_UPDATE_PY
+
+.PHONY: skills-install
+skills-install: ## Resolve skills-registry.yaml into local_skills/ (path: symlinks, git: clones)
+	@echo "$(BLUE)Resolving skills from registry...$(NC)"
+	@uv run python -c "$$SKILLS_INSTALL_PY"
+	@echo "$(GREEN)✓ Skills resolved to local_skills/$(NC)"
+
+.PHONY: skills-update
+skills-update: ## Re-resolve all skills from registry (re-links core, re-clones external) and redeploy
+	@echo "$(BLUE)Updating all skills...$(NC)"
+	@uv run python -c "$$SKILLS_UPDATE_PY"
+	$(MAKE) --no-print-directory deploy-claude
+	@echo "$(GREEN)✓ All skills updated$(NC)"
+
 .PHONY: skills-sync
-skills-sync: ## Sync gold-standard metadata to deployed copies
-	@echo "$(BLUE)Syncing skill metadata...$(NC)"
+skills-sync: ## [deprecated] Skills are now self-contained — metadata lives in skill.yaml/SKILL.md
+	@echo "$(YELLOW)skills-sync is no longer needed: each skill is its own source of truth.$(NC)"
+	@echo "$(YELLOW)Edit skills/*/SKILL.md (core) or local_skills/*/SKILL.md (external) directly.$(NC)"
+
+# =============================================================================
+# TextGrad Optimization
+# =============================================================================
+
+SKILL_OPTIMIZER := $(PROJECT_ROOT)/local_resources/textgrad/skill_optimizer.py
+
+.PHONY: optimize-skill
+optimize-skill: ## Run TextGrad optimization on a skill (requires SKILL=name, textgrad.enabled: true)
+ifndef SKILL
+	@echo "$(RED)Error: SKILL variable required. Usage: make optimize-skill SKILL=jobhunt$(NC)"
+	@exit 1
+endif
+	@echo "$(BLUE)Optimizing skill: $(SKILL)$(NC)"
+	uv run python $(SKILL_OPTIMIZER) --skill $(SKILL) --create-pr
+
+.PHONY: optimize-skill-dry-run
+optimize-skill-dry-run: ## Preview TextGrad optimization without making changes (requires SKILL=name)
+ifndef SKILL
+	@echo "$(RED)Error: SKILL variable required. Usage: make optimize-skill-dry-run SKILL=jobhunt$(NC)"
+	@exit 1
+endif
+	uv run python $(SKILL_OPTIMIZER) --skill $(SKILL) --dry-run
+
+# =============================================================================
+# Skill Observability
+# =============================================================================
+
+SKILL_LOGGER := $(PROJECT_ROOT)/local_resources/skilllog/skill_logger.py
+
+.PHONY: skills-token-report
+skills-token-report: ## Show token usage summary across all logged skill invocations
+	uv run python $(SKILL_LOGGER) token-report
+
+.PHONY: skills-token-report-skill
+skills-token-report-skill: ## Show token usage for a specific skill (requires SKILL=name)
+ifndef SKILL
+	@echo "$(RED)Error: SKILL variable required. Usage: make skills-token-report-skill SKILL=jobhunt$(NC)"
+	@exit 1
+endif
+	uv run python $(SKILL_LOGGER) token-report --skill $(SKILL)
+
+.PHONY: skills-invocations
+skills-invocations: ## List recent skill invocations (use SKILL=name to filter)
+	@if [ -n "$(SKILL)" ]; then \
+		uv run python $(SKILL_LOGGER) list-invocations --skill $(SKILL); \
+	else \
+		uv run python $(SKILL_LOGGER) list-invocations; \
+	fi
+
+# =============================================================================
+# Dashboard
+# =============================================================================
+
+DASHBOARD_DIR := $(PROJECT_ROOT)/dashboard
+
+.PHONY: dashboard-dev
+dashboard-dev: ## Start the Next.js dashboard in development mode (http://localhost:3000)
+	@echo "$(BLUE)Starting dashboard in development mode...$(NC)"
+	@if [ ! -d "$(DASHBOARD_DIR)/node_modules" ]; then \
+		echo "$(YELLOW)Installing dashboard dependencies...$(NC)"; \
+		cd $(DASHBOARD_DIR) && npm install; \
+	fi
+	cd $(DASHBOARD_DIR) && npm run dev
+
+.PHONY: dashboard-build
+dashboard-build: ## Build the Next.js dashboard for production
+	@echo "$(BLUE)Building dashboard...$(NC)"
+	@if [ ! -d "$(DASHBOARD_DIR)/node_modules" ]; then \
+		echo "$(YELLOW)Installing dashboard dependencies...$(NC)"; \
+		cd $(DASHBOARD_DIR) && npm install; \
+	fi
+	cd $(DASHBOARD_DIR) && ./node_modules/.bin/next build
+	@echo "$(GREEN)✓ Dashboard built$(NC)"
+
+.PHONY: dashboard-skills
+dashboard-skills: ## List skills that have dashboards (from YAML manifests)
+	@echo "$(BLUE)Skills with dashboards:$(NC)"
+	@echo "======================"
 	@for skill_yaml in $(SKILLS_MANIFEST_DIR)/*.yaml; do \
 		skill_name=$$(basename $$skill_yaml .yaml); \
-		skill_md=$(CLAUDE_SKILLS_DIR)/$$skill_name/SKILL.md; \
-		echo "$(BLUE)→ Syncing $$skill_name$(NC)"; \
-		if [ ! -f "$$skill_md" ]; then \
-			echo "$(RED)  ✗ SKILL.md not found$(NC)"; \
-			continue; \
+		if grep -q '^dashboard:' $$skill_yaml 2>/dev/null; then \
+			enabled=$$(awk '/^dashboard:/{f=1} f && /enabled:/{print $$2; f=0}' $$skill_yaml); \
+			if [ "$$enabled" = "true" ]; then \
+				url_path=$$(awk '/^dashboard:/{f=1} f && /url_path:/{gsub(/"/, "", $$2); print $$2; f=0}' $$skill_yaml); \
+				printf "$(GREEN)%-20s$(NC) http://localhost:3000%s\n" "$$skill_name" "$$url_path"; \
+			fi; \
 		fi; \
-		name=$$(grep '^name:' $$skill_yaml | sed 's/name: *//'); \
-		description=$$(grep '^description:' $$skill_yaml | sed 's/description: *"//;s/"$$//'); \
-		license=$$(grep '^license:' $$skill_yaml | sed 's/license: *//'); \
-		compatibility=$$(grep '^compatibility:' $$skill_yaml | sed 's/compatibility: *"//;s/"$$//'); \
-		temp_file=$$(mktemp); \
-		echo "---" > $$temp_file; \
-		echo "name: $$name" >> $$temp_file; \
-		echo "description: \"$$description\"" >> $$temp_file; \
-		if [ -n "$$license" ]; then \
-			echo "license: $$license" >> $$temp_file; \
-		fi; \
-		if [ -n "$$compatibility" ]; then \
-			echo "compatibility: \"$$compatibility\"" >> $$temp_file; \
-		fi; \
-		echo "---" >> $$temp_file; \
-		echo >> $$temp_file; \
-		sed -n '/^---$$/,/^---$$/d; /^---$$/,$${/^---$$/d; p;}' $$skill_md >> $$temp_file; \
-		mv $$temp_file $$skill_md; \
-		echo "$(GREEN)  ✓ Updated$(NC)"; \
 	done
-	@echo "$(GREEN)✓ All skills synchronized$(NC)"
 
 # =============================================================================
 # Development

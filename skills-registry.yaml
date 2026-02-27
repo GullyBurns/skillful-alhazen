@@ -1,0 +1,67 @@
+# Alhazen Skills Registry
+# ========================
+# Single source of truth for all skills — core (path-based) and external (git-based).
+#
+# Build all skills locally:
+#   make build-skills
+#
+# Update installed skills:
+#   make skills-update
+#
+# Skills resolve to local_skills/ (gitignored build artifact).
+#
+# Entry formats:
+#
+#   Core skills (from this repo, symlinked into local_skills/):
+#     - name: my-skill
+#       path: skills/my-skill       # path relative to repo root
+#
+#   External skills (cloned from a git repository):
+#     - name: my-skill
+#       git: https://...            # git clone URL
+#       ref: main                   # branch, tag, or commit hash (default: main)
+#       subdir: .                   # subdirectory within the repo (default: .)
+#
+# Each skill directory must contain:
+#   - SKILL.md     (required: Claude Code skill definition)
+#   - skill.yaml   (recommended: structured metadata)
+#   - {name}.py    (recommended: CLI entry point)
+#   - schema.tql   (optional: TypeDB schema extension — loaded by make build-db)
+#   - dashboard/   (optional: Next.js dashboard components)
+
+skills:
+  # ── Core skills (path-based: symlinked from skills/ in this repo) ──────────
+  - name: typedb-notebook
+    path: skills/typedb-notebook
+
+  - name: web-search
+    path: skills/web-search
+
+  - name: domain-modeling
+    path: skills/domain-modeling
+
+  # ── External skills (git-based: cloned from alhazen-skill-examples) ────────
+  - name: jobhunt
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/demo/jobhunt
+
+  - name: techrecon
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/demo/techrecon
+
+  - name: epmc-search
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/biomed/epmc-search
+
+  - name: apm
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/biomed/apm
+
+# To add more external skills:
+# - name: semantic-scholar
+#   git: https://github.com/example/alhazen-semantic-scholar
+#   ref: main
