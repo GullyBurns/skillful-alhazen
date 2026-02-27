@@ -386,8 +386,9 @@
 
 - name: Render OpenClaw Identity Files from TypeDB
   shell: >
-    uv run python src/skillful_alhazen/utils/render_identity.py render-all
+    uv run python src/skillful_alhazen/utils/render_identity.py
     --workspace /Users/{{ openclaw_user }}/workspace
+    render-all
   args:
     chdir: "{{ repo_dir }}"
   become: true
