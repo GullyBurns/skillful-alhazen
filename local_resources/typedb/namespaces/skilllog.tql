@@ -30,6 +30,12 @@ attribute output-tokens-estimate, value integer;
 attribute total-tokens-estimate, value integer;
 # Estimated tokens in always-loaded static context files (CLAUDE.md, SKILL.mds, etc.)
 attribute context-tokens-estimate, value integer;
+# Per-file breakdown of context tokens (stored since Feb 2026)
+attribute claude-md-tokens, value integer;
+attribute memory-md-tokens, value integer;
+attribute skill-mds-tokens, value integer;
+attribute soul-md-tokens, value integer;
+attribute agents-md-tokens, value integer;
 
 # Evaluation label for TextGrad dataset building
 # Values: unlabeled | golden | rejected
@@ -63,6 +69,11 @@ entity skilllog-invocation sub domain-thing,
     owns output-tokens-estimate,
     owns total-tokens-estimate,
     owns context-tokens-estimate,
+    owns claude-md-tokens,
+    owns memory-md-tokens,
+    owns skill-mds-tokens,
+    owns soul-md-tokens,
+    owns agents-md-tokens,
     owns evaluation-label;
 
 

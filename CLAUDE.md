@@ -205,7 +205,8 @@ Large artifacts (PDFs, HTML, images) are stored in a file cache organized by con
 Skills follow a **self-contained directory architecture**:
 ```
 skills/<name>/          (core skills, committed to this repo)
-  SKILL.md              — Claude Code skill definition + frontmatter metadata
+  SKILL.md              — Short selection file (~30 lines): when to use, quick start
+  USAGE.md              — Full reference (on-demand): commands, workflows, data model
   skill.yaml            — structured metadata (name, description, license, etc.)
   <name>.py             — CLI entry point
   schema.tql            — TypeDB schema extension (loaded by make build-db)
@@ -214,6 +215,11 @@ local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
   → core skills: symlinked from ../skills/<name>
   → external skills: cloned from git
 ```
+
+**SKILL.md / USAGE.md convention:**
+- **SKILL.md** (~30 lines) is loaded into context on every conversation. Keep it short: frontmatter, purpose, triggers, prerequisites, one quick-start example, and a line saying "read USAGE.md before executing commands."
+- **USAGE.md** is read on-demand when actively using the skill. Put all command details, sensemaking workflows, data model tables, TypeDB pitfalls, and examples here.
+- This split reduces static context from ~26,600 → ~2,000 tokens for SKILL.mds.
 
 **Single source of truth:** `skills-registry.yaml` — lists all skills (core with `path:`, external with `git:`).
 
@@ -240,7 +246,7 @@ local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
 
 **Adding a new skill:**
 1. Copy template: `cp -r skills/_template skills/<skill-name>`
-2. Implement SKILL.md, skill.yaml, `<skill-name>.py`, schema.tql
+2. Implement short `SKILL.md` (triggers, prereqs, quick start, USAGE.md reference), full `USAGE.md` (commands, workflows, data model), `skill.yaml`, `<skill-name>.py`, `schema.tql`
 3. Add to `skills-registry.yaml` with `path: skills/<skill-name>`
 4. Run `make build-skills` to wire it into Claude Code
 5. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide

@@ -19,22 +19,10 @@ export default function HubPage() {
   const [typedbStatus, setTypedbStatus] = useState<ServiceStatus>('checking');
 
   useEffect(() => {
-    async function checkTypeDB() {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
-        await fetch(`${window.location.protocol}//${window.location.hostname}:1729`, {
-          method: 'HEAD',
-          mode: 'no-cors',
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-        setTypedbStatus('online');
-      } catch {
-        setTypedbStatus('offline');
-      }
-    }
-    checkTypeDB();
+    fetch('/api/typedb-status')
+      .then(r => r.json())
+      .then(d => setTypedbStatus(d.status === 'online' ? 'online' : 'offline'))
+      .catch(() => setTypedbStatus('offline'));
   }, []);
 
   return (

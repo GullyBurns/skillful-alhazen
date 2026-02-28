@@ -77,7 +77,7 @@ help: ## Show this help message
 
 # Phase 1: Build — local dev (Claude Code)
 .PHONY: build
-build: build-env build-skills build-db ## Phase 1: Install deps + resolve skills + start TypeDB
+build: build-env build-skills build-dashboard build-db ## Phase 1: Install deps + resolve skills + start TypeDB
 	@echo "$(GREEN)✓ Build complete! Use Claude Code with skills in .claude/skills/$(NC)"
 
 .PHONY: build-env
@@ -93,6 +93,30 @@ build-skills: skills-install deploy-claude ## Resolve skills-registry.yaml → l
 .PHONY: build-db
 build-db: db-start db-init ## Start TypeDB and load all schemas (run after build-skills)
 	@echo "$(GREEN)✓ TypeDB ready$(NC)"
+
+.PHONY: build-dashboard
+build-dashboard: build-skills ## Wire skill dashboard pages/routes/components into Next.js app
+	@echo "$(BLUE)Wiring skill dashboards into Next.js app...$(NC)"
+	@mkdir -p dashboard/src/components dashboard/src/lib \
+	           dashboard/src/app dashboard/src/app/api
+	@for skill_dir in local_skills/*/; do \
+	  [ -d "$${skill_dir}dashboard" ] || continue; \
+	  skill_name=$$(basename $$skill_dir); \
+	  echo "  Wiring $${skill_name} dashboard..."; \
+	  [ -d "$${skill_dir}dashboard/components" ] && \
+	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/components" \
+	             "dashboard/src/components/$${skill_name}"; \
+	  [ -f "$${skill_dir}dashboard/lib.ts" ] && \
+	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/lib.ts" \
+	             "dashboard/src/lib/$${skill_name}.ts"; \
+	  [ -d "$${skill_dir}dashboard/pages" ] && \
+	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/pages" \
+	             "dashboard/src/app/($${skill_name})"; \
+	  [ -d "$${skill_dir}dashboard/routes" ] && \
+	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/routes" \
+	             "dashboard/src/app/api/$${skill_name}"; \
+	done
+	@echo "$(GREEN)✓ Skill dashboards wired$(NC)"
 
 # Deprecated aliases (kept for backward compatibility)
 .PHONY: setup setup-python setup-typedb

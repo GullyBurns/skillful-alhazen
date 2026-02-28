@@ -23,10 +23,48 @@ RUN uv sync --all-extras --no-dev
 # Stage 3: Node.js build
 # ==============================================================================
 FROM node:20-slim AS node-builder
+
+# Work at project-root level so local_skills/ sits adjacent to dashboard/
+WORKDIR /app
+
+# Install dashboard dependencies first (better layer caching)
+COPY dashboard/package*.json ./dashboard/
+RUN cd dashboard && npm ci
+
+# Copy dashboard source (host symlinks for skill dashboards are dangling in Docker;
+# they'll be overwritten by ln -sfn below)
+COPY dashboard/ ./dashboard/
+
+# Copy skill dashboard code (only the small dashboard/ subdirs, not full repos)
+COPY local_skills/jobhunt/dashboard/ ./local_skills/jobhunt/dashboard/
+COPY local_skills/techrecon/dashboard/ ./local_skills/techrecon/dashboard/
+
+# Wire skill dashboards using real file copies (symlinks crossing the project boundary
+# cause ENOENT during Next.js build; cp avoids that entirely)
+RUN mkdir -p dashboard/src/components dashboard/src/lib \
+             dashboard/src/app dashboard/src/app/api && \
+    for skill_dir in local_skills/*/; do \
+      [ -d "${skill_dir}dashboard" ] || continue; \
+      skill_name=$(basename $skill_dir); \
+      if [ -d "${skill_dir}dashboard/components" ]; then \
+        rm -rf "dashboard/src/components/${skill_name}"; \
+        cp -r "${skill_dir}dashboard/components" "dashboard/src/components/${skill_name}"; \
+      fi; \
+      if [ -f "${skill_dir}dashboard/lib.ts" ]; then \
+        rm -f "dashboard/src/lib/${skill_name}.ts"; \
+        cp "${skill_dir}dashboard/lib.ts" "dashboard/src/lib/${skill_name}.ts"; \
+      fi; \
+      if [ -d "${skill_dir}dashboard/pages" ]; then \
+        rm -rf "dashboard/src/app/(${skill_name})"; \
+        cp -r "${skill_dir}dashboard/pages" "dashboard/src/app/(${skill_name})"; \
+      fi; \
+      if [ -d "${skill_dir}dashboard/routes" ]; then \
+        rm -rf "dashboard/src/app/api/${skill_name}"; \
+        cp -r "${skill_dir}dashboard/routes" "dashboard/src/app/api/${skill_name}"; \
+      fi; \
+    done
+
 WORKDIR /app/dashboard
-COPY dashboard/package*.json ./
-RUN npm ci
-COPY dashboard/ ./
 RUN npm run build
 
 # ==============================================================================
@@ -51,10 +89,11 @@ WORKDIR /app
 COPY --from=python-deps /app/.venv /app/.venv
 COPY pyproject.toml uv.lock README.md ./
 COPY src/skillful_alhazen/__init__.py ./src/skillful_alhazen/
-COPY .claude/skills/jobhunt/jobhunt.py ./.claude/skills/jobhunt/
-COPY .claude/skills/jobhunt/job_forager.py ./.claude/skills/jobhunt/
-COPY .claude/skills/typedb-notebook/typedb_notebook.py ./.claude/skills/typedb-notebook/
-COPY .claude/skills/techrecon/techrecon.py ./.claude/skills/techrecon/
+# Copy skill scripts directly from real source paths (avoids .claude/skills/* symlinks)
+COPY local_skills/jobhunt/jobhunt.py ./.claude/skills/jobhunt/
+COPY local_skills/jobhunt/job_forager.py ./.claude/skills/jobhunt/
+COPY skills/typedb-notebook/typedb_notebook.py ./.claude/skills/typedb-notebook/
+COPY local_skills/techrecon/techrecon.py ./.claude/skills/techrecon/
 
 # Copy Node.js build and dependencies
 COPY --from=node-builder /app/dashboard/.next ./.next

@@ -15,6 +15,8 @@ Usage as CLI:
     uv run python local_resources/skilllog/skill_logger.py token-report [--skill NAME]
     uv run python local_resources/skilllog/skill_logger.py label --id INVOCATION_ID (--golden | --rejected | --unlabeled)
     uv run python local_resources/skilllog/skill_logger.py export-golden --skill NAME [--output FILE]
+    uv run python local_resources/skilllog/skill_logger.py context-trend [--skill NAME]
+    uv run python local_resources/skilllog/skill_logger.py migrate-context-schema
 """
 
 import argparse
@@ -66,13 +68,20 @@ def estimate_context_tokens() -> dict:
         "agents_md": PROJECT_ROOT / "local_resources/openclaw/AGENTS.md",
         "memory_md": Path.home() / ".claude/projects/-Users-gullyburns-skillful-alhazen/memory/MEMORY.md",
     }
-    # Also scan local_skills/*/SKILL.md
+    # Also scan local_skills/*/SKILL.md (loaded into context)
+    # and local_skills/*/USAGE.md (on-demand, NOT loaded into context)
     skill_md_total = 0
+    usage_md_total = 0
     local_skills_dir = PROJECT_ROOT / "local_skills"
     if local_skills_dir.exists():
         for skill_md in local_skills_dir.glob("*/SKILL.md"):
             try:
                 skill_md_total += estimate_tokens(skill_md.read_text(errors="replace"))
+            except OSError:
+                pass
+        for usage_md in local_skills_dir.glob("*/USAGE.md"):
+            try:
+                usage_md_total += estimate_tokens(usage_md.read_text(errors="replace"))
             except OSError:
                 pass
 
@@ -85,6 +94,8 @@ def estimate_context_tokens() -> dict:
                 pass
     totals["skill_mds"] = skill_md_total
     totals["total"] = sum(totals.values())
+    # usage_mds is NOT included in total (on-demand, not loaded into context)
+    totals["usage_mds"] = usage_md_total
     return totals
 
 
@@ -209,6 +220,11 @@ def run_hook():
     total_tokens = input_tokens + output_tokens
     ctx = estimate_context_tokens()
     context_tokens = ctx.get("total", 0)
+    claude_md_tokens = ctx.get("claude_md", 0)
+    memory_md_tokens = ctx.get("memory_md", 0)
+    skill_mds_tokens = ctx.get("skill_mds", 0)
+    soul_md_tokens = ctx.get("soul_md", 0)
+    agents_md_tokens = ctx.get("agents_md", 0)
     timestamp = get_timestamp()
     session_id = os.environ.get("CLAUDE_SESSION_ID", "unknown")
 
@@ -235,6 +251,11 @@ def run_hook():
                     has output-tokens-estimate {output_tokens},
                     has total-tokens-estimate {total_tokens},
                     has context-tokens-estimate {context_tokens},
+                    has claude-md-tokens {claude_md_tokens},
+                    has memory-md-tokens {memory_md_tokens},
+                    has skill-mds-tokens {skill_mds_tokens},
+                    has soul-md-tokens {soul_md_tokens},
+                    has agents-md-tokens {agents_md_tokens},
                     has evaluation-label "unlabeled",
                     has created-at {timestamp},
                     has provenance "skilllog-hook";
@@ -395,9 +416,11 @@ def cmd_token_report(args):
         print("\nStatic Context Baseline (current filesystem)")
         print("=" * 60)
         for name, tokens in current_ctx.items():
-            if name != "total":
+            if name not in ("total", "usage_mds"):
                 print(f"  {name:<30} {tokens:>8,} tokens")
         print(f"  {'TOTAL':<30} {current_ctx['total']:>8,} tokens")
+        if current_ctx.get("usage_mds"):
+            print(f"  {'usage_mds (on-demand, not loaded)':<30} {current_ctx['usage_mds']:>8,} tokens")
 
         print("\nToken Usage Report (CLI I/O estimates)")
         print("=" * 60)
@@ -605,6 +628,150 @@ def cmd_export_golden(args):
 
 
 # ---------------------------------------------------------------------------
+# Schema migration
+# ---------------------------------------------------------------------------
+
+def cmd_migrate_context_schema(args):
+    """Add per-file context token attributes to live TypeDB database (non-destructive)."""
+    try:
+        from typedb.driver import TransactionType
+
+        driver, database = get_typedb_connection()
+
+        with driver.transaction(database, TransactionType.SCHEMA) as tx:
+            tx.query("""
+                define
+                    attribute claude-md-tokens, value integer;
+                    attribute memory-md-tokens, value integer;
+                    attribute skill-mds-tokens, value integer;
+                    attribute soul-md-tokens, value integer;
+                    attribute agents-md-tokens, value integer;
+                    entity skilllog-invocation
+                        owns claude-md-tokens,
+                        owns memory-md-tokens,
+                        owns skill-mds-tokens,
+                        owns soul-md-tokens,
+                        owns agents-md-tokens;
+            """).resolve()
+            tx.commit()
+
+        driver.close()
+        print("Migration complete. Per-file context token attributes added to skilllog-invocation.")
+
+    except Exception as e:
+        msg = str(e)
+        if "already" in msg.lower() or "exist" in msg.lower():
+            print("Schema already up to date (attributes already defined).")
+        else:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Context trend report
+# ---------------------------------------------------------------------------
+
+def cmd_context_trend(args):
+    """Show context token trend over time, grouped by day."""
+    from collections import defaultdict
+
+    try:
+        from typedb.driver import TransactionType
+
+        driver, database = get_typedb_connection()
+        skill_filter = f', has skill-name "{args.skill}"' if args.skill else ""
+
+        with driver.transaction(database, TransactionType.READ) as tx:
+            # All invocations with context total + timestamp
+            results = list(tx.query(f"""
+                match $inv isa skilllog-invocation{skill_filter},
+                    has id $id,
+                    has context-tokens-estimate $ctx,
+                    has created-at $ts;
+                fetch {{
+                    "id": $id,
+                    "ctx": $ctx,
+                    "ts": $ts
+                }};
+            """).resolve())
+
+            # Per-file breakdown — only present on records logged after migration
+            try:
+                breakdown_results = list(tx.query(f"""
+                    match $inv isa skilllog-invocation{skill_filter},
+                        has id $id,
+                        has claude-md-tokens $claude,
+                        has memory-md-tokens $mem,
+                        has skill-mds-tokens $skills;
+                    fetch {{
+                        "id": $id,
+                        "claude": $claude,
+                        "mem": $mem,
+                        "skills": $skills
+                    }};
+                """).resolve())
+            except Exception:
+                breakdown_results = []
+
+        driver.close()
+
+        # Build per-id breakdown map
+        breakdown_map = {r["id"]: r for r in breakdown_results}
+
+        # Group by day
+        by_day: dict = defaultdict(lambda: {"count": 0, "ctx_total": 0, "breakdowns": []})
+        for r in results:
+            ts = str(r["ts"])
+            day = ts[:10]
+            by_day[day]["count"] += 1
+            by_day[day]["ctx_total"] += r["ctx"]
+            if r["id"] in breakdown_map:
+                by_day[day]["breakdowns"].append(breakdown_map[r["id"]])
+
+        # Print report
+        current_ctx = estimate_context_tokens()
+        print("\nContext Token Trend (by day)")
+        print("=" * 72)
+        print(f"{'Date':<12} {'Calls':>5}  {'Avg Context':>12}  {'Delta':>8}  {'CLAUDE.md':>10}  {'MEMORY.md':>10}  {'SKILL.mds':>10}")
+        print("-" * 72)
+
+        prev_avg = None
+        for day in sorted(by_day.keys()):
+            data = by_day[day]
+            avg_ctx = data["ctx_total"] // data["count"]
+
+            delta_str = "—"
+            if prev_avg is not None:
+                delta = avg_ctx - prev_avg
+                delta_str = f"{'+' if delta >= 0 else ''}{delta:,}"
+            prev_avg = avg_ctx
+
+            if data["breakdowns"]:
+                b = data["breakdowns"]
+                avg_claude = sum(x["claude"] for x in b) // len(b)
+                avg_mem = sum(x["mem"] for x in b) // len(b)
+                avg_skills = sum(x["skills"] for x in b) // len(b)
+                print(f"{day:<12} {data['count']:>5}  {avg_ctx:>12,}  {delta_str:>8}  {avg_claude:>10,}  {avg_mem:>10,}  {avg_skills:>10,}")
+            else:
+                print(f"{day:<12} {data['count']:>5}  {avg_ctx:>12,}  {delta_str:>8}  {'—':>10}  {'—':>10}  {'—':>10}")
+
+        print()
+        print("Current file sizes (snapshot now):")
+        labels = {"claude_md": "CLAUDE.md", "memory_md": "MEMORY.md", "skill_mds": "SKILL.mds",
+                  "soul_md": "SOUL.md", "agents_md": "AGENTS.md"}
+        for key, tokens in current_ctx.items():
+            if key not in ("total", "usage_mds"):
+                print(f"  {labels.get(key, key):<12}  {tokens:>8,} tokens")
+        print(f"  {'TOTAL':<12}  {current_ctx['total']:>8,} tokens")
+        if current_ctx.get("usage_mds"):
+            print(f"  {'USAGE.mds (on-demand)':<12}  {current_ctx['usage_mds']:>8,} tokens  [not loaded into context]")
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
 
@@ -649,6 +816,15 @@ def main():
     p_export.add_argument("--skill", help="Filter by skill name")
     p_export.add_argument("--output", help="Output file path (default: stdout)")
     p_export.set_defaults(func=cmd_export_golden)
+
+    # migrate-context-schema
+    p_migrate = sub.add_parser("migrate-context-schema", help="Add per-file context token attributes to live DB (non-destructive)")
+    p_migrate.set_defaults(func=cmd_migrate_context_schema)
+
+    # context-trend
+    p_trend = sub.add_parser("context-trend", help="Show context token size trend over time")
+    p_trend.add_argument("--skill", help="Filter by skill name")
+    p_trend.set_defaults(func=cmd_context_trend)
 
     args = parser.parse_args()
     args.func(args)

@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* dashboard/.gitignore excludes src/components subdirs (Tailwind v4 respects gitignore),
+   inadvertently excluding src/components/ui/ (shadcn) and skill components.
+   Use @source with explicit directory paths to override gitignore exclusions. */
+@source "../components/ui";
+@source "../../../local_skills";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
