@@ -755,15 +755,43 @@ info: status ## Alias for status
 # Deployment
 # =============================================================================
 
+DEPLOY_ENV := $(PROJECT_ROOT)/deploy/deploy.env
+
 .PHONY: deploy-vps
-deploy-vps: ## Deploy to VPS (Podman rootless, full hardening)
+deploy-vps: ## Deploy to VPS using deploy/deploy.env (Podman rootless, full hardening)
+	@[ -f $(DEPLOY_ENV) ] || { echo "$(RED)✗ Missing deploy/deploy.env — copy deploy/deploy.env.example$(NC)"; exit 1; }
 	@echo "$(BLUE)Launching VPS deployment...$(NC)"
-	cd $(PROJECT_ROOT)/deploy && bash deploy.sh --target-type vps
+	@set -a && . $(DEPLOY_ENV) && set +a && \
+	  cd $(PROJECT_ROOT)/deploy && bash deploy.sh \
+	    $${DEPLOY_TARGET:+-t "$$DEPLOY_TARGET"} \
+	    $${DEPLOY_TARGET_TYPE:+--target-type "$$DEPLOY_TARGET_TYPE"} \
+	    $${DEPLOY_PROVIDER:+-p "$$DEPLOY_PROVIDER"} \
+	    $${DEPLOY_MODEL:+-m "$$DEPLOY_MODEL"} \
+	    $${DEPLOY_API_KEY:+-k "$$DEPLOY_API_KEY"} \
+	    $${DEPLOY_BRANCH:+--branch "$$DEPLOY_BRANCH"} \
+	    $${DEPLOY_TELEGRAM_TOKEN:+--telegram-token "$$DEPLOY_TELEGRAM_TOKEN"} \
+	    $${DEPLOY_TELEGRAM_USER:+--telegram-user "$$DEPLOY_TELEGRAM_USER"} \
+	    $${DEPLOY_SSH_USER:+--ssh-user "$$DEPLOY_SSH_USER"} \
+	    $${DEPLOY_SSH_KEY:+--ssh-key "$$DEPLOY_SSH_KEY"} \
+	    $$([ "$${DEPLOY_ASK_PASS}" = "true" ] && echo --ask-pass || true)
 
 .PHONY: deploy-macmini
-deploy-macmini: ## Deploy to Mac Mini (Docker Desktop, pf firewall)
+deploy-macmini: ## Deploy to Mac Mini using deploy/deploy.env (Docker Desktop, pf firewall)
+	@[ -f $(DEPLOY_ENV) ] || { echo "$(RED)✗ Missing deploy/deploy.env — copy deploy/deploy.env.example$(NC)"; exit 1; }
 	@echo "$(BLUE)Launching Mac Mini deployment...$(NC)"
-	cd $(PROJECT_ROOT)/deploy && bash deploy.sh --target-type macmini
+	@set -a && . $(DEPLOY_ENV) && set +a && \
+	  cd $(PROJECT_ROOT)/deploy && bash deploy.sh \
+	    $${DEPLOY_TARGET:+-t "$$DEPLOY_TARGET"} \
+	    $${DEPLOY_TARGET_TYPE:+--target-type "$$DEPLOY_TARGET_TYPE"} \
+	    $${DEPLOY_PROVIDER:+-p "$$DEPLOY_PROVIDER"} \
+	    $${DEPLOY_MODEL:+-m "$$DEPLOY_MODEL"} \
+	    $${DEPLOY_API_KEY:+-k "$$DEPLOY_API_KEY"} \
+	    $${DEPLOY_BRANCH:+--branch "$$DEPLOY_BRANCH"} \
+	    $${DEPLOY_TELEGRAM_TOKEN:+--telegram-token "$$DEPLOY_TELEGRAM_TOKEN"} \
+	    $${DEPLOY_TELEGRAM_USER:+--telegram-user "$$DEPLOY_TELEGRAM_USER"} \
+	    $${DEPLOY_SSH_USER:+--ssh-user "$$DEPLOY_SSH_USER"} \
+	    $${DEPLOY_SSH_KEY:+--ssh-key "$$DEPLOY_SSH_KEY"} \
+	    $$([ "$${DEPLOY_ASK_PASS}" = "true" ] && echo --ask-pass || true)
 
 .PHONY: deploy-status
 deploy-status: ## Check deployment status on remote

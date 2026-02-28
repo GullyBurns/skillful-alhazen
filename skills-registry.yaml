@@ -61,6 +61,11 @@ skills:
     ref: main
     subdir: skills/biomed/apm
 
+  - name: rare-disease
+    git: https://github.com/GullyBurns/alhazen-skill-examples
+    ref: main
+    subdir: skills/biomed/rare-disease
+
 # To add more external skills:
 # - name: semantic-scholar
 #   git: https://github.com/example/alhazen-semantic-scholar

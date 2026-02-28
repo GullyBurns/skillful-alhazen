@@ -164,6 +164,7 @@ dist/
 local_skills/
 
 # Deployment secrets
+deploy/deploy.env
 deploy/ssh-keys/*.pem
 deploy/ssh-keys/*.pem.pub
 deploy/ssh-keys/*.key
