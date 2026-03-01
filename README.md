@@ -2,6 +2,8 @@
 
 **A TypeDB-powered scientific knowledge notebook, built on Claude Code**
 
+> **Prototype software** — APIs, schemas, and skill interfaces are subject to change without notice.
+
 > *"The duty of the man who investigates the writings of scientists, if learning the truth is his goal, is to make himself an enemy of all that he reads, and, applying his mind to the core and margins of its content, attack it from every side."*
 >
 > — Ibn al-Haytham (Alhazen), 965-1039 AD
