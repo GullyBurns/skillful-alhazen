@@ -429,3 +429,4 @@ When Claude makes a mistake, add it to this section so it doesn't happen again.
 - **No sessions** - Use `driver.transaction(database, TransactionType.X)` directly (no `driver.session(...)` wrapper)
 - **All queries use same method** - `tx.query(query_string).resolve()` for insert, fetch, delete, define
 - **Fetch results are plain dicts** - No `.get("value")` unwrapping needed; access keys directly
+- **Delete syntax** - Use `delete $x;` (NOT `delete $x isa type;` — the `isa` qualifier in the delete clause is invalid in 3.x and causes a parse error)
