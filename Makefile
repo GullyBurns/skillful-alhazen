@@ -670,6 +670,16 @@ lint: ## Run ruff linter
 
 WIKI_DIR ?= $(HOME)/Documents/Coding/skillful-alhazen.wiki
 
+.PHONY: docs-typedb
+docs-typedb: ## Regenerate TypeDB 3.x reference docs from typedb-docs repo (needs /tmp/typedb-docs)
+	@echo "$(BLUE)Regenerating TypeDB 3.x reference documentation...$(NC)"
+	@if [ ! -d /tmp/typedb-docs ]; then \
+		echo "$(YELLOW)Cloning typedb-docs repo...$(NC)"; \
+		git clone --depth=1 --branch 3.x-development https://github.com/typedb/typedb-docs /tmp/typedb-docs; \
+	fi
+	uv run python scripts/build_typedb_docs.py
+	@echo "$(GREEN)✓ TypeDB 3.x reference docs generated in local_resources/typedb/$(NC)"
+
 .PHONY: docs-schema
 docs-schema: ## Generate TypeDB schema documentation (Markdown + Mermaid)
 	@echo "$(BLUE)Generating schema documentation...$(NC)"
