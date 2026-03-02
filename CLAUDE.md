@@ -430,3 +430,4 @@ When Claude makes a mistake, add it to this section so it doesn't happen again.
 - **All queries use same method** - `tx.query(query_string).resolve()` for insert, fetch, delete, define
 - **Fetch results are plain dicts** - No `.get("value")` unwrapping needed; access keys directly
 - **Delete syntax** - Use `delete $x;` (NOT `delete $x isa type;` — the `isa` qualifier in the delete clause is invalid in 3.x and causes a parse error)
+- **Full reference** — Read `local_resources/typedb/llms.txt` on demand before writing queries; full docs at `local_resources/typedb/typedb-3x-reference.md`

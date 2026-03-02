@@ -1,0 +1,327 @@
+# TypeDB 3.x Quick Reference (llms.txt)
+
+Read this file before writing any TypeDB queries or schema.
+For deeper detail see: `local_resources/typedb/typedb-3x-reference.md`
+
+---
+
+## Overview
+
+TypeDB 3.x (current: 3.8.0) uses TypeQL, a strongly-typed polymorphic query language.
+Three kinds: entity, relation, attribute. Schema is defined before data is inserted.
+No sessions — open transactions directly. Single query method for all operations.
+
+---
+
+## Python Driver Connection
+
+```python
+from typedb.driver import TypeDB, Credentials, DriverOptions, TransactionType
+
+driver = TypeDB.driver(
+    f"{TYPEDB_HOST}:{TYPEDB_PORT}",           # e.g. "localhost:1729"
+    Credentials(TYPEDB_USERNAME, TYPEDB_PASSWORD),  # default: "admin"/"password"
+    DriverOptions(is_tls_enabled=False),
+)
+
+# Write transaction (insert, delete, update, define, redefine, undefine)
+with driver.transaction(DATABASE, TransactionType.WRITE) as tx:
+    tx.query("insert $x isa person, has name 'Alice';").resolve()
+    tx.commit()                                # MUST commit or changes are lost
+
+# Read transaction (match, fetch)
+with driver.transaction(DATABASE, TransactionType.READ) as tx:
+    results = list(tx.query("""
+        match $p isa person;
+        fetch { "name": $p.name };
+    """).resolve())
+    # results is a list of plain Python dicts: [{"name": "Alice"}, ...]
+
+# Schema transaction
+with driver.transaction(DATABASE, TransactionType.SCHEMA) as tx:
+    tx.query("define entity person, owns name;").resolve()
+    tx.commit()
+```
+
+Default credentials: username=`admin`, password=`password` (set on first start).
+
+---
+
+## Schema: define / redefine / undefine
+
+### define — add new types or extend existing ones
+
+```typeql
+define
+  entity person,
+    owns name @key,
+    owns age,
+    plays employment:employee;
+
+  relation employment,
+    relates employee,
+    relates employer;
+
+  attribute name, value string;
+  attribute age, value integer;
+```
+
+Key points:
+- Kind keywords go FIRST: `entity person`, `relation employment`, `attribute name`
+- NOT `person sub entity` (that is 2.x syntax)
+- Abstract: `entity object @abstract` (annotation, not keyword)
+- Subtyping: `entity admin, sub person` (sub goes after the type name and comma)
+- Attribute value types: `string`, `integer`, `double`, `boolean`, `datetime`, `duration`
+- `long` from 2.x is now `integer`
+
+### redefine — change existing schema in-place (no data migration)
+
+```typeql
+redefine entity admin sub person;   # change supertype
+redefine attribute age, value double;  # change value type (data must be compatible)
+```
+
+### undefine — remove schema elements
+
+```typeql
+undefine entity person, owns age;   # remove ownership only
+undefine entity person;             # remove entire type (must have no instances)
+undefine attribute age;             # remove attribute type
+```
+
+---
+
+## Query Pipeline: match / fetch / insert / delete / update
+
+### match — find data
+
+```typeql
+match
+  $p isa person, has name $n, has age $a;
+  $e isa employment (employee: $p);
+```
+
+- Variables always start with `$`
+- No `get` clause (removed in 3.x) — use `fetch` or chain pipelines
+
+### fetch — return structured results (JSON-style)
+
+```typeql
+match $p isa person, has name $n;
+fetch {
+  "name": $n,
+  "age": $p.age
+};
+```
+
+- Output is a list of plain Python dicts
+- Keys are arbitrary strings
+- Fetch attribute values with `$var.attr-name`
+- WRONG (2.x syntax): `fetch $p: name, age;`
+
+### insert — add data
+
+```typeql
+insert
+  $p isa person, has name "Alice", has age 30;
+```
+
+Insert with match (upsert pattern — insert related data):
+```typeql
+match
+  $company isa company, has name "Acme";
+insert
+  $e isa employment (employee: $new-hire, employer: $company),
+    has start-date 2024-01-15;
+  $new-hire isa person, has name "Bob";
+```
+
+IMPORTANT: When inserting a relation, the roleplay vars must be matched first.
+Use `match $v isa my-type, has id "..."; insert (role: $v) isa my-relation;`
+
+### delete — remove data
+
+```typeql
+match $p isa person, has name "Alice";
+delete $p;
+```
+
+- CORRECT: `delete $p;`
+- WRONG (parse error in 3.x): `delete $p isa person;`
+- The type qualifier belongs ONLY in the `match` clause
+
+Delete an attribute (ownership only):
+```typeql
+match $p isa person, has age $a;
+delete $p has age $a;   # removes the has-age link, not the attribute type
+```
+
+Delete a relation:
+```typeql
+match $e isa employment (employee: $p);
+delete $e;   # same pattern, no isa qualifier
+```
+
+### update — atomically delete + reinsert (attribute update)
+
+```typeql
+match $p isa person, has name "Alice", has age $old;
+delete $p has age $old;
+insert $p has age 31;
+```
+
+Or use the `update` pipeline clause:
+```typeql
+match $p isa person, has name "Alice";
+update $p has age = 31;
+```
+
+---
+
+## Critical 2.x -> 3.x Differences
+
+| 2.x syntax | 3.x syntax | Notes |
+|---|---|---|
+| `person sub entity` | `entity person` | Kind keyword first |
+| `employment sub relation` | `relation employment` | Kind keyword first |
+| `name sub attribute, value string` | `attribute name, value string` | Kind keyword first |
+| `age sub attribute, value long` | `attribute age, value integer` | `long` -> `integer` |
+| `object sub entity, abstract` | `entity object @abstract` | @annotation style |
+| `driver.session(db, ...)` | (removed) | Use `driver.transaction()` directly |
+| `session.transaction(...)` | `driver.transaction(db, type)` | No session wrapper |
+| `tx.query().insert(q)` | `tx.query(q).resolve()` | Unified query method |
+| `tx.query().fetch(q)` | `tx.query(q).resolve()` | Same method for all |
+| `fetch $p: name, age;` | `fetch { "name": $p.name };` | JSON-style fetch |
+| `delete $p isa person;` | `delete $p;` | No isa in delete clause |
+| `get $p;` | (removed) | Use fetch or pipeline |
+| `?val` value variables | `$val` | All vars use `$` |
+| Rules / inference | Functions | `fun` keyword |
+| `person sub entity, abstract` | `entity person @abstract` | abstract is @annotation |
+
+---
+
+## Cardinality Defaults
+
+IMPORTANT: In 3.x, `owns` defaults to `@card(0..1)` — each entity can own at most ONE
+instance of each attribute type by default. To allow multiple, explicitly annotate:
+
+```typeql
+define
+  entity person,
+    owns tag @card(0..),       # allow many tags
+    owns name @key,            # exactly one name, used as key
+    owns email @card(1..1);    # exactly one email (required)
+```
+
+Other defaults:
+- `plays` defaults to `@card(0..)` — unlimited
+- `relates` defaults to `@card(0..1)` — up to one instance per role
+
+---
+
+## Common Patterns
+
+### Insert a entity with attributes
+```typeql
+insert
+  $x isa my-entity,
+    has id "unique-id",
+    has name "Label",
+    has created-at 2024-01-15T10:30:00;
+```
+
+Note: TypeDB datetime format uses T separator — `2024-01-15T10:30:00`
+Python `str(datetime.now())` uses space — must `.replace(" ", "T")`
+
+### Insert a relation between two matched entities
+```typeql
+match
+  $a isa type-a, has id "id-a";
+  $b isa type-b, has id "id-b";
+insert
+  (role-a: $a, role-b: $b) isa my-relation, has weight 0.9;
+```
+
+### Fetch entity + attribute with filtering
+```typeql
+match
+  $p isa person, has name $n, has age $a;
+  $a > 18;
+fetch {
+  "name": $n,
+  "age": $a
+};
+```
+
+### Attribute update (delete + reinsert)
+```typeql
+match $p isa person, has id "alice", has email $old-email;
+delete $p has email $old-email;
+insert $p has email "new@example.com";
+```
+
+### Check existence (count)
+```typeql
+match $p isa person, has id "alice";
+fetch { "count": count($p) };
+```
+
+### Get all subtypes of a type
+```typeql
+match $t sub person;
+fetch { "type": $t };
+```
+
+---
+
+## Schema Syntax Notes (from this project)
+
+Based on `local_resources/typedb/alhazen_notebook.tql`:
+
+```typeql
+# Correct top-level relation (no "sub relation" in 3.x)
+relation my-relation,
+  relates role-a,
+  relates role-b;
+
+# NOT this (invalid in 3.x):
+# relation my-relation sub relation, ...
+
+# Abstract entity subtype
+entity my-abstract @abstract, sub parent-entity,
+  owns some-attr;
+
+# Attribute key
+entity my-entity,
+  owns id @key,
+  owns name;
+
+attribute id, value string;
+```
+
+TypeQL parser rejects non-ASCII characters even in comments — use ASCII-only in .tql files.
+
+---
+
+## Docker / Server
+
+```bash
+# Start TypeDB 3.8.0
+docker run -d --name typedb -p 1729:1729 typedb/typedb:3.8.0
+
+# Default credentials: admin / password
+# Set new password on first start via TypeDB Studio or:
+typedb user password-update
+```
+
+---
+
+## Environment Variables (this project)
+
+```
+TYPEDB_HOST=localhost
+TYPEDB_PORT=1729
+TYPEDB_DATABASE=alhazen_notebook
+TYPEDB_USERNAME=admin
+TYPEDB_PASSWORD=password
+```
