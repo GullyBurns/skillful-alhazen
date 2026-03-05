@@ -37,8 +37,10 @@ import argparse
 import json
 import os
 import sys
-import uuid
-from datetime import datetime, timezone
+from pathlib import Path
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 # Optional: for URL fetching
 try:
@@ -60,6 +62,23 @@ except ImportError:
         "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=3.0.0'",
         file=sys.stderr,
     )
+
+try:
+    from skillful_alhazen.utils.skill_helpers import escape_string, generate_id, get_timestamp
+except ImportError:
+    import uuid
+    from datetime import datetime, timezone
+
+    def escape_string(s: str) -> str:
+        if s is None:
+            return ""
+        return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
+
+    def generate_id(prefix: str) -> str:
+        return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+    def get_timestamp() -> str:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 # Cache utilities for large artifacts
 try:
@@ -115,32 +134,9 @@ def get_driver():
     )
 
 
-def generate_id(prefix: str) -> str:
-    """Generate a unique ID with prefix."""
-    return f"{prefix}-{uuid.uuid4().hex[:12]}"
-
-
-def escape_string(s: str) -> str:
-    """Escape special characters for TypeQL."""
-    if s is None:
-        return ""
-    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
-
-
 def get_attr(entity: dict, attr_name: str, default=None):
-    """Safely extract attribute value from a TypeDB 3.x fetch result.
-
-    TypeDB 3.x fetch returns plain Python dicts, e.g.:
-    {'id': 'abc', 'name': 'My Entity'}
-
-    This helper returns the value or default if not present.
-    """
+    """Safely extract attribute value from a TypeDB 3.x fetch result dict."""
     return entity.get(attr_name, default)
-
-
-def get_timestamp() -> str:
-    """Get current timestamp for TypeDB."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def fetch_url_content(url: str) -> tuple[str, str]:

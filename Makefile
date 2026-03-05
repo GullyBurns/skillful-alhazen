@@ -161,6 +161,18 @@ db-init: ## Create database and load schemas
 	uv run python scripts/db_init.py $$SCHEMAS
 	@echo "$(GREEN)✓ Database initialized$(NC)"
 
+.PHONY: qdrant-start
+qdrant-start: ## Start Qdrant vector store container
+	@echo "$(BLUE)Starting Qdrant container...$(NC)"
+	docker compose up -d qdrant
+	@echo "$(GREEN)✓ Qdrant running at http://localhost:6333$(NC)"
+
+.PHONY: qdrant-stop
+qdrant-stop: ## Stop Qdrant vector store container
+	@echo "$(BLUE)Stopping Qdrant container...$(NC)"
+	docker compose stop qdrant
+	@echo "$(GREEN)✓ Qdrant stopped$(NC)"
+
 .PHONY: db-export
 db-export: ## Export database to timestamped zip
 	@echo "$(BLUE)Exporting database...$(NC)"

@@ -60,8 +60,16 @@ textgrad = [
     "textgrad>=0.1.0",
     "pyyaml>=6.0.0",
 ]
+semantic = [
+    "voyageai>=0.3.0",
+    "qdrant-client>=1.14.0",
+    "hdbscan>=0.8.39",
+    "umap-learn>=0.5.0",
+    "numpy>=1.26.0",
+    "matplotlib>=3.8.0",
+]
 all = [
-    "skillful-alhazen[typedb,dev,skills,skilllog]",
+    "skillful-alhazen[typedb,dev,skills,skilllog,semantic]",
 ]
 
 [project.scripts]

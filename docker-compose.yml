@@ -97,8 +97,25 @@ services:
     networks:
       - alhazen-network
 
+  # ============================================
+  # Qdrant - Vector Store for Semantic Search
+  # ============================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: alhazen-qdrant
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - alhazen-network
+
 volumes:
   typedb-data:
+    driver: local
+  qdrant_storage:
     driver: local
 
 networks:

@@ -7,7 +7,6 @@ Usage:
 
 Commands:
     insert-collection   Create a new collection
-    insert-paper        Add a paper to the knowledge graph
     insert-note         Create a note about an entity
     query-collection    Get collection info and members
     query-notes         Find notes about an entity
@@ -17,9 +16,6 @@ Commands:
 Examples:
     # Create a collection
     python scripts/typedb_notebook.py insert-collection --name "CRISPR Papers" --description "Papers about CRISPR"
-
-    # Add a paper
-    python scripts/typedb_notebook.py insert-paper --name "Gene Editing Study" --abstract "We demonstrate..." --doi "10.1234/example"
 
     # Add a note about a paper
     python scripts/typedb_notebook.py insert-note --subject paper-abc123 --content "Key finding: 95% efficiency"
@@ -37,15 +33,13 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
-import uuid
 import zipfile
 from datetime import datetime
 from pathlib import Path
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 try:
     from typedb.driver import Credentials, DriverOptions, TransactionType, TypeDB
@@ -57,6 +51,20 @@ except ImportError:
         "Warning: typedb-driver not installed. Install with: pip install 'typedb-driver>=3.8.0'",
         file=sys.stderr,
     )
+
+try:
+    from skillful_alhazen.utils.skill_helpers import escape_string, generate_id
+except ImportError:
+    # Fallback if package not installed (e.g., running outside uv)
+    import uuid
+
+    def escape_string(s: str) -> str:
+        if s is None:
+            return ""
+        return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
+
+    def generate_id(prefix: str) -> str:
+        return f"{prefix}-{uuid.uuid4().hex[:12]}"
 
 
 # Configuration
@@ -74,16 +82,6 @@ def get_driver():
         Credentials(TYPEDB_USERNAME, TYPEDB_PASSWORD),
         DriverOptions(is_tls_enabled=False),
     )
-
-
-def generate_id(prefix: str) -> str:
-    """Generate a unique ID with prefix."""
-    return f"{prefix}-{uuid.uuid4().hex[:12]}"
-
-
-def escape_string(s: str) -> str:
-    """Escape special characters for TypeQL."""
-    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def insert_collection(args):
@@ -104,35 +102,6 @@ def insert_collection(args):
 
     print(json.dumps({"success": True, "collection_id": cid, "name": args.name}))
 
-
-def insert_paper(args):
-    """Add a paper to the knowledge graph."""
-    pid = args.id or generate_id("paper")
-
-    query = f'insert $p isa scilit-paper, has id "{pid}", has name "{escape_string(args.name)}"'
-    if args.abstract:
-        query += f', has abstract-text "{escape_string(args.abstract)}"'
-    if args.doi:
-        query += f', has doi "{args.doi}"'
-    if args.pmid:
-        query += f', has pmid "{args.pmid}"'
-    if args.year:
-        query += f", has publication-year {args.year}"
-    query += ";"
-
-    with get_driver() as driver:
-        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-            tx.query(query).resolve()
-            tx.commit()
-
-        # Add to collection if specified
-        if args.collection:
-            with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-                add_query = f'match $c isa collection, has id "{args.collection}"; $p isa scilit-paper, has id "{pid}"; insert (collection: $c, member: $p) isa collection-membership;'
-                tx.query(add_query).resolve()
-                tx.commit()
-
-    print(json.dumps({"success": True, "paper_id": pid, "name": args.name}))
 
 
 def insert_note(args):
@@ -510,16 +479,6 @@ def main():
     p.add_argument("--query", help="Logical query defining membership")
     p.add_argument("--id", help="Specific ID (auto-generated if not provided)")
 
-    # insert-paper
-    p = subparsers.add_parser("insert-paper", help="Add a paper")
-    p.add_argument("--name", required=True, help="Paper title")
-    p.add_argument("--abstract", help="Paper abstract")
-    p.add_argument("--doi", help="DOI")
-    p.add_argument("--pmid", help="PubMed ID")
-    p.add_argument("--year", type=int, help="Publication year")
-    p.add_argument("--collection", help="Collection ID to add to")
-    p.add_argument("--id", help="Specific ID")
-
     # insert-note
     p = subparsers.add_parser("insert-note", help="Create a note about an entity")
     p.add_argument("--subject", required=True, help="ID of entity this note is about")
@@ -595,7 +554,6 @@ def main():
 
     commands = {
         "insert-collection": insert_collection,
-        "insert-paper": insert_paper,
         "insert-note": insert_note,
         "query-collection": query_collection,
         "query-notes": query_notes,
