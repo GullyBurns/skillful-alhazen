@@ -283,6 +283,111 @@ def search_tag(args):
         )
 
 
+def record_gap(args):
+    """Record a schema gap for a skill."""
+    with get_driver() as driver:
+        # Upsert skill-model
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            check = list(tx.query(
+                f'match $s isa skill-model, has skill-name "{escape_string(args.skill)}"; fetch {{ "id": $s.id }};'
+            ).resolve())
+
+        if check:
+            skill_id = check[0]["id"]
+        else:
+            skill_id = generate_id("skill-model")
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                tx.query(
+                    f'insert $s isa skill-model, has id "{skill_id}", has name "{escape_string(args.skill)}", '
+                    f'has skill-name "{escape_string(args.skill)}";'
+                ).resolve()
+                tx.commit()
+
+        # Insert schema-gap
+        gap_id = generate_id("gap")
+        severity = getattr(args, "severity", "moderate") or "moderate"
+        query = (
+            f'insert $g isa schema-gap, has id "{gap_id}", '
+            f'has name "{escape_string(args.skill)}: {escape_string(args.type)}", '
+            f'has description "{escape_string(args.description)}", '
+            f'has gap-type "{escape_string(args.type)}", '
+            f'has gap-severity "{severity}", '
+            f'has gap-status "open"'
+        )
+        if args.example:
+            query += f', has gap-example "{escape_string(args.example)}"'
+        query += ";"
+
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
+
+        # Link gap to skill-model
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(
+                f'match $s isa skill-model, has id "{skill_id}"; $g isa schema-gap, has id "{gap_id}"; '
+                f'insert (skill-model: $s, schema-gap: $g) isa skill-has-gap;'
+            ).resolve()
+            tx.commit()
+
+    print(json.dumps({"success": True, "gap_id": gap_id, "skill": args.skill, "type": args.type}))
+
+
+def list_gaps(args):
+    """List schema gaps, optionally filtered by skill and/or status."""
+    with get_driver() as driver:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            skill_filter = ""
+            if hasattr(args, "skill") and args.skill:
+                skill_filter = f'$s isa skill-model, has skill-name "{escape_string(args.skill)}"; '
+
+            status_filter = ""
+            if hasattr(args, "status") and args.status:
+                status_filter = f'$g has gap-status "{escape_string(args.status)}"; '
+            else:
+                status_filter = '$g has gap-status "open"; '
+
+            if skill_filter:
+                query = (
+                    f'match {skill_filter}(skill-model: $s, schema-gap: $g) isa skill-has-gap; '
+                    f'{status_filter}'
+                    f'fetch {{ "id": $g.id, "type": $g.gap-type, "severity": $g.gap-severity, '
+                    f'"status": $g.gap-status, "description": $g.description, "example": $g.gap-example }};'
+                )
+            else:
+                query = (
+                    f'match $g isa schema-gap; {status_filter}'
+                    f'fetch {{ "id": $g.id, "type": $g.gap-type, "severity": $g.gap-severity, '
+                    f'"status": $g.gap-status, "description": $g.description, "example": $g.gap-example }};'
+                )
+
+            results = [{k: v for k, v in r.items() if v is not None}
+                       for r in tx.query(query).resolve()]
+
+    print(json.dumps({"success": True, "gaps": results, "count": len(results)}, indent=2))
+
+
+def close_gap(args):
+    """Update a gap's status to addressed or wont-fix."""
+    with get_driver() as driver:
+        # Delete old status, insert new
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(
+                f'match $g isa schema-gap, has id "{args.id}", has gap-status $s; '
+                f'delete $s;'
+            ).resolve()
+            tx.commit()
+
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(
+                f'match $g isa schema-gap, has id "{args.id}"; '
+                f'insert $g has gap-status "{escape_string(args.status)}";'
+            ).resolve()
+            tx.commit()
+
+    print(json.dumps({"success": True, "gap_id": args.id, "status": args.status}))
+
+
 def export_db(args):
     """Export the full TypeDB database using the TypeDB Python driver API."""
     if not TYPEDB_AVAILABLE:
@@ -441,6 +546,34 @@ def main():
     p = subparsers.add_parser("search-tag", help="Search by tag")
     p.add_argument("--tag", required=True, help="Tag to search for")
 
+    # record-gap
+    p = subparsers.add_parser("record-gap", help="Record a schema/model gap for a skill")
+    p.add_argument("--skill", required=True, help="Skill name (e.g., 'jobhunt')")
+    p.add_argument(
+        "--type", required=True,
+        choices=["missing-user-context", "missing-entity-type", "missing-attribute",
+                 "unclear-workflow", "incorrect-inference"],
+        help="Gap type",
+    )
+    p.add_argument("--description", required=True, help="What information is missing or wrong")
+    p.add_argument(
+        "--severity", choices=["minor", "moderate", "significant"], default="moderate",
+        help="Gap severity (default: moderate)",
+    )
+    p.add_argument("--example", help="The specific triggering situation")
+
+    # list-gaps
+    p = subparsers.add_parser("list-gaps", help="List schema gaps")
+    p.add_argument("--skill", help="Filter by skill name")
+    p.add_argument("--status", choices=["open", "addressed", "wont-fix"],
+                   help="Filter by status (default: open)")
+
+    # close-gap
+    p = subparsers.add_parser("close-gap", help="Mark a gap as addressed or wont-fix")
+    p.add_argument("--id", required=True, help="Gap ID")
+    p.add_argument("--status", required=True, choices=["addressed", "wont-fix"],
+                   help="New status")
+
     # export-db
     p = subparsers.add_parser("export-db", help="Export database to timestamped zip")
     p.add_argument("--database", help=f"Database name (default: {TYPEDB_DATABASE})")
@@ -468,6 +601,9 @@ def main():
         "query-notes": query_notes,
         "tag": tag_entity,
         "search-tag": search_tag,
+        "record-gap": record_gap,
+        "list-gaps": list_gaps,
+        "close-gap": close_gap,
         "export-db": export_db,
         "import-db": import_db,
     }

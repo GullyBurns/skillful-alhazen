@@ -98,3 +98,41 @@ entity skilllog-llm-call sub domain-thing,
     owns cost-usd,
     owns duration-ms,
     owns exit-code;
+
+
+# -----------------------------------------------------------------------------
+# SKILL QUALITY / SCHEMA GAP TRACKING
+# -----------------------------------------------------------------------------
+# Records deficiencies discovered during skill use - missing data, incorrect
+# inferences, unclear workflows. Enables systematic skill improvement.
+
+attribute gap-type, value string;
+    # missing-user-context | missing-entity-type | missing-attribute
+    # | unclear-workflow | incorrect-inference
+attribute gap-severity, value string;
+    # minor | moderate | significant
+attribute gap-status, value string;
+    # open | addressed | wont-fix
+attribute gap-example, value string;
+    # the specific triggering situation (verbatim or paraphrase)
+attribute skill-version, value string;
+
+# Skill model - represents a skill as a first-class trackable object.
+# description (inherited) = what the skill does.
+entity skill-model sub domain-thing,
+    owns skill-name,
+    owns skill-version,
+    plays skill-has-gap:skill-model;
+
+# Schema gap - a recorded deficiency in a skill's model.
+# description (inherited) = what information is missing or wrong.
+entity schema-gap sub domain-thing,
+    owns gap-type,
+    owns gap-severity,
+    owns gap-status,
+    owns gap-example,
+    plays skill-has-gap:schema-gap;
+
+relation skill-has-gap,
+    relates skill-model,
+    relates schema-gap;
