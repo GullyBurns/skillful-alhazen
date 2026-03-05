@@ -53,6 +53,9 @@ skills:
   - name: domain-modeling
     path: skills/domain-modeling
 
+  - name: literature
+    subdir: skills/biomed/literature
+
   # -- External skills (git-based: cloned from defaults.git) ------------------
   - name: jobhunt
     subdir: skills/demo/jobhunt

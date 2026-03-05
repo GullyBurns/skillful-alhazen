@@ -78,32 +78,9 @@ uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collectio
 
 Returns: `{"success": true, "collection_id": "collection-abc123", "name": "CRISPR Research"}`
 
-### Add to Corpus (insert-paper)
+### Add Papers to Corpus
 
-Add a paper or research item to an existing collection.
-
-**Triggers:** "add to collection", "add to corpus", "include in", "add this paper to"
-
-```bash
-uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-paper \
-    --name "CRISPR-Cas9 in Mouse Liver Cells" \
-    --abstract "We demonstrate 95% editing efficiency..." \
-    --doi "10.1234/example" \
-    --pmid "12345678" \
-    --year 2024 \
-    --collection "collection-abc123"
-```
-
-**Options:**
-- `--name` (required): Paper title
-- `--abstract`: Paper abstract
-- `--doi`: DOI
-- `--pmid`: PubMed ID
-- `--year`: Publication year
-- `--collection`: Collection ID to add to
-- `--id`: Specific ID (auto-generated if not provided)
-
-Returns: `{"success": true, "paper_id": "paper-xyz789", "name": "CRISPR-Cas9 in Mouse Liver Cells"}`
+To ingest papers from literature sources (PubMed, OpenAlex, Europe PMC), use the **literature** or **epmc-search** skill — those handle domain-specific ingestion into the knowledge graph.
 
 ### Query Collection (query-collection)
 
@@ -202,35 +179,24 @@ uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 
 ### Literature Review Workflow
 
-1. Create a collection for the review topic
-2. Add papers as you encounter them
-3. Create notes with key findings for each paper
-4. Tag papers by methodology, findings, etc.
-5. Create synthesis notes that reference multiple papers
+1. Use `/literature` or `/epmc-search` to ingest papers into the knowledge graph
+2. Create notes with key findings for each paper
+3. Tag papers by methodology, findings, etc.
+4. Create synthesis notes that reference multiple papers
 
 ```bash
-# 1. Create collection
-uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection \
-    --name "COVID-19 Vaccine Papers" \
-    --description "Papers about COVID-19 vaccine development"
+# 1. Ingest papers via literature skill (see /literature for details)
 
-# 2. Add papers
-uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-paper \
-    --name "mRNA Vaccine Efficacy Study" \
-    --doi "10.1234/mrna" \
-    --year 2024 \
-    --collection "collection-xxx"
-
-# 3. Create notes
+# 2. Create notes about ingested papers
 uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "paper-yyy" \
     --content "Key finding: 95% efficacy in preventing severe disease" \
     --tags efficacy mrna
 
-# 4. Tag papers
+# 3. Tag papers
 uv run python .claude/skills/typedb-notebook/typedb_notebook.py tag --entity "paper-yyy" --tag "high-efficacy"
 
-# 5. Create synthesis
+# 4. Create synthesis
 uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
     --subject "collection-xxx" \
     --content "Summary: mRNA vaccines show consistently high efficacy..." \
@@ -262,7 +228,7 @@ uv run python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag
 ## Data Model
 
 - **Collection**: Groups of papers/items (extensional or intensional)
-- **Research-Item / Paper**: Scientific publications (scilit-paper)
+- **Research-Item / Paper**: Scientific publications (`scilit-paper`) — ingested via literature/epmc-search skills
 - **Note**: Your observations and findings (can be about anything, including other notes)
 - **Tag**: Lightweight classification labels
 
@@ -273,7 +239,6 @@ uv run python .claude/skills/typedb-notebook/typedb_notebook.py search-tag --tag
 | Command | Description | Required Args |
 |---------|-------------|---------------|
 | `insert-collection` | Create a collection | `--name` |
-| `insert-paper` | Add a paper | `--name` |
 | `insert-note` | Create a note | `--subject`, `--content` |
 | `query-collection` | Get collection info | `--id` |
 | `query-notes` | Find notes about entity | `--subject` |

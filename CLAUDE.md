@@ -355,6 +355,11 @@ cd dashboard && npm install && npm run dev
 **Cache:**
 - `ALHAZEN_CACHE_DIR` - File cache directory for large artifacts (default: ~/.alhazen/cache)
 
+**Semantic Search (literature skill):**
+- `VOYAGE_API_KEY` - Voyage AI API key for embeddings (from https://dash.voyageai.com/)
+- `QDRANT_HOST` - Qdrant vector store host (default: localhost)
+- `QDRANT_PORT` - Qdrant vector store port (default: 6333)
+
 ## Directory Structure
 
 ```

@@ -1216,7 +1216,7 @@ insert $c isa collection,
 
 ```typeql
 match $c isa collection, has id "my-collection-id";
-fetch $c: id, name, description;
+fetch { "id": $c.id, "name": $c.name, "description": $c.description };
 ```
 
 **List collection members**
@@ -1226,7 +1226,7 @@ fetch $c: id, name, description;
 match
     $c isa collection, has id "my-collection-id";
     (collection: $c, member: $m) isa collection-membership;
-fetch $m: id, name;
+fetch { "id": $m.id, "name": $m.name };
 ```
 
 **Add member to collection**
@@ -1271,7 +1271,7 @@ insert
 match
     $e isa entity, has id "paper-id";
     (note: $n, subject: $e) isa aboutness;
-fetch $n: id, name, content;
+fetch { "id": $n.id, "name": $n.name, "content": $n.content };
 ```
 
 ### Tagging
@@ -1304,6 +1304,5 @@ insert
 match
     $t isa tag, has name "machine-learning";
     (tagged-entity: $e, tag: $t) isa tagging;
-    $e has id $id, has name $name;
-fetch $e: id, name;
+fetch { "id": $e.id, "name": $e.name };
 ```
