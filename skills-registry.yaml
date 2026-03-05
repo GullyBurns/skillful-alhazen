@@ -63,11 +63,8 @@ skills:
   - name: epmc-search
     subdir: skills/biomed/epmc-search
 
-  - name: apm
-    subdir: skills/biomed/apm
-
-  - name: rare-disease
-    subdir: skills/biomed/rare-disease
+  - name: alg-precision-therapeutics
+    subdir: skills/biomed/alg-precision-therapeutics
 
 # To add more skills from the default library:
 # - name: my-skill
