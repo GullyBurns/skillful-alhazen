@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, Monitor, Database } from 'lucide-react';
+import { Briefcase, Database } from 'lucide-react';
 
 type ServiceStatus = 'checking' | 'online' | 'offline';
 
@@ -44,7 +44,7 @@ export default function HubPage() {
 
       {/* Dashboard Cards */}
       <main className="container mx-auto px-4 flex-1">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 gap-6 max-w-lg mx-auto">
           {/* Job Hunt Dashboard */}
           <Link href="/jobhunt" className="group">
             <Card className="h-full transition-all hover:border-indigo-500/50 hover:-translate-y-1">
@@ -57,26 +57,6 @@ export default function HubPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">
                   Track job applications, analyze skill gaps, and manage your learning plan.
-                </p>
-                <span className="text-sm text-primary mt-4 inline-block group-hover:underline">
-                  Open Dashboard &rarr;
-                </span>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* TechRecon Dashboard */}
-          <Link href="/techrecon" className="group">
-            <Card className="h-full transition-all hover:border-cyan-500/50 hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Monitor className="w-6 h-6 text-cyan-400" />
-                  TechRecon Dashboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Explore technology reconnaissance investigations, system architectures, and concepts.
                 </p>
                 <span className="text-sm text-primary mt-4 inline-block group-hover:underline">
                   Open Dashboard &rarr;

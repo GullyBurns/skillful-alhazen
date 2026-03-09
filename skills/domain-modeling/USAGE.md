@@ -646,6 +646,246 @@ When you modify a schema:
 
 ---
 
+---
+
+## Design Process Tracking
+
+The domain-modeling skill includes a Python CLI for tracking **why** a schema looks the way it does — what choices were made, what alternatives were considered, what experiments tested the design, and what errors revealed its limits.
+
+This is separate from the curation pattern guidance above. Use it when iterating on a new skill's TypeDB schema.
+
+### When to Use Design Tracking
+
+- **New skill development** — captures design rationale before it's forgotten
+- **Schema iteration** — records what changed between versions and why
+- **LLM extraction accuracy** — run experiments comparing schema versions against real examples
+- **Upstream reporting** — `export-design` produces a Markdown changelog you can share or commit
+
+### Workflow
+
+```
+init-domain
+    |
+    +-- set-task  (Phase 0: natural language goal for the skill)
+    |
+    v
+snapshot-skill  (captures all skill files; auto-reads git metadata)
+    |
+    +-- add-plan  (attach Claude's design plan document)
+    |
+    +-- add-decision  (entity / relation / attribute / hierarchy / constraint)
+    |       |
+    |       +-- add-rationale  (Claude's reasoning for the decision)
+    |       +-- link-gap       (link motivating schema-gap from skilllog)
+    |
+    +-- start-experiment
+    |       |
+    |       +-- record-result  (metric + value + notes)
+    |       +-- complete-experiment
+    |
+    +-- report-error  (schema failure case)
+    |       |
+    |       +-- resolve-error  (links to the fixing decision)
+    |
+    v
+next git commit -> auto-snapshot-skill (via install-hook)
+    |
+    v
+export-design  (annotated Markdown changelog, one section per version)
+```
+
+### Captured File Types
+
+| `dm-file-type` | Files captured | `format` |
+|---|---|---|
+| `schema` | `schema.tql` | `typeql` |
+| `script` | `<skill-name>.py` (main CLI) | `python` |
+| `prompt-short` | `SKILL.md` | `markdown` |
+| `prompt-full` | `USAGE.md` | `markdown` |
+| `manifest` | `skill.yaml` | `yaml` |
+| `test` | `tests/*.py` | `python` |
+| `experiment` | `experiments/*.py`, `experiments/*.ipynb` | `python` / `ipynb` |
+| `plan` | Added explicitly via `add-plan` | `markdown` |
+
+**Note:** `dm-file-type = "experiment"` means a script in the skill's `experiments/` directory (captured as an artifact). This is distinct from `dm-experiment` entities, which track design hypotheses tested in TypeDB.
+
+### Command Reference
+
+#### Domain Lifecycle
+
+```bash
+# Create a tracking project
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    init-domain --name "FDA regulatory" --description "Tracks 510k/MAUDE/recalls" \
+    --skill augura
+
+# Set the Phase 0 task (what is this skill FOR?)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    set-task --domain-id dm-domain-XXXX \
+    --task "Ingest FDA 510k clearances, MAUDE adverse events, and device recalls into TypeDB"
+
+# List all domains
+uv run python .claude/skills/domain-modeling/domain_modeling.py list-domains
+
+# Full history: snapshots, decisions, experiments, errors
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    show-domain --id dm-domain-XXXX
+```
+
+#### Skill Snapshots
+
+```bash
+# Capture all skill files (auto-detects git: commit, branch, remote, message)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    snapshot-skill --domain-id dm-domain-XXXX \
+    --skill-dir local_skills/augura/ --version v1.0 --repo-dir .
+# Returns: snapshot ID + list of captured files (schema, script, prompts, tests)
+
+# List all snapshots for a domain
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    list-versions --domain-id dm-domain-XXXX
+
+# List files captured in a snapshot
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    list-files --snapshot-id dm-skill-snapshot-YYYY
+
+# Show content of a captured file
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    show-file --file-id dm-skill-file-ZZZZ
+
+# Attach a plan document (Claude's design plan) to a snapshot
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    add-plan --snapshot-id dm-skill-snapshot-YYYY \
+    --plan-file ~/.claude/plans/my-plan.md --order 1 \
+    --description "Initial implementation plan"
+
+# Install post-commit hook (auto-snapshots skill on every git commit)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    install-hook --domain-id dm-domain-XXXX \
+    --skill-dir local_skills/augura/ --repo-dir .
+chmod +x .git/hooks/post-commit
+```
+
+**Idempotency:** `snapshot-skill` checks the current commit SHA; if already snapshotted for this domain, it returns the existing record without duplicating.
+
+**Large files:** Files >50KB are stored in the file cache (`~/.alhazen/cache/text/`) and referenced via `cache-path`. Smaller files are stored inline in TypeDB.
+
+#### Design Decisions
+
+```bash
+# Record a decision (types: entity | relation | attribute | hierarchy | constraint)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    add-decision --domain-id dm-domain-XXXX --type entity \
+    --summary "Use dm-domain sub collection to group all design artifacts" \
+    --version-id dm-skill-snapshot-YYYY \
+    --alternatives "sub domain-thing: rejected, lacks collection grouping semantics"
+
+# Add Claude's reasoning
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    add-rationale --decision-id dm-decision-ZZZZ \
+    --rationale "collection already has collection-membership and nesting relations; reusing these avoids duplicating grouping infrastructure" \
+    --alternatives "domain-thing would require custom grouping relations"
+
+# Link a schema-gap (from skilllog) as motivation for the decision
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    link-gap --decision-id dm-decision-ZZZZ --gap-id gap-abc123
+
+# List decisions (optionally filter by type)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    list-decisions --domain-id dm-domain-XXXX --type entity
+```
+
+#### Experiments
+
+```bash
+# Start an experiment
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    start-experiment --domain-id dm-domain-XXXX \
+    --hypothesis "v1.0 schema supports all required augura queries" \
+    --version-id dm-skill-snapshot-YYYY
+
+# Record a quantitative result
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    record-result --experiment-id dm-experiment-AAAA \
+    --metric coverage --value 0.92 \
+    --notes "8 of 100 test cases failed on missing causal-link relation"
+
+# Mark complete
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    complete-experiment --experiment-id dm-experiment-AAAA
+
+# List experiments
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    list-experiments --domain-id dm-domain-XXXX --status running
+```
+
+#### Representation Errors
+
+```bash
+# Report an error (error types: type-mismatch | missing-concept | wrong-cardinality |
+#   wrong-inheritance | semantic-ambiguity | over-generalization | under-generalization)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    report-error --domain-id dm-domain-XXXX \
+    --type missing-concept \
+    --summary "No entity type for 510k predicate device — couldn't link predicate lineage" \
+    --severity moderate --version-id dm-skill-snapshot-YYYY
+
+# Resolve an error (link to the fixing decision)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    resolve-error --error-id dm-error-BBBB --decision-id dm-decision-ZZZZ
+
+# List open errors
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    list-errors --domain-id dm-domain-XXXX --status open
+```
+
+#### Export
+
+```bash
+# Export annotated Markdown design changelog
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    export-design --domain-id dm-domain-XXXX \
+    | python3 -c "import json,sys; print(json.load(sys.stdin)['markdown'])"
+```
+
+The export produces one Markdown section per skill snapshot (ordered by creation time), with decisions, rationales, experiments, and errors nested under their snapshot. Unversioned items appear at the end.
+
+### Schema Entity Map
+
+| Entity | Base Type | When to Create |
+|--------|-----------|----------------|
+| `dm-domain` | `collection` | Once per skill/domain being designed |
+| `dm-skill-snapshot` | `artifact` | Umbrella snapshot of full skill at one git commit |
+| `dm-skill-file` | `artifact` | One captured file within a snapshot |
+| `dm-design-decision` | `domain-thing` | Each significant schema choice |
+| `dm-design-rationale` | `note` | Claude's reasoning for a decision |
+| `dm-experiment` | `domain-thing` | Each hypothesis being tested |
+| `dm-experiment-result` | `note` | Quantitative/qualitative observation |
+| `dm-representation-error` | `domain-thing` | Each case where schema failed real data |
+
+### Integration with Skilllog
+
+Schema-gaps recorded via `typedb-notebook record-gap` can be linked to design decisions:
+
+```bash
+# Record a gap (skilllog)
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py record-gap \
+    --skill augura --type missing-entity-type \
+    --description "No type for 510k predicate device"
+
+# Link it to the fixing decision (domain-modeling)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    link-gap --decision-id dm-decision-ZZZZ --gap-id gap-abc123
+```
+
+The gap ID is stored as a `dm-linked-gap-id` attribute (multi-valued: one per linked gap). The `show-domain` output includes linked gap IDs for cross-referencing.
+
+### Integration with TextGrad
+
+The `export-design` Markdown output enriches TextGrad skill optimization. When optimizing a skill's SKILL.md instructions, the design changelog explains *why* the schema looks the way it does — which constraints are deliberate, which alternatives were rejected, and which experiments validated the current design. Paste the export output as additional context when running `skill_optimizer.py`.
+
+---
+
 ## When to Create a New Domain
 
 Create a new domain skill when:

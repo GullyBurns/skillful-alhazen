@@ -4,7 +4,8 @@ license: Apache-2.0
 compatibility: "Meta-skill for designing other skills - requires understanding of TypeDB and skill architecture"
 
 # Core files
-# Note: This is a meta-skill for designing other skills
+script: domain_modeling.py
+schema: schema.tql
 
 # Dependencies
 requires:
@@ -14,7 +15,56 @@ requires:
 
 # Meta-skill pattern
 skill_type: meta
-purpose: "Teaches how to build domain-specific skills following the curation pattern"
+purpose: "Teaches how to build domain-specific skills and tracks the design process in TypeDB"
+
+# CLI operations
+operations:
+  domain_lifecycle:
+    - init-domain
+    - list-domains
+    - show-domain
+  schema_snapshots:
+    - snapshot-schema
+    - list-versions
+    - install-hook
+  design_decisions:
+    - add-decision
+    - add-rationale
+    - link-gap
+    - list-decisions
+  experiments:
+    - start-experiment
+    - record-result
+    - complete-experiment
+    - list-experiments
+  representation_errors:
+    - report-error
+    - resolve-error
+    - list-errors
+  export:
+    - export-design
+
+# TypeDB entity types defined in schema.tql
+entity_types:
+  - dm-domain          # sub collection: groups all design artifacts for a domain
+  - dm-schema-version  # sub artifact: TypeQL schema snapshot with git metadata
+  - dm-design-decision # sub domain-thing: a specific schema design choice
+  - dm-design-rationale # sub note: Claude's reasoning for a decision
+  - dm-experiment      # sub domain-thing: a design hypothesis test
+  - dm-experiment-result # sub note: quantitative/qualitative experiment observation
+  - dm-representation-error # sub domain-thing: case where schema failed real data
+
+# TypeDB relation types defined in schema.tql
+relation_types:
+  - dm-version-of       # schema-version <-> domain
+  - dm-supercedes       # newer-version <-> older-version
+  - dm-in-domain        # subject <-> domain (decisions, experiments, errors)
+  - dm-decision-in      # decision <-> schema-version (optional version context)
+  - dm-rationale-for    # rationale <-> decision
+  - dm-tests            # experiment <-> subject (version or decision)
+  - dm-result-of        # result <-> experiment
+  - dm-error-in         # error <-> schema-version (optional version context)
+  - dm-resolved-by      # error <-> resolution (decision)
 
 # Curation workflow phases
 curation_phases:

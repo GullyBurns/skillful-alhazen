@@ -20,7 +20,7 @@ All domain skills follow: **TASK DEFINITION → FORAGING → INGESTION → SENSE
 - **Analysis**: Reason across many notes over time to generate insights
 - **Reporting**: Dashboard views for human decision-making
 
-## Quick Start
+## Quick Start (Design a New Domain)
 
 ```bash
 # Copy the template to get started
@@ -29,4 +29,31 @@ cp -r skills/_template skills/<your-domain>
 # Add to skills-registry.yaml and run make build-skills
 ```
 
-**Before designing your domain, read `USAGE.md` in this directory for the complete phase breakdown, schema templates, examples, and documentation checklist.**
+## Quick Start (Design Process Tracking)
+
+```bash
+# Create a tracking project for a domain
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    init-domain --name "My Domain" --skill my-skill
+
+# Set the natural-language task the skill performs (Phase 0)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    set-task --domain-id dm-domain-XXXX \
+    --task "Ingest FDA 510k clearances and query clearance history"
+
+# Snapshot the full skill directory (schema + scripts + prompts + tests)
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    snapshot-skill --domain-id dm-domain-XXXX \
+    --skill-dir local_skills/my-skill/ --repo-dir .
+
+# Record a design decision and its rationale
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    add-decision --domain-id dm-domain-XXXX --type entity \
+    --summary "Use collection as base for domain grouping"
+
+# Export annotated Markdown design changelog
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+    export-design --domain-id dm-domain-XXXX
+```
+
+**Before executing commands, read `USAGE.md` in this directory for the complete phase breakdown, design tracking workflow, schema templates, and documentation checklist.**
