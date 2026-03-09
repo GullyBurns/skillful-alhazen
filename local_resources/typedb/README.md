@@ -1,192 +1,81 @@
-# TypeDB Schema for Alhazen Notebook Model
+# local_resources/typedb — TypeDB Schema Infrastructure
 
-This directory contains the TypeDB schema implementation for Alhazen's knowledge graph.
+This directory holds the **foundational schema** and **reference documentation** for the Alhazen knowledge graph. It is shared infrastructure, not a skill.
+
+---
+
+## Why the core schema lives here (not in a skill)
+
+Each Alhazen skill owns its own `schema.tql` (e.g. `local_skills/jobhunt/schema.tql`). Those files define domain extensions that are loaded *after* the core schema and depend on types it defines.
+
+`alhazen_notebook.tql` is different: it defines the abstract type hierarchy (`identifiable-entity`, `domain-thing`, `collection`, `information-content-entity`) that **every skill's schema extends**. The Makefile reflects this by loading it explicitly first, before any skill schemas are discovered:
+
+```makefile
+# db-init load order (from Makefile):
+# 1. local_resources/typedb/alhazen_notebook.tql   ← always first (hardcoded)
+# 2. local_skills/*/schema.tql                     ← skill extensions (glob)
+# 3. local_resources/typedb/namespaces/*.tql        ← namespace stopgaps (see below)
+```
+
+Moving `alhazen_notebook.tql` into a skill directory would make it a peer of the schemas that depend on it, with undefined load order. Its home here is intentional.
+
+---
 
 ## Files
 
-- `alhazen_notebook.tql` - Main schema defining the core Notebook Model entities and relations
-- `namespaces/scilit.tql` - Scientific literature namespace with domain-specific types
-- `agent-memory-typedb-schema.md` - Design documentation and examples
+| File | Purpose |
+|------|---------|
+| `alhazen_notebook.tql` | Core schema — the foundation loaded first by `make build-db` |
+| `namespaces/skilllog.tql` | Skill invocation logging types — infrastructure with no skill home |
+| `llms.txt` | TypeDB 3.x cheat sheet — read on demand before writing queries |
+| `typedb-3x-reference.md` | Full TypeDB 3.x reference (generated from official docs) |
+| `generate_schema_docs.py` | Regenerates `docs/` from the loaded schema |
+| `migrate_schema_v2.py` | 2.x → 3.x migration utility (migration complete Feb 2026, kept for reference) |
+| `docs/` | Auto-generated schema documentation (`make docs-typedb` to regenerate) |
 
-## Quick Start
+---
 
-### 1. Start TypeDB Server
+## Core Schema Hierarchy
+
+The three-branch hierarchy rooted at `identifiable-entity`:
+
+```
+identifiable-entity (abstract)         — id @key, name, description, created-at, provenance
+├── domain-thing                        — real-world objects (papers, genes, jobs, skills)
+├── collection                          — typed sets (corpora, searches, case files)
+└── information-content-entity (abstract) — content-bearing entities
+    ├── artifact                        — raw captured content (PDF, HTML, API response)
+    ├── fragment                        — extracted piece of an artifact
+    └── note                            — Claude's analysis or annotation
+```
+
+Skill schemas add subtypes. For example, `jobhunt/schema.tql` defines `jobhunt-position sub domain-thing` and `jobhunt-application-note sub note`.
+
+---
+
+## Loading the schema
 
 ```bash
-# From project root
-docker compose -f docker-compose-typedb.yml up -d
+make build-db       # start TypeDB container + load all schemas in correct order
+make db-init        # load schemas only (container must already be running)
 ```
 
-### 2. Load Schema (manual)
+Do not load schemas manually via TypeDB console — the Makefile handles ordering correctly.
 
-```bash
-# Connect to TypeDB container
-docker exec -it alhazen-typedb /opt/typedb-all-linux-x86_64/typedb console
+---
 
-# In console:
-> database create alhazen
-> transaction alhazen schema write
-> source /schema/alhazen_notebook.tql
-> commit
-> transaction alhazen schema write
-> source /schema/namespaces/scilit.tql
-> commit
-```
+## namespaces/ — Stopgap schemas
 
-### 3. Verify Schema
+Files in `namespaces/` are schemas that lack a proper skill home:
 
-```bash
-# In TypeDB console:
-> transaction alhazen schema read
-> match $x sub entity; get $x;
-```
+- **`skilllog.tql`** — skill invocation logging; no external skill repo, lives here permanently.
 
-## Full Stack with MCP Server
+---
 
-```bash
-# Start TypeDB + MCP server + auto-initialize schema
-docker compose -f docker-compose-typedb-mcp.yml up -d
+## Reference documentation
 
-# The init container will automatically:
-# 1. Create the 'alhazen' database
-# 2. Load the main schema
-# 3. Load the scilit namespace
-```
+**Before writing TypeDB queries**, read:
+- `llms.txt` — quick reference for TypeDB 3.x syntax (fetch, define, delete, relations)
+- `typedb-3x-reference.md` — full reference if llms.txt is insufficient
 
-## Core Entities
-
-| Entity | Description |
-|--------|-------------|
-| `collection` | Organized groupings of Things |
-| `thing` | Primary research objects (papers, datasets) |
-| `artifact` | Specific representations (PDFs, XML, citations) |
-| `fragment` | Parts of artifacts (sections, paragraphs, figures) |
-| `note` | Agent-generated annotations |
-
-## Scientific Literature Namespace (scilit-*)
-
-| Entity | Description |
-|--------|-------------|
-| `scilit-paper` | A scientific publication with DOI, PMID, etc. |
-| `scilit-dataset` | A scientific dataset |
-| `scilit-jats-fulltext` | JATS XML full-text artifact |
-| `scilit-pdf-fulltext` | PDF full-text artifact |
-| `scilit-section` | A section fragment (abstract, methods, etc.) |
-| `scilit-extraction-note` | Extracted information note |
-| `scilit-synthesis-note` | Synthesis across multiple sources |
-
-## Example Queries
-
-### Insert a Paper
-
-```typeql
-insert $p isa scilit-paper,
-    has id "paper-001",
-    has name "CRISPR-Cas9 Gene Editing in Mice",
-    has doi "10.1234/example",
-    has abstract "We demonstrate efficient gene editing...",
-    has publication-year 2024;
-```
-
-### Create a Note About a Paper
-
-```typeql
-match $p isa scilit-paper, has id "paper-001";
-insert $n isa note,
-    has id "note-001",
-    has content "Key finding: 95% editing efficiency in liver cells",
-    has confidence 0.9;
-    (note: $n, subject: $p) isa aboutness;
-```
-
-### Find All Notes About a Topic
-
-```typeql
-match
-    $t isa tag, has name "crispr";
-    (tagged-entity: $e, tag: $t) isa tagging;
-    (note: $n, subject: $e) isa aboutness;
-fetch $n: content, confidence;
-```
-
-## MCP Tools
-
-When running with the MCP server, Claude can use these tools:
-
-| Tool | Description |
-|------|-------------|
-| `insert_collection` | Create a new collection |
-| `insert_thing` | Add a research item |
-| `insert_artifact` | Add a representation of a thing |
-| `insert_fragment` | Extract a fragment from an artifact |
-| `insert_note` | Store a note about entities |
-| `query_collection` | Get collection info and members |
-| `query_thing` | Get thing info with artifacts and notes |
-| `query_notes_about` | Find notes about an entity |
-| `search_by_tag` | Find entities by tag |
-| `tag_entity` | Apply a tag to an entity |
-| `traverse_provenance` | Get provenance chain |
-
-## Europe PMC Integration
-
-The `scripts/epmc_search.py` script provides integration with Europe PMC for ingesting scientific literature.
-
-### CLI Commands
-
-```bash
-# Search EPMC and store results in TypeDB
-python scripts/epmc_search.py search \
-    --query "CRISPR AND gene editing" \
-    --collection "CRISPR Papers" \
-    --max-results 500
-
-# Count results without storing
-python scripts/epmc_search.py count --query "COVID-19 AND vaccine"
-
-# Fetch a single paper by DOI
-python scripts/epmc_search.py fetch-paper --doi "10.1038/s41586-020-2008-3"
-
-# List all search collections
-python scripts/epmc_search.py list-collections
-```
-
-### EPMC Query Syntax
-
-```
-# Basic operators
-CRISPR AND gene editing
-COVID-19 OR SARS-CoV-2
-NOT retracted
-
-# Field-specific searches
-TITLE:machine learning
-AUTH:"Smith J"
-JOURNAL:Nature
-DOI:10.1038/s41586-020-2008-3
-
-# Date filters
-PUB_YEAR:2023
-FIRST_PDATE:[2020-01-01 TO 2024-12-31]
-
-# Open access only
-OPEN_ACCESS:y
-```
-
-### Data Flow
-
-1. **Query EPMC API** - Fetch papers matching search criteria
-2. **Create Collection** - Store search metadata with logical query
-3. **Insert Papers** - Create `scilit-paper` entities with DOI, PMID, etc.
-4. **Create Artifacts** - Store citation records as `scilit-citation-record`
-5. **Extract Fragments** - Create title and abstract as `scilit-section` fragments
-6. **Apply Tags** - Tag papers by publication type (review, preprint, etc.)
-
-## Configuration
-
-Environment variables for the MCP server:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TYPEDB_HOST` | localhost | TypeDB server hostname |
-| `TYPEDB_PORT` | 1729 | TypeDB server port |
-| `TYPEDB_DATABASE` | alhazen | Database name |
+Full reference is also in CLAUDE.md under "TypeDB 3.x Query Notes".

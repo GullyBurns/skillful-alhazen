@@ -114,7 +114,7 @@ Migration from TypeDB 2.x to 3.x was completed Feb 2026. Key changes:
 - Unified query method: `tx.query(query_string).resolve()` for all query types
 - Fetch syntax: `fetch { "key": $var.attr };` (JSON-style, replaces `fetch $var: attr1, attr2;`)
 - Schema: `attribute X, value T;` syntax (not `X sub attribute, value T;`)
-- Abstract sub-entities: `entity X @abstract, sub Y,` (comma after `@abstract`, before `sub`)
+- Abstract sub-entities: `entity X @abstract, sub Y,` (comma after `@abstract`, before `sub`) — **only works when Y is also abstract** (SVL14)
 - `agent` is now `sub domain-thing` (inherits description, created-at, etc. from identifiable-entity)
 
 **TypeDB 3.x `redefine` for schema changes:**
@@ -430,12 +430,28 @@ When Claude makes a mistake, add it to this section so it doesn't happen again.
 
 ### TypeDB 3.x Query Notes
 - **Fetch syntax** - Use `fetch { "key": $var.attr };` JSON-style (NOT `fetch $var: attr1, attr2;` — that is 2.x syntax)
-- **Abstract sub-entities** - Syntax is `entity X @abstract, sub Y,` (comma between `@abstract` and `sub`)
+- **Abstract sub-entities** - Syntax is `entity X @abstract, sub Y,` (comma between `@abstract` and `sub`) — **SVL14: Y must also be abstract**; `domain-thing` is concrete so entities subtyping it cannot be `@abstract`
 - **No sessions** - Use `driver.transaction(database, TransactionType.X)` directly (no `driver.session(...)` wrapper)
 - **All queries use same method** - `tx.query(query_string).resolve()` for insert, fetch, delete, define
 - **Fetch results are plain dicts** - No `.get("value")` unwrapping needed; access keys directly
-- **Delete syntax** - Use `delete $x;` (NOT `delete $x isa type;` — the `isa` qualifier in the delete clause is invalid in 3.x and causes a parse error)
+- **Delete entity/relation syntax** - Use `delete $x;` (NOT `delete $x isa type;` — the `isa` qualifier in the delete clause is invalid in 3.x and causes a parse error)
+- **Delete has-attribute syntax** - Use `delete has $v of $e;` (NOT `delete $e has attr $v;` — causes "expected OF" parse error)
+- **Entity keyword required** - New entity type definitions MUST use `entity` keyword: `entity my-type sub domain-thing,` — without it, TypeDB throws `[SYR1] The type 'X' was not found` (even for newly defined types)
+- **No limit in fetch** - Fetch queries don't support `limit` modifier; apply limit in Python: `results[:N]`
+- **Relations before entities** - Define relations first in namespace schemas so role names resolve when entities use `plays` clauses
+- **No @key on custom attrs** - Only the inherited `id @key` works; adding `@key` to namespace attributes causes schema errors
 - **Full reference** — Read `local_resources/typedb/llms.txt` on demand before writing queries; full docs at `local_resources/typedb/typedb-3x-reference.md`
+
+### External Skill Schema Fixes Must Go Upstream
+
+- **Fix schemas in `alhazen-skill-examples`, not just `local_skills/`** — External skills
+  (`jobhunt`, `techrecon`, etc.) are cloned from `~/alhazen-skill-examples`. If you fix a
+  `schema.tql` only in `local_skills/`, `make build-skills` will overwrite it on the next run.
+  Always copy the fix upstream: `cp local_skills/<skill>/schema.tql ~/alhazen-skill-examples/skills/demo/<skill>/schema.tql`
+  and commit there.
+- **jobhunt + techrecon schemas were 2.x** — Both were migrated to TypeDB 3.x in Mar 2026
+  (commit `6b41acf` in alhazen-skill-examples). If a schema fails on `make build-db` with a
+  syntax error near `sub attribute`, the upstream source likely still has 2.x syntax.
 
 ### Skill Script Queries
 
