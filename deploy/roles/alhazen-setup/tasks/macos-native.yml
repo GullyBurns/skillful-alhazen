@@ -73,6 +73,21 @@
   become: true
   become_user: "{{ openclaw_user }}"
 
+# Ansible git module with force:yes only does `git checkout --force <branch>`, which
+# resolves to the LOCAL branch ref, not the remote tracking branch. Explicitly fetch
+# and reset to ensure we have the latest remote commit (fixes stale skills-registry.yaml).
+- name: Hard-reset repo to latest remote commit
+  shell: |
+    git fetch origin
+    git reset --hard origin/{{ deploy_branch | default('main') }}
+  args:
+    chdir: "{{ repo_dir }}"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    HOME: "{{ openclaw_home }}"
+    PATH: "{{ macos_path }}"
+
 # --- npm Global Prefix + openclaw Package ---
 
 - name: Configure npm Global Prefix for openclaw

@@ -547,10 +547,16 @@ for skill in skills:
     tmp = local_skills / f'_tmp_{name}'
     try:
         subprocess.run(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], check=True, capture_output=True)
-        src = tmp / subdir if subdir != '.' else tmp; src.rename(target)
-        print(f'  ✓ Updated {name}')
+        src = tmp / subdir if subdir != '.' else tmp
+        if not src.exists():
+            print(f'  ✗ Subdir not found in {name} clone: {subdir}', file=sys.stderr)
+        else:
+            src.rename(target)
+            print(f'  ✓ Updated {name}')
     except subprocess.CalledProcessError as e:
-        print(f'  ✗ Failed to update {name}: {e}', file=sys.stderr)
+        print(f'  ✗ Failed to clone {name}: {e}', file=sys.stderr)
+    except Exception as e:
+        print(f'  ✗ Failed to install {name}: {e}', file=sys.stderr)
     finally:
         if tmp.exists(): shutil.rmtree(tmp, ignore_errors=True)
 endef
