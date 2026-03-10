@@ -135,6 +135,7 @@ services:
         condition: service_healthy
     volumes:
       - {{ repo_dir }}/local_resources/typedb:/schema:ro
+      - {{ repo_dir }}/local_skills:/local_skills:ro
       - {{ repo_dir }}/scripts:/scripts:ro
     environment:
       - TYPEDB_HOST=typedb
@@ -146,11 +147,8 @@ services:
         pip install typedb-driver -q
         python /scripts/db_init.py \
           /schema/alhazen_notebook.tql \
-          /schema/namespaces/scilit.tql \
-          /schema/namespaces/jobhunt.tql \
-          /schema/namespaces/apm.tql \
-          /schema/namespaces/techrecon.tql \
-          /schema/namespaces/skilllog.tql
+          /schema/namespaces/skilllog.tql \
+          $(find /local_skills -name 'schema.tql' | sort | tr '\n' ' ')
     networks:
       - openclaw-internal
     restart: "no"

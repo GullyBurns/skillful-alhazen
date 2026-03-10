@@ -55,20 +55,21 @@ _RATES: dict[str, dict[str, float]] = {
         "cache_read":    0.08 / 1_000_000,
     },
 }
-_DEFAULT_RATES = {
-    "input":         3.00 / 1_000_000,
-    "output":       15.00 / 1_000_000,
-    "cache_create":  3.75 / 1_000_000,
-    "cache_read":    0.30 / 1_000_000,
+_ZERO_RATES = {
+    "input":        0.0,
+    "output":       0.0,
+    "cache_create": 0.0,
+    "cache_read":   0.0,
 }
 
 
 def _compute_cost(model: str, input_tok: int, output_tok: int,
                   cache_create: int, cache_read: int) -> float:
     """Calculate cost in USD from Anthropic token counts (not LiteLLM's calculator)."""
-    # Normalise model name — LiteLLM may prefix with "anthropic/"
-    clean = model.replace("anthropic/", "")
-    rates = _RATES.get(clean, _DEFAULT_RATES)
+    # Normalise model name — LiteLLM may prefix with provider name
+    clean = model.replace("anthropic/", "").replace("openai/", "").replace("ollama/", "")
+    # Local inference (Ollama) and any unrecognised model defaults to zero cost
+    rates = _RATES.get(clean, _ZERO_RATES)
     return (
         input_tok    * rates["input"]
         + output_tok * rates["output"]

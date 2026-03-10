@@ -57,9 +57,17 @@
             "id": "{{ llm_model }}",
             "name": "{{ llm_model }}",
             "reasoning": false,
+{% if llm_provider == 'anthropic' %}
             "input": ["text", "image"],
-            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
             "contextWindow": 200000,
+{% elif llm_provider == 'openai' %}
+            "input": ["text", "image"],
+            "contextWindow": 128000,
+{% else %}
+            "input": ["text"],
+            "contextWindow": 32768,
+{% endif %}
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
             "maxTokens": 8192
           }
         ]
