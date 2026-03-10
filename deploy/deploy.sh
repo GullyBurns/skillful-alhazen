@@ -15,7 +15,7 @@ show_help() {
     echo "Options:"
     echo "  -t, --target IP          Target IP address (use 'localhost' for local Mac Mini)"
     echo "  --target-type TYPE       Deployment target: 'vps' (default) or 'macmini'"
-    echo "  -p, --provider NAME      LLM Provider (anthropic, openai, ollama, openai_compatible)"
+    echo "  -p, --provider NAME      LLM Provider (anthropic, openai, ollama, openai_compatible, groq)"
     echo "  -m, --model NAME         Model Name (e.g., claude-sonnet-4-6)"
     echo "  -u, --url URL            API Base URL (for ollama/openai_compatible)"
     echo "  -k, --key KEY            API Key"
@@ -132,11 +132,13 @@ if [ "$INTERACTIVE" = true ]; then
         echo "  2) OpenAI"
         echo "  3) Ollama"
         echo "  4) OpenAI Compatible"
-        read -p "Choice [1-4]: " provider_choice
+        echo "  5) Groq"
+        read -p "Choice [1-5]: " provider_choice
         case $provider_choice in
             2) LLM_PROVIDER="openai" ;;
             3) LLM_PROVIDER="ollama" ;;
             4) LLM_PROVIDER="openai_compatible" ;;
+            5) LLM_PROVIDER="groq" ;;
             *) LLM_PROVIDER="anthropic" ;;
         esac
     fi
@@ -148,6 +150,7 @@ if [ "$INTERACTIVE" = true ]; then
         if [ "$LLM_PROVIDER" == "anthropic" ]; then default_model="claude-sonnet-4-6"; fi
         if [ "$LLM_PROVIDER" == "openai" ]; then default_model="gpt-4o"; fi
         if [ "$LLM_PROVIDER" == "ollama" ]; then default_model="llama3"; fi
+        if [ "$LLM_PROVIDER" == "groq" ]; then default_model="llama-3.3-70b-versatile"; fi
 
         read -p "Enter Model Name [$default_model]: " input_model
         LLM_MODEL="${input_model:-$default_model}"
@@ -202,6 +205,7 @@ if [ -z "$SSH_USER" ]; then SSH_USER="root"; fi
 if [ -z "$LLM_PROVIDER" ]; then LLM_PROVIDER="anthropic"; fi
 if [ -z "$LLM_MODEL" ] && [ "$LLM_PROVIDER" == "anthropic" ]; then LLM_MODEL="claude-sonnet-4-6"; fi
 if [ -z "$LLM_MODEL" ] && [ "$LLM_PROVIDER" == "ollama" ]; then LLM_MODEL="llama3"; fi
+if [ -z "$LLM_MODEL" ] && [ "$LLM_PROVIDER" == "groq" ]; then LLM_MODEL="llama-3.3-70b-versatile"; fi
 if [ -z "$LLM_URL" ] && [ "$LLM_PROVIDER" == "ollama" ]; then
     if [ "$TARGET_TYPE" == "macmini" ]; then LLM_URL="http://localhost:11434"; else LLM_URL="http://host.docker.internal:11434"; fi
 fi

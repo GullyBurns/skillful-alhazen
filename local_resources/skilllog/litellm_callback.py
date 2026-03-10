@@ -32,6 +32,28 @@ except ImportError:
         pass
 
 # ---------------------------------------------------------------------------
+# Monkey-patch litellm.acompletion to strip web_search_options globally.
+#
+# LiteLLM's Anthropic pass-through adapter converts Anthropic web_search
+# tools into web_search_options in completion_kwargs, then calls
+# litellm.acompletion(**completion_kwargs). Most providers (Groq/qwen3-32b,
+# Anthropic, Ollama) reject or ignore this param. Stripping it here is safe
+# because OpenClaw uses its own SearXNG for web search, not the LLM API.
+# ---------------------------------------------------------------------------
+try:
+    import litellm as _litellm
+    _orig_acompletion = _litellm.acompletion
+
+    async def _acompletion_drop_web_search(*args, **kwargs):
+        kwargs.pop("web_search_options", None)
+        return await _orig_acompletion(*args, **kwargs)
+
+    _litellm.acompletion = _acompletion_drop_web_search
+except Exception as _patch_err:
+    print(f"[skilllog-litellm] WARNING: could not patch acompletion: {_patch_err}",
+          file=sys.stderr)
+
+# ---------------------------------------------------------------------------
 # Pricing (USD per token) — claude-sonnet-4-6 rates
 # Update these if model pricing changes.
 # ---------------------------------------------------------------------------
@@ -93,6 +115,32 @@ class TypeDBTokenLogger(CustomLogger):
     # ------------------------------------------------------------------
     # LiteLLM callback entry points
     # ------------------------------------------------------------------
+
+    async def async_pre_call_hook(self, user_api_key_dict: Any,
+                                   cache: Any, data: dict,
+                                   call_type: str) -> dict:
+        """Strip web search tools/params before forwarding to providers.
+
+        LiteLLM's Anthropic pass-through adapter converts Anthropic web_search
+        tools (type: 'web_search_20250305') into web_search_options in the
+        completion kwargs. Many providers and models don't support this.
+        Strip the tool here so the adapter never generates web_search_options.
+        """
+        # Strip Anthropic-format web_search tools from the tools array.
+        tools = data.get("tools")
+        if isinstance(tools, list):
+            filtered = [
+                t for t in tools
+                if not (isinstance(t, dict)
+                        and "web_search" in t.get("type", "").lower())
+            ]
+            if filtered:
+                data["tools"] = filtered
+            else:
+                data.pop("tools", None)
+        # Also strip if web_search_options somehow arrives at the top level.
+        data.pop("web_search_options", None)
+        return data
 
     def log_success_event(self, kwargs: Any, response_obj: Any,
                           start_time: Any, end_time: Any) -> None:

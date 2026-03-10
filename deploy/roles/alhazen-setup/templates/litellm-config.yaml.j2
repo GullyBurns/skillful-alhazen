@@ -35,6 +35,21 @@ model_list:
       model: "ollama/{{ llm_model }}"
       api_base: "{{ llm_url }}"
       api_key: "os.environ/TARGET_LLM_KEY"
+{% elif llm_provider == 'groq' %}
+  - model_name: "llama-3.3-70b-versatile"
+    litellm_params:
+      model: "groq/llama-3.3-70b-versatile"
+      api_key: "os.environ/TARGET_LLM_KEY"
+
+  - model_name: "llama-3.1-8b-instant"
+    litellm_params:
+      model: "groq/llama-3.1-8b-instant"
+      api_key: "os.environ/TARGET_LLM_KEY"
+
+  - model_name: "*"
+    litellm_params:
+      model: "groq/{{ llm_model }}"
+      api_key: "os.environ/TARGET_LLM_KEY"
 {% else %}
   # OpenAI-compatible provider
   - model_name: "*"

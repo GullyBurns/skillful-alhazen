@@ -63,6 +63,9 @@
 {% elif llm_provider == 'openai' %}
             "input": ["text", "image"],
             "contextWindow": 128000,
+{% elif llm_provider == 'groq' %}
+            "input": ["text"],
+            "contextWindow": 131072,
 {% else %}
             "input": ["text"],
             "contextWindow": 32768,
