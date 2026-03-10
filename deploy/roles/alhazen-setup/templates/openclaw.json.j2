@@ -48,7 +48,7 @@
   "models": {
     "mode": "merge",
     "providers": {
-      "anthropic": {
+      "{{ llm_provider }}": {
         "baseUrl": "{{ 'http://localhost:4000' if target_type == 'macmini' else 'http://litellm:4000' }}",
         "apiKey": "${ANTHROPIC_API_KEY}",
         "api": "anthropic-messages",
@@ -96,7 +96,7 @@
     "defaults": {
       "heartbeat": { "every": "5m" },
       "model": {
-        "primary": "anthropic/{{ llm_model }}"
+        "primary": "{{ llm_provider }}/{{ llm_model }}"
       }
     },
     "list": [
