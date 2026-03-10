@@ -157,8 +157,15 @@ if [ "$INTERACTIVE" = true ]; then
     if [ -z "$LLM_URL" ]; then
         if [ "$LLM_PROVIDER" == "ollama" ]; then
             echo ""
-            read -p "Enter Ollama Base URL [http://host.docker.internal:11434]: " input_url
-            LLM_URL="${input_url:-http://host.docker.internal:11434}"
+            # macmini: LiteLLM runs natively, use localhost
+            # vps: LiteLLM runs in Docker, use host.docker.internal
+            if [ "$TARGET_TYPE" == "macmini" ]; then
+                DEFAULT_OLLAMA_URL="http://localhost:11434"
+            else
+                DEFAULT_OLLAMA_URL="http://host.docker.internal:11434"
+            fi
+            read -p "Enter Ollama Base URL [$DEFAULT_OLLAMA_URL]: " input_url
+            LLM_URL="${input_url:-$DEFAULT_OLLAMA_URL}"
         elif [ "$LLM_PROVIDER" == "openai_compatible" ]; then
             echo ""
             read -p "Enter API Base URL: " LLM_URL
@@ -195,7 +202,9 @@ if [ -z "$SSH_USER" ]; then SSH_USER="root"; fi
 if [ -z "$LLM_PROVIDER" ]; then LLM_PROVIDER="anthropic"; fi
 if [ -z "$LLM_MODEL" ] && [ "$LLM_PROVIDER" == "anthropic" ]; then LLM_MODEL="claude-sonnet-4-6"; fi
 if [ -z "$LLM_MODEL" ] && [ "$LLM_PROVIDER" == "ollama" ]; then LLM_MODEL="llama3"; fi
-if [ -z "$LLM_URL" ] && [ "$LLM_PROVIDER" == "ollama" ]; then LLM_URL="http://host.docker.internal:11434"; fi
+if [ -z "$LLM_URL" ] && [ "$LLM_PROVIDER" == "ollama" ]; then
+    if [ "$TARGET_TYPE" == "macmini" ]; then LLM_URL="http://localhost:11434"; else LLM_URL="http://host.docker.internal:11434"; fi
+fi
 if [ -z "$LLM_KEY" ]; then LLM_KEY="sk-placeholder"; fi
 
 if [ "$TARGET_TYPE" != "vps" ] && [ "$TARGET_TYPE" != "macmini" ]; then
