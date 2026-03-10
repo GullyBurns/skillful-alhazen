@@ -53,8 +53,8 @@ skills:
   - name: domain-modeling
     path: skills/domain-modeling
 
-  - name: literature
-    subdir: skills/biomed/literature
+  - name: scientific-literature
+    subdir: skills/biomed/scientific-literature
 
   # -- External skills (git-based: cloned from defaults.git) ------------------
   - name: jobhunt
@@ -62,9 +62,6 @@ skills:
 
   - name: techrecon
     subdir: skills/demo/techrecon
-
-  - name: epmc-search
-    subdir: skills/biomed/epmc-search
 
   - name: alg-precision-therapeutics
     subdir: skills/biomed/alg-precision-therapeutics

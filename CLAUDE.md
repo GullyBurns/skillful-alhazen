@@ -151,7 +151,7 @@ with driver.transaction(database, TransactionType.READ) as tx:
 
 ### TypeDB Schema
 - `local_resources/typedb/alhazen_notebook.tql` - Core notebook schema
-- `local_resources/typedb/namespaces/scilit.tql` - Scientific literature extensions
+- `local_skills/scientific-literature/schema.tql` - Scientific literature extensions (owned by skill)
 - `local_resources/typedb/namespaces/jobhunt.tql` - Job hunting extensions
 - `local_resources/typedb/namespaces/apm.tql` - Precision medicine extensions
 - `local_resources/typedb/namespaces/techrecon.tql` - Tech recon extensions
@@ -192,7 +192,7 @@ Large artifacts (PDFs, HTML, images) are stored in a file cache organized by con
 - Content < 50KB: Stored inline in TypeDB `content` attribute
 - Content >= 50KB: Stored in cache, referenced via `cache-path` attribute
 
-**Artifact types are shared across skills.** A PDF ingested by jobhunt (resume) uses the same `pdf/` directory as papers ingested by epmc-search. This enables cross-skill artifact reuse and consistent type handling.
+**Artifact types are shared across skills.** A PDF ingested by jobhunt (resume) uses the same `pdf/` directory as papers ingested by scientific-literature. This enables cross-skill artifact reuse and consistent type handling.
 
 **Cache Utilities:**
 - `src/skillful_alhazen/utils/cache.py` - Cache management functions
@@ -239,10 +239,9 @@ local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
   - registered in `skills-registry.yaml`, resolved to `local_skills/jobhunt/`
 - **techrecon** *(external)* — Systematic investigation of software systems
   - registered in `skills-registry.yaml`, resolved to `local_skills/techrecon/`
-- **epmc-search** *(external)* — Europe PMC literature search
-  - registered in `skills-registry.yaml`, resolved to `local_skills/epmc-search/`
-- **apm** *(external)* — Precision medicine investigation
-  - registered in `skills-registry.yaml`, resolved to `local_skills/apm/`
+- **scientific-literature** *(external)* — Multi-source scientific literature search and ingestion
+  - Europe PMC, PubMed, OpenAlex, bioRxiv/medRxiv + semantic search (Voyage AI + Qdrant)
+  - registered in `skills-registry.yaml`, resolved to `local_skills/scientific-literature/`
 
 **Adding a new skill:**
 1. Copy template: `cp -r skills/_template skills/<skill-name>`
@@ -335,7 +334,7 @@ make clean          # Clean generated files
 **CLI usage:**
 ```bash
 uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "Test"
-uv run python .claude/skills/epmc-search/epmc_search.py count --query "CRISPR"
+uv run python .claude/skills/scientific-literature/scientific_literature.py count --query "CRISPR"
 uv run python .claude/skills/jobhunt/jobhunt.py list-pipeline
 # Note: .claude/skills/* are symlinks → local_skills/* → skills/* (for core)
 ```
@@ -386,7 +385,6 @@ local_resources/
 └── typedb/
     ├── alhazen_notebook.tql    # Core base schema (always loaded first)
     └── namespaces/             # Infrastructure schemas without a skill home
-        ├── scilit.tql          # (stopgap: epmc-search has no schema.tql yet)
         └── skilllog.tql
 
 src/skillful_alhazen/   # Main package
