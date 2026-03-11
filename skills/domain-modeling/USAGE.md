@@ -717,7 +717,7 @@ export-design  (annotated Markdown changelog, one section per version)
 # Create a tracking project
 uv run python .claude/skills/domain-modeling/domain_modeling.py \
     init-domain --name "FDA regulatory" --description "Tracks 510k/MAUDE/recalls" \
-    --skill augura
+    --skill newskill
 
 # Set the Phase 0 task (what is this skill FOR?)
 uv run python .claude/skills/domain-modeling/domain_modeling.py \
@@ -738,7 +738,7 @@ uv run python .claude/skills/domain-modeling/domain_modeling.py \
 # Capture all skill files (auto-detects git: commit, branch, remote, message)
 uv run python .claude/skills/domain-modeling/domain_modeling.py \
     snapshot-skill --domain-id dm-domain-XXXX \
-    --skill-dir local_skills/augura/ --version v1.0 --repo-dir .
+    --skill-dir local_skills/newskill/ --version v1.0 --repo-dir .
 # Returns: snapshot ID + list of captured files (schema, script, prompts, tests)
 
 # List all snapshots for a domain
@@ -762,7 +762,7 @@ uv run python .claude/skills/domain-modeling/domain_modeling.py \
 # Install post-commit hook (auto-snapshots skill on every git commit)
 uv run python .claude/skills/domain-modeling/domain_modeling.py \
     install-hook --domain-id dm-domain-XXXX \
-    --skill-dir local_skills/augura/ --repo-dir .
+    --skill-dir local_skills/newskill/ --repo-dir .
 chmod +x .git/hooks/post-commit
 ```
 
@@ -801,7 +801,7 @@ uv run python .claude/skills/domain-modeling/domain_modeling.py \
 # Start an experiment
 uv run python .claude/skills/domain-modeling/domain_modeling.py \
     start-experiment --domain-id dm-domain-XXXX \
-    --hypothesis "v1.0 schema supports all required augura queries" \
+    --hypothesis "v1.0 schema supports all required newskill queries" \
     --version-id dm-skill-snapshot-YYYY
 
 # Record a quantitative result
@@ -870,7 +870,7 @@ Schema-gaps recorded via `typedb-notebook record-gap` can be linked to design de
 ```bash
 # Record a gap (skilllog)
 uv run python .claude/skills/typedb-notebook/typedb_notebook.py record-gap \
-    --skill augura --type missing-entity-type \
+    --skill newskill --type missing-entity-type \
     --description "No type for 510k predicate device"
 
 # Link it to the fixing decision (domain-modeling)

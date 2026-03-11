@@ -1353,7 +1353,7 @@ def main():
     p = subparsers.add_parser("init-domain", help="Create a domain design tracking project")
     p.add_argument("--name", required=True, help="Domain name (e.g. 'FDA regulatory')")
     p.add_argument("--description", help="Optional description")
-    p.add_argument("--skill", help="Associated skill name (e.g. augura)")
+    p.add_argument("--skill", help="Associated skill name (e.g. newskill)")
 
     p = subparsers.add_parser("list-domains", help="List all tracked domains")
 
