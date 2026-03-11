@@ -53,6 +53,9 @@ skills:
   - name: domain-modeling
     path: skills/domain-modeling
 
+  - name: literature-trends
+    path: skills/literature-trends
+
   - name: scientific-literature
     subdir: skills/biomed/scientific-literature
 
@@ -66,11 +69,6 @@ skills:
   - name: alg-precision-therapeutics
     subdir: skills/biomed/alg-precision-therapeutics
 
-  - name: augura
-    git: https://github.com/GullyBurns/augura-demo
-    ref: main
-    subdir: .
-    description: FDA regulatory intelligence (510k, MAUDE, recalls, AI/ML devices)
 
 # To add more skills from the default library:
 # - name: my-skill

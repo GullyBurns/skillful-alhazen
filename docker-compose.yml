@@ -42,6 +42,7 @@ services:
         condition: service_healthy
     volumes:
       - ./local_resources/typedb:/schema:ro
+      - ./local_skills:/local_skills:ro
       - ./scripts:/scripts:ro
     networks:
       - alhazen-network
@@ -55,10 +56,8 @@ services:
         pip install typedb-driver -q
         python /scripts/db_init.py \
           /schema/alhazen_notebook.tql \
-          /schema/namespaces/scilit.tql \
-          /schema/namespaces/jobhunt.tql \
-          /schema/namespaces/apm.tql \
-          /schema/namespaces/techrecon.tql
+          /schema/namespaces/*.tql \
+          /local_skills/*/schema.tql
     restart: "no"
 
   # ============================================
