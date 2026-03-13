@@ -8,32 +8,122 @@ Skillful-Alhazen is a TypeDB-powered scientific knowledge notebook. It helps res
 
 Forked from the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project.
 
-## Quick Start
+## First-Time Infrastructure Setup
+
+> **For agents:** Follow these steps in order. Each step includes a verification command. Do not proceed to the next step until the verification passes.
+
+### 1. Prerequisites
+
+Verify all prerequisites before attempting the build:
 
 ```bash
-# 1. Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# uv (Python package manager) — must print a version string
+uv --version
+# If missing: curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Phase 1 Build: install deps + resolve all skills + start TypeDB
-make build
+# Docker (container runtime) — must succeed without errors
+docker info
+# If failing: start Docker Desktop (macOS) or `sudo systemctl start docker` (Linux)
 
-# 3. Use the skills (Claude Code reads from .claude/skills/)
-/typedb-notebook remember "key finding from paper X"
-/jobhunt ingest-job --url "https://example.com/job"
+# Docker Compose v2 (bundled with Docker Desktop) — must print "Docker Compose version v2.x.x"
+docker compose version
+# NOTE: use `docker compose` (with a space), NOT the old `docker-compose` (with hyphen)
 
-# 4. Phase 2 Deploy: push to a production OpenClaw instance
-make deploy-macmini   # or: make deploy-vps
+# git — must print a version string
+git --version
 ```
 
-**Individual build steps:**
-```bash
-make build-env    # Install Python dependencies (uv sync --all-extras)
-make build-skills # Resolve skills-registry.yaml → local_skills/ + wire .claude/skills/
-make build-db     # Start TypeDB + load all schemas (run after build-skills)
+**macOS:** Docker Desktop includes Docker Compose v2 — just start Docker Desktop.
+**Linux:** Install `docker-compose-plugin` (not the standalone `docker-compose` v1).
 
-# Or individual db steps:
-make db-start     # Start TypeDB container
-make db-init      # Create database and load all schemas
+### 2. Full Build (recommended)
+
+```bash
+make build
+```
+
+Runs four steps in sequence: `build-env` → `build-skills` → `build-dashboard` → `build-db`.
+If any step fails, run the individual steps below to diagnose.
+
+### 3. Individual Steps with Verification
+
+#### Step 1: Install Python dependencies
+
+```bash
+make build-env
+# Verify the TypeDB driver is importable:
+uv run python -c "import typedb.driver; print('✓ typedb driver OK')"
+```
+
+Expected output: `✓ typedb driver OK`. If the import fails, run `uv sync --all-extras` directly and read any error output.
+
+#### Step 2: Resolve skills from registry
+
+```bash
+make build-skills
+# Verify that all skills are present in local_skills/:
+ls local_skills/
+```
+
+Expected: directories for `typedb-notebook`, `web-search`, `domain-modeling`, `jobhunt`, `techrecon`, `scientific-literature`, and others listed in `skills-registry.yaml`. If external skills are absent, network access to `https://github.com/sciknow-io/alhazen-skill-examples` may have failed — run `make skills-update` to retry.
+
+#### Step 3: Start TypeDB and load schemas
+
+```bash
+make build-db
+# Verify the container is running and healthy:
+docker ps --filter "name=alhazen-typedb" --format "table {{.Names}}\t{{.Status}}"
+```
+
+Expected: `alhazen-typedb` with status containing `(healthy)`. The `db-start` target waits up to 60 seconds for TypeDB readiness before running `db-init`. Each `.tql` schema file prints `OK` when loaded successfully.
+
+### 4. Post-Build Smoke Test
+
+```bash
+# Check overall status (TypeDB container + skills count):
+make status
+
+# Write a test collection to TypeDB (confirms full read/write connectivity):
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-collection --name "smoke-test"
+```
+
+Expected: `make status` shows TypeDB ✓ running. The insert-collection command returns JSON with `"success": true`.
+
+### 5. Optional: Semantic Search (Qdrant)
+
+The `scientific-literature` skill requires Qdrant for embedding-based search. It is **not** started by `make build` — start it separately only when needed:
+
+```bash
+make qdrant-start           # starts Qdrant on http://localhost:6333
+export VOYAGE_API_KEY=<key> # from https://dash.voyageai.com/
+```
+
+### Troubleshooting First-Time Setup
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `docker info` fails | Docker not running | Open Docker Desktop (macOS) or `sudo systemctl start docker` (Linux) |
+| `make build-db` hangs > 60s | TypeDB slow to start | `docker logs alhazen-typedb`; increase Docker memory in Desktop settings |
+| Port 1729 in use | Another TypeDB instance | `docker ps -a \| grep 1729` then `docker stop <id>` |
+| External skills absent from `local_skills/` | Git clone failed silently | `make skills-update` to retry; check network/git access |
+| Schema fails `[SYR1] type not found` | Missing `entity` keyword in `.tql` | See TypeDB 3.x notes — add `entity` keyword before type name |
+| Schema fails `sub attribute` syntax error | Stale 2.x schema in external skill | See External Skill Schema Fixes below |
+| TypeDB auth error in Python | Wrong credentials | Default: username=`admin`, password=`password` (no `.env` setup needed) |
+| Queries return empty after adding new skill | Schema not reloaded | Re-run `make db-init` after `make build-skills` adds a new skill |
+
+### Quick Reference
+
+```bash
+make build            # Full Phase 1 build: deps + skills + TypeDB
+make build-env        # Install Python dependencies (uv sync --all-extras)
+make build-skills     # Resolve skills-registry.yaml → local_skills/ + wire .claude/skills/
+make build-db         # Start TypeDB + load all schemas (run after build-skills)
+make db-start         # Start TypeDB container only
+make db-init          # (Re-)load all schemas into running TypeDB
+make skills-update    # Force re-clone all external skills
+make status           # Show TypeDB + skills deployment status
+make deploy-macmini   # Phase 2: deploy to Mac Mini (Docker Desktop)
+make deploy-vps       # Phase 2: deploy to VPS (Podman rootless)
 ```
 
 ## Environment Management
@@ -307,10 +397,9 @@ Example: To add a new literature source like Semantic Scholar:
 
 ## Development Commands
 
-**Quick setup (recommended):**
+**Project status:**
 ```bash
-make setup          # Install dependencies + start TypeDB + initialize database
-make status         # Check project status
+make status         # Show TypeDB container status + skills deployment count
 ```
 
 **Manual commands:**
@@ -347,9 +436,11 @@ cd dashboard && npm install && npm run dev
 ## Environment Variables
 
 **TypeDB:**
-- `TYPEDB_HOST` - TypeDB server host (default: localhost)
-- `TYPEDB_PORT` - TypeDB server port (default: 1729)
-- `TYPEDB_DATABASE` - Database name (default: alhazen_notebook)
+- `TYPEDB_HOST` - TypeDB server host (default: `localhost`)
+- `TYPEDB_PORT` - TypeDB server port (default: `1729`)
+- `TYPEDB_DATABASE` - Database name (default: `alhazen_notebook`)
+- `TYPEDB_USERNAME` - TypeDB username (default: `admin`) — no setup needed for local Docker
+- `TYPEDB_PASSWORD` - TypeDB password (default: `password`) — no setup needed for local Docker
 
 **Cache:**
 - `ALHAZEN_CACHE_DIR` - File cache directory for large artifacts (default: ~/.alhazen/cache)
@@ -442,11 +533,11 @@ When Claude makes a mistake, add it to this section so it doesn't happen again.
 
 ### External Skill Schema Fixes Must Go Upstream
 
-- **Fix schemas in `alhazen-skill-examples`, not just `local_skills/`** — External skills
-  (`jobhunt`, `techrecon`, etc.) are cloned from `~/alhazen-skill-examples`. If you fix a
-  `schema.tql` only in `local_skills/`, `make build-skills` will overwrite it on the next run.
-  Always copy the fix upstream: `cp local_skills/<skill>/schema.tql ~/alhazen-skill-examples/skills/demo/<skill>/schema.tql`
-  and commit there.
+- **Fix schemas in the upstream repo, not just `local_skills/`** — External skills
+  (`jobhunt`, `techrecon`, etc.) are cloned from `https://github.com/sciknow-io/alhazen-skill-examples`.
+  If you fix a `schema.tql` only in `local_skills/`, `make skills-update` will overwrite it.
+  Always push the fix upstream to `sciknow-io/alhazen-skill-examples` at the matching subdirectory
+  (e.g., `skills/demo/jobhunt/schema.tql`) and commit there.
 - **jobhunt + techrecon schemas were 2.x** — Both were migrated to TypeDB 3.x in Mar 2026
   (commit `6b41acf` in alhazen-skill-examples). If a schema fails on `make build-db` with a
   syntax error near `sub attribute`, the upstream source likely still has 2.x syntax.

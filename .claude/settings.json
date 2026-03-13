@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/gullyburns/skillful-alhazen && uv run python /Users/gullyburns/skillful-alhazen/local_resources/skilllog/skill_logger.py"
+            "command": "cd /Users/gullyburns/Documents/GitHub/skillful-alhazen/.claude/worktrees/zealous-sinoussi && uv run python /Users/gullyburns/Documents/GitHub/skillful-alhazen/.claude/worktrees/zealous-sinoussi/local_resources/skilllog/skill_logger.py"
           }
         ]
       }
