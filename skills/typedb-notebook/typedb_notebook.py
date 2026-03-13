@@ -26,7 +26,7 @@ Examples:
 Environment:
     TYPEDB_HOST     TypeDB server host (default: localhost)
     TYPEDB_PORT     TypeDB server port (default: 1729)
-    TYPEDB_DATABASE Database name (default: alhazen)
+    TYPEDB_DATABASE Database name (default: alhazen_notebook)
 """
 
 import argparse
@@ -70,7 +70,7 @@ except ImportError:
 # Configuration
 TYPEDB_HOST = os.getenv("TYPEDB_HOST", "localhost")
 TYPEDB_PORT = int(os.getenv("TYPEDB_PORT", "1729"))
-TYPEDB_DATABASE = os.getenv("TYPEDB_DATABASE", "alhazen")
+TYPEDB_DATABASE = os.getenv("TYPEDB_DATABASE", "alhazen_notebook")
 TYPEDB_USERNAME = os.getenv("TYPEDB_USERNAME", "admin")
 TYPEDB_PASSWORD = os.getenv("TYPEDB_PASSWORD", "password")
 
