@@ -39,7 +39,7 @@
 
 # Default skill library -- override with ALHAZEN_SKILL_LIBRARY env var or SKILL_LIBRARY make var
 defaults:
-  git: https://github.com/GullyBurns/alhazen-skill-examples
+  git: https://github.com/sciknow-io/alhazen-skill-examples
   ref: main
 
 skills:

@@ -68,7 +68,12 @@ def upsert_papers(client, papers: list[dict]) -> int:
         points.append(PointStruct(id=point_id, vector=p["vector"], payload=payload))
 
     if points:
-        client.upsert(collection_name=QDRANT_COLLECTION, points=points)
+        # Batch upserts to stay under Qdrant's 32 MB payload limit
+        batch_size = 256
+        for i in range(0, len(points), batch_size):
+            client.upsert(
+                collection_name=QDRANT_COLLECTION, points=points[i : i + batch_size]
+            )
     return len(points)
 
 
