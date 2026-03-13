@@ -2,8 +2,7 @@
 # Usage: docker compose up -d
 #
 # Services:
-# - Hub: http://localhost:8080 (master landing page)
-# - Job Hunt Dashboard: http://localhost:3001
+# - Dashboard: http://localhost:3001
 # - TypeDB: localhost:1729
 #
 # To run only TypeDB: docker compose up -d typedb
@@ -61,27 +60,13 @@ services:
     restart: "no"
 
   # ============================================
-  # Hub - Master Landing Page
+  # Dashboard
   # ============================================
-  hub:
-    build:
-      context: ./hub
-      dockerfile: Dockerfile
-    container_name: alhazen-hub
-    ports:
-      - "127.0.0.1:8080:80"
-    restart: unless-stopped
-    networks:
-      - alhazen-network
-
-  # ============================================
-  # Job Hunt Dashboard
-  # ============================================
-  jobhunt-dashboard:
+  dashboard:
     build:
       context: .
       dockerfile: dashboard/Dockerfile
-    container_name: alhazen-jobhunt-dashboard
+    container_name: alhazen-dashboard
     depends_on:
       typedb:
         condition: service_healthy
