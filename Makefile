@@ -13,6 +13,7 @@ OPENCLAW_SKILLS_DIR := $(OPENCLAW_WORKSPACE)/skills
 OPENCLAW_CONFIG := $(HOME)/.openclaw/openclaw.json
 TYPEDB_CONTAINER := alhazen-typedb
 TYPEDB_DATABASE := alhazen_notebook
+TYPEDB_COMPOSE_PROJECT := skillful-alhazen
 TYPEDB_SCHEMAS_DIR := $(PROJECT_ROOT)/local_resources/typedb
 LOCAL_SKILLS_DIR := $(PROJECT_ROOT)/local_skills
 SKILLS_REGISTRY := $(PROJECT_ROOT)/skills-registry.yaml
@@ -131,16 +132,20 @@ setup-typedb: build-db ## [deprecated] Use 'make build-db' instead
 
 .PHONY: db-start
 db-start: ## Start TypeDB container
-	@echo "$(BLUE)Starting TypeDB container...$(NC)"
-	docker compose -f docker-compose-typedb.yml up -d
-	@echo "$(BLUE)Waiting for TypeDB to be ready...$(NC)"
-	uv run python scripts/db_init.py --wait-only --timeout 60
-	@echo "$(GREEN)✓ TypeDB is ready$(NC)"
+	@if docker ps --filter "name=$(TYPEDB_CONTAINER)" --filter "status=running" --format '{{.Names}}' | grep -q $(TYPEDB_CONTAINER); then \
+		echo "$(GREEN)✓ TypeDB already running$(NC)"; \
+	else \
+		echo "$(BLUE)Starting TypeDB container...$(NC)"; \
+		docker compose -p $(TYPEDB_COMPOSE_PROJECT) -f docker-compose-typedb.yml up -d; \
+		echo "$(BLUE)Waiting for TypeDB to be ready...$(NC)"; \
+		uv run python scripts/db_init.py --wait-only --timeout 60; \
+		echo "$(GREEN)✓ TypeDB is ready$(NC)"; \
+	fi
 
 .PHONY: db-stop
 db-stop: ## Stop TypeDB container
 	@echo "$(BLUE)Stopping TypeDB container...$(NC)"
-	docker compose -f docker-compose-typedb.yml down
+	docker compose -p $(TYPEDB_COMPOSE_PROJECT) -f docker-compose-typedb.yml down
 	@echo "$(GREEN)✓ TypeDB stopped$(NC)"
 
 .PHONY: db-init
@@ -208,6 +213,7 @@ deploy-claude-settings: ## Write .claude/settings.json with absolute-path PostTo
 .PHONY: deploy-claude
 deploy-claude: deploy-claude-settings ## Symlink external skills from local_skills/ into .claude/skills/ (for Claude Code)
 	@echo "$(BLUE)Deploying external skills to Claude Code...$(NC)"
+	@mkdir -p $(CLAUDE_SKILLS_DIR)
 	@if [ ! -d "$(LOCAL_SKILLS_DIR)" ]; then \
 		echo "$(YELLOW)→ No local_skills/ directory — run 'make skills-install' first$(NC)"; \
 	else \

@@ -8,6 +8,17 @@ Skillful-Alhazen is a TypeDB-powered scientific knowledge notebook. It helps res
 
 Forked from the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project.
 
+## First-Run Check
+
+> **For agents (Claude Code, Claude Desktop, worktrees):** Before doing any work, check whether the project has been built. If `local_skills/` does not exist, run `make build` from the project root. This installs Python dependencies, clones external skills, wires `.claude/skills/` symlinks, and starts TypeDB. The build is idempotent — safe to re-run.
+>
+> ```bash
+> # Quick check — if this prints nothing, run make build
+> ls local_skills/ 2>/dev/null || echo "NOT BUILT — run: make build"
+> ```
+>
+> **Worktrees:** `make build` works from worktrees. TypeDB is a shared Docker container (uses a fixed compose project name), so `db-start` is idempotent — it skips if the container is already running. Each worktree gets its own `.venv` and `local_skills/`.
+
 ## First-Time Infrastructure Setup
 
 > **For agents:** Follow these steps in order. Each step includes a verification command. Do not proceed to the next step until the verification passes.
