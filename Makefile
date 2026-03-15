@@ -136,7 +136,7 @@ db-start: ## Start TypeDB container
 		echo "$(GREEN)✓ TypeDB already running$(NC)"; \
 	else \
 		echo "$(BLUE)Starting TypeDB container...$(NC)"; \
-		docker compose -p $(TYPEDB_COMPOSE_PROJECT) up -d typedb dashboard; \
+		docker compose -p $(TYPEDB_COMPOSE_PROJECT) up -d; \
 		echo "$(BLUE)Waiting for TypeDB to be ready...$(NC)"; \
 		uv run python scripts/db_init.py --wait-only --timeout 60; \
 		echo "$(GREEN)✓ TypeDB is ready$(NC)"; \
