@@ -361,9 +361,27 @@ Interactive Next.js TypeScript dashboard:
   - Learning plan with progress tracking
   - Stats overview cards
 
-Run with:
+**Skill dashboard wiring:** Each skill can contribute dashboard UI via `local_skills/<skill>/dashboard/`:
+```
+local_skills/<skill>/dashboard/
+  lib.ts          → dashboard/src/lib/<skill>.ts       (API client functions)
+  components/     → dashboard/src/components/<skill>/  (React components)
+  pages/          → dashboard/src/app/(<skill>)/       (Next.js pages)
+  routes/         → dashboard/src/app/api/<skill>/     (API routes)
+```
+
+- **Docker build** copies these files at build time (see `dashboard/Dockerfile` stage `node-builder`)
+- **Local dev** uses symlinks — `make build-skills` wires components/routes but **not** `lib.ts` files. You must manually symlink them:
+  ```bash
+  cd dashboard/src/lib
+  ln -sf ../../../local_skills/jobhunt/dashboard/lib.ts jobhunt.ts
+  ln -sf ../../../local_skills/techrecon/dashboard/lib.ts techrecon.ts
+  ```
+- **Docker dashboard** runs on port 3001 (mapped from container 3000): `http://localhost:3001`
+
+Run locally with:
 ```bash
-cd dashboard && npm run dev
+cd dashboard && npm install && npm run dev
 ```
 
 ## Scripts and Token Efficiency
@@ -542,16 +560,42 @@ When Claude makes a mistake, add it to this section so it doesn't happen again.
 - **No @key on custom attrs** - Only the inherited `id @key` works; adding `@key` to namespace attributes causes schema errors
 - **Full reference** — Read `local_resources/typedb/llms.txt` on demand before writing queries; full docs at `local_resources/typedb/typedb-3x-reference.md`
 
-### External Skill Schema Fixes Must Go Upstream
+### External Skill Fixes Must Go Upstream
 
-- **Fix schemas in the upstream repo, not just `local_skills/`** — External skills
+- **Fix code in the upstream repo, not just `local_skills/`** — External skills
   (`jobhunt`, `techrecon`, etc.) are cloned from `https://github.com/sciknow-io/alhazen-skill-examples`.
-  If you fix a `schema.tql` only in `local_skills/`, `make skills-update` will overwrite it.
+  If you fix a file only in `local_skills/`, `make skills-update` will overwrite it.
   Always push the fix upstream to `sciknow-io/alhazen-skill-examples` at the matching subdirectory
   (e.g., `skills/demo/jobhunt/schema.tql`) and commit there.
+- **This applies to ALL skill files** — Python scripts, schemas, dashboard components, lib.ts,
+  pages, and routes. The upstream repo at `~/Documents/GitHub/alhazen-skill-examples` is the
+  local clone. Fix there, commit, push, then `make skills-update` to pull into this project.
 - **jobhunt + techrecon schemas were 2.x** — Both were migrated to TypeDB 3.x in Mar 2026
   (commit `6b41acf` in alhazen-skill-examples). If a schema fails on `make build-db` with a
   syntax error near `sub attribute`, the upstream source likely still has 2.x syntax.
+
+### Dashboard & Docker Rebuild
+
+- **Dashboard API errors → check skill Python scripts first** — The dashboard API routes
+  (`/api/jobhunt/*`, `/api/techrecon/*`) call skill Python scripts via `child_process.execFile()`.
+  If the dashboard shows "Failed to fetch data", check `docker logs alhazen-dashboard` for the
+  actual TypeQL or Python error. The dashboard itself is usually fine — the skill script has the bug.
+- **Docker build caching hides fixes** — After fixing files in `local_skills/`, `docker compose build`
+  may use cached layers. Always use `docker compose build --no-cache dashboard` to ensure the
+  fix is picked up. The full rebuild cycle:
+  ```bash
+  cd ~/Documents/GitHub/skillful-alhazen   # main repo, not worktree
+  make skills-update                        # re-clone from upstream
+  docker compose build --no-cache dashboard
+  docker compose up -d dashboard
+  ```
+- **Dashboard page components vs API response format** — Skill dashboard page components
+  (e.g., position detail page) may use `getValue()` helpers that expect TypeDB fetch format
+  (`[{value: ...}]`), but `lib.ts` returns pre-extracted plain values (strings/numbers/nulls).
+  When writing or fixing page components, check what format the API actually returns by
+  curling the endpoint first: `curl -s http://localhost:3001/api/jobhunt/position/<id> | python3 -m json.tool`
+- **TypeQL comparison operators** — In TypeDB 3.x `not {}` clauses (and elsewhere), use `==`
+  for equality comparison, NOT `=`. `$var = "value"` causes a parse error: "expected comparator".
 
 ### Skill Script Queries
 
