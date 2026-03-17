@@ -611,3 +611,15 @@ When Claude makes a mistake, add it to this section so it doesn't happen again.
   uv run python .claude/skills/<skill>/<skill>.py <command> [args] 2>/dev/null \
       | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin),indent=2))"
   ```
+
+### CRITICAL: Never Chain Destructive Commands With make build-skills
+
+**Never combine `rm -rf` on skill directories with `make build-skills` (or any `make` target) in a single Bash tool call.**
+
+In March 2026, running `rm -rf skills/literature-trends && rm -rf local_skills/literature-trends && make build-skills` in one call **deleted the entire project directory**. The exact root cause is unknown, but likely involves the PostToolUse hook (which fires during `make`) interacting with `deploy-claude-settings`, which rewrites `.claude/settings.json` using `$(shell pwd)`. The empty output from `make` should have been a warning sign.
+
+**Rules:**
+1. **Never chain `rm -rf` + `make` in one Bash call.** Split into separate tool calls with verification between each.
+2. **Read the Makefile before running any `make` target** — `make build-skills` calls `deploy-claude-settings`, which has side effects (rewrites `settings.json`, touches `.claude/`).
+3. **After any `rm -rf`, verify the working directory still exists** before doing anything else: `ls /Users/gullyburns/skillful-alhazen/`
+4. **If `make` output is unexpectedly empty or silent, stop and investigate** before running any further commands.

@@ -407,17 +407,25 @@ try:
     import yaml
 except ImportError:
     print("PyYAML not available — install with: uv sync"); sys.exit(1)
-GREEN = '\033[32m'; YELLOW = '\033[33m'; BLUE = '\033[34m'; NC = '\033[0m'
+GREEN = '\033[32m'; YELLOW = '\033[33m'; BLUE = '\033[34m'; MAGENTA = '\033[35m'; NC = '\033[0m'
 reg = Path('skills-registry.yaml')
 if not reg.exists():
     print("No skills-registry.yaml found"); sys.exit(0)
 cfg = yaml.safe_load(reg.read_text()) or {}
-print(f"{BLUE}Skills (from skills-registry.yaml):{NC}")
-print("=" * 37)
-for skill in cfg.get('skills') or []:
+skills = list(cfg.get('skills') or [])
+local_reg = Path('skills-registry-local.yaml')
+if local_reg.exists():
+    local_cfg = yaml.safe_load(local_reg.read_text()) or {}
+    for s in local_cfg.get('skills') or []:
+        s['_local'] = True
+        skills.append(s)
+print(f"{BLUE}Skills (from skills-registry.yaml + skills-registry-local.yaml):{NC}")
+print("=" * 62)
+for skill in skills:
     name = skill['name']
-    kind = 'core' if 'path' in skill else 'external'
-    color = GREEN if kind == 'core' else YELLOW
+    is_local = skill.get('_local', False)
+    kind = 'local' if is_local else ('core' if 'path' in skill else 'external')
+    color = MAGENTA if is_local else (GREEN if kind == 'core' else YELLOW)
     resolved = Path('local_skills') / name
     desc = ''
     for candidate in [resolved / 'SKILL.md', resolved / 'skill.yaml']:
@@ -475,7 +483,12 @@ defaults = cfg.get('defaults') or {}
 # Allow env var or make-var override of the skill library URL
 skill_library = os.environ.get('ALHAZEN_SKILL_LIBRARY') or defaults.get('git', '')
 default_ref = defaults.get('ref', 'main')
-skills = cfg.get('skills') or []
+skills = list(cfg.get('skills') or [])
+# Merge local registry if present (private/client skills not committed to git)
+local_reg = Path('skills-registry-local.yaml')
+if local_reg.exists():
+    local_cfg = yaml.safe_load(local_reg.read_text()) or {}
+    skills.extend(local_cfg.get('skills') or [])
 if not skills:
     print('No skills registered in skills-registry.yaml'); sys.exit(0)
 local_skills = Path('local_skills'); local_skills.mkdir(exist_ok=True)
@@ -483,14 +496,16 @@ for skill in skills:
     name = skill['name']
     target = local_skills / name
     if 'path' in skill:
-        # Core skill: create relative symlink local_skills/<name> -> ../<path>
+        # Path skill: absolute paths symlink directly; relative paths get ../ prefix
         src = Path(skill['path'])
         if target.is_symlink():
             target.unlink()
         elif target.exists():
             print(f'  Skipping {name} (real directory exists at local_skills/{name})'); continue
-        target.symlink_to(f'../{src}')
-        print(f'  ✓ Linked (core): {name}')
+        link_target = str(src) if src.is_absolute() else f'../{src}'
+        target.symlink_to(link_target)
+        kind = 'local' if src.is_absolute() else 'core'
+        print(f'  ✓ Linked ({kind}): {name}')
         continue
     # External skill: clone from git
     git_url = skill.get('git') or skill_library
@@ -526,7 +541,12 @@ cfg = yaml.safe_load(registry.read_text()) or {}
 defaults = cfg.get('defaults') or {}
 skill_library = os.environ.get('ALHAZEN_SKILL_LIBRARY') or defaults.get('git', '')
 default_ref = defaults.get('ref', 'main')
-skills = cfg.get('skills') or []
+skills = list(cfg.get('skills') or [])
+# Merge local registry if present (private/client skills not committed to git)
+local_reg = Path('skills-registry-local.yaml')
+if local_reg.exists():
+    local_cfg = yaml.safe_load(local_reg.read_text()) or {}
+    skills.extend(local_cfg.get('skills') or [])
 if not skills:
     print('No skills registered'); sys.exit(0)
 local_skills = Path('local_skills'); local_skills.mkdir(exist_ok=True)
@@ -534,12 +554,14 @@ for skill in skills:
     name = skill['name']
     target = local_skills / name
     if 'path' in skill:
-        # Core skill: re-link (in case path changed)
+        # Path skill: re-link (absolute paths symlink directly; relative get ../ prefix)
         src = Path(skill['path'])
         if target.is_symlink(): target.unlink()
         elif target.exists(): shutil.rmtree(target)
-        target.symlink_to(f'../{src}')
-        print(f'  ✓ Re-linked (core): {name}')
+        link_target = str(src) if src.is_absolute() else f'../{src}'
+        target.symlink_to(link_target)
+        kind = 'local' if src.is_absolute() else 'core'
+        print(f'  ✓ Re-linked ({kind}): {name}')
         continue
     # External skill: re-clone from git
     git_url = skill.get('git') or skill_library
