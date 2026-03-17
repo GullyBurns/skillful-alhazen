@@ -171,4 +171,5 @@ deploy/ssh-keys/*.key
 deploy/ssh-keys/*.crt
 
 # Local Claude Files
-.claude
+.claude/skills
+.claude/settings.local.json

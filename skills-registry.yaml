@@ -66,6 +66,9 @@ skills:
   - name: alg-precision-therapeutics
     subdir: skills/biomed/alg-precision-therapeutics
 
+  - name: literature-trends
+    subdir: skills/biomed/literature-trends
+
 
 # To add more skills from the default library:
 # - name: my-skill
