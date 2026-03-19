@@ -2,11 +2,15 @@
   "name": "dashboard",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dev:electron": "ELECTRON_IS_DEV=1 NODE_ENV=development electron electron/main.js",
+    "build:electron": "next build && electron-builder",
+    "package:electron": "electron-builder --dir"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
@@ -27,6 +31,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",

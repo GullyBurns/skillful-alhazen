@@ -1,0 +1,290 @@
+# =============================================================================
+# DOMAIN-MODELING NAMESPACE - TypeDB 3.x Schema
+# =============================================================================
+# Tracks the design process of knowledge domain skills: snapshots, decisions,
+# experiments, and representation errors.
+#
+# Entity hierarchy:
+#   dm-domain           -> collection     (groups all design artifacts for a domain)
+#   dm-skill-snapshot   -> artifact       (snapshot of full skill at one git commit)
+#   dm-skill-file       -> artifact       (one captured file within a snapshot)
+#   dm-design-decision  -> domain-thing   (a specific schema design choice)
+#   dm-design-rationale -> note           (Claude's reasoning for a decision)
+#   dm-experiment       -> domain-thing   (a test of a design hypothesis)
+#   dm-experiment-result -> note          (observation from an experiment)
+#   dm-representation-error -> domain-thing (schema failure case)
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTES
+# -----------------------------------------------------------------------------
+
+attribute dm-version-tag, value string;
+attribute dm-git-commit, value string;
+attribute dm-git-repo, value string;
+attribute dm-git-branch, value string;
+attribute dm-git-message, value string;
+attribute dm-decision-type, value string;
+attribute dm-decision-summary, value string;
+attribute dm-alternatives-text, value string;
+attribute dm-linked-gap-id, value string;
+attribute dm-hypothesis, value string;
+attribute dm-metric-name, value string;
+attribute dm-metric-value, value double;
+attribute dm-experiment-status, value string;
+attribute dm-error-type, value string;
+attribute dm-error-severity, value string;
+attribute dm-error-status, value string;
+attribute dm-skill-name, value string;
+attribute dm-skill-task, value string;
+attribute dm-file-type, value string;
+attribute dm-plan-order, value integer;
+
+# -----------------------------------------------------------------------------
+# RELATIONS (before entities so role names resolve in entity plays clauses)
+# -----------------------------------------------------------------------------
+
+# A skill snapshot belongs to a domain
+relation dm-version-of,
+    relates skill-snapshot,
+    relates domain;
+
+# One skill snapshot supersedes another (linked by parent commit SHA)
+relation dm-supercedes,
+    relates newer-snapshot,
+    relates older-snapshot;
+
+# A decision, experiment, or error belongs to a domain
+relation dm-in-domain,
+    relates subject,
+    relates domain;
+
+# A design decision was made in the context of a skill snapshot (optional)
+relation dm-decision-in,
+    relates decision,
+    relates skill-snapshot;
+
+# A rationale explains a design decision
+relation dm-rationale-for,
+    relates rationale,
+    relates decision;
+
+# An experiment tests a skill snapshot or a decision
+relation dm-tests,
+    relates experiment,
+    relates subject;
+
+# An experiment result came from an experiment
+relation dm-result-of,
+    relates result,
+    relates experiment;
+
+# A representation error was found in the context of a skill snapshot (optional)
+relation dm-error-in,
+    relates error,
+    relates skill-snapshot;
+
+# An error was resolved by a design decision
+relation dm-resolved-by,
+    relates error,
+    relates resolution;
+
+# A snapshot contains one or more captured files
+relation dm-snapshot-contains,
+    relates snapshot,
+    relates file;
+
+# -----------------------------------------------------------------------------
+# ENTITIES
+# -----------------------------------------------------------------------------
+
+# Groups all design artifacts for one domain.
+# Inherits id @key, name, description, created-at from collection -> identifiable-entity.
+entity dm-domain sub collection,
+    owns dm-skill-name,
+    owns dm-skill-task,
+    plays dm-version-of:domain,
+    plays dm-in-domain:domain,
+    plays dm-system-goal:system;
+
+# Umbrella snapshot of the full skill at one git commit.
+# Inherits content + cache-path from artifact -> information-content-entity
+# for large content stored in cache instead of inline.
+entity dm-skill-snapshot sub artifact,
+    owns dm-version-tag,
+    owns dm-git-commit,
+    owns dm-git-repo,
+    owns dm-git-branch,
+    owns dm-git-message,
+    plays dm-version-of:skill-snapshot,
+    plays dm-supercedes:newer-snapshot,
+    plays dm-supercedes:older-snapshot,
+    plays dm-decision-in:skill-snapshot,
+    plays dm-tests:subject,
+    plays dm-error-in:skill-snapshot,
+    plays dm-snapshot-contains:snapshot;
+
+# One captured file within a snapshot (schema, script, prompt, manifest, test, plan, etc.)
+entity dm-skill-file sub artifact,
+    owns dm-file-type,
+    owns dm-plan-order,
+    plays dm-snapshot-contains:file;
+
+# A specific schema design choice (entity, relation, attribute, hierarchy, constraint).
+# dm-linked-gap-id is multi-valued: one value per linked schema-gap from skilllog.
+entity dm-design-decision sub domain-thing,
+    owns dm-decision-type,
+    owns dm-decision-summary,
+    owns dm-alternatives-text,
+    owns dm-linked-gap-id,
+    plays dm-in-domain:subject,
+    plays dm-decision-in:decision,
+    plays dm-rationale-for:decision,
+    plays dm-resolved-by:resolution,
+    plays dm-tests:subject;
+
+# Claude's reasoning for a design decision.
+# Inherits content, confidence, cache-path from note -> information-content-entity.
+entity dm-design-rationale sub note,
+    plays dm-rationale-for:rationale;
+
+# A test of a design hypothesis.
+entity dm-experiment sub domain-thing,
+    owns dm-hypothesis,
+    owns dm-experiment-status,
+    plays dm-in-domain:subject,
+    plays dm-tests:experiment,
+    plays dm-result-of:experiment;
+
+# Quantitative or qualitative observation from an experiment.
+# Inherits content from note -> information-content-entity.
+entity dm-experiment-result sub note,
+    owns dm-metric-name,
+    owns dm-metric-value,
+    plays dm-result-of:result;
+
+# A case where the schema failed to represent real data correctly.
+entity dm-representation-error sub domain-thing,
+    owns dm-error-type,
+    owns dm-error-severity,
+    owns dm-error-status,
+    plays dm-in-domain:subject,
+    plays dm-error-in:error,
+    plays dm-resolved-by:error;
+
+# =============================================================================
+# 5-PHASE SYSTEM DESIGN WORKFLOW
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# PHASE ATTRIBUTES
+# -----------------------------------------------------------------------------
+
+attribute dm-feasibility, value string;                   # "yes"|"partial"|"no"|"unknown"
+attribute dm-phase-number, value integer;                  # 1..5
+attribute dm-evaluation-criterion-type, value string;      # "accuracy"|"coverage"|"usability"|"completeness"
+attribute dm-evaluation-success-condition, value string;   # "when X, system should Y"
+attribute dm-evaluation-approach, value string;            # how to assess performance
+attribute dm-input-types, value string;                   # artifact/entity types consumed (free text)
+attribute dm-output-types, value string;                  # entity/relation types produced (free text)
+
+# -----------------------------------------------------------------------------
+# PHASE RELATIONS (before entities so role names resolve in entity plays clauses)
+# -----------------------------------------------------------------------------
+
+# Phase 1: dm-domain [1] -> dm-goal [1]
+relation dm-system-goal,
+    relates system,
+    relates goal;
+
+# Phase 1: dm-goal [1] -> dm-goal-eval [1..*]
+relation dm-goal-evaluation,
+    relates goal,
+    relates evaluation;
+
+# Optional cross-phase dependency (any phase entity -> any phase entity)
+relation dm-phase-depends-on,
+    relates dependent,
+    relates dependency;
+
+# Links any phase entity to its spec notes and design gaps
+relation dm-phase-artifact,
+    relates phase-subject,
+    relates phase-spec,
+    relates phase-gap;
+
+# -----------------------------------------------------------------------------
+# PHASE ENTITIES
+# -----------------------------------------------------------------------------
+
+# Phase 1 - Goal (what the system is for)
+entity dm-goal sub domain-thing,
+    owns dm-phase-number,
+    plays dm-system-goal:goal,
+    plays dm-goal-evaluation:goal,
+    plays dm-in-domain:subject;
+
+# Phase 1 - Evaluation criterion for a goal
+entity dm-goal-eval sub domain-thing,
+    owns dm-evaluation-criterion-type,
+    owns dm-evaluation-success-condition,
+    owns dm-evaluation-approach,
+    owns dm-phase-number,
+    plays dm-goal-evaluation:evaluation,
+    plays dm-in-domain:subject;
+
+# Phase 2 - What TypeDB entity/relation/attribute types does this domain define?
+entity dm-entity-schema sub domain-thing,
+    owns dm-feasibility,
+    owns dm-phase-number,
+    plays dm-in-domain:subject,
+    plays dm-phase-artifact:phase-subject,
+    plays dm-phase-depends-on:dependent,
+    plays dm-phase-depends-on:dependency;
+
+# Phase 3 - What external data sources/artifact types are needed?
+entity dm-source-schema sub domain-thing,
+    owns dm-feasibility,
+    owns dm-phase-number,
+    plays dm-in-domain:subject,
+    plays dm-phase-artifact:phase-subject,
+    plays dm-phase-depends-on:dependent,
+    plays dm-phase-depends-on:dependency;
+
+# Phase 4 - What skills/functions ingest artifacts into entities?
+entity dm-derivation-skill sub domain-thing,
+    owns dm-feasibility,
+    owns dm-phase-number,
+    owns dm-input-types,
+    owns dm-output-types,
+    plays dm-in-domain:subject,
+    plays dm-phase-artifact:phase-subject,
+    plays dm-phase-depends-on:dependent,
+    plays dm-phase-depends-on:dependency;
+
+# Phase 5 - What skills/functions analyze the database to satisfy the goal?
+entity dm-analysis-skill sub domain-thing,
+    owns dm-feasibility,
+    owns dm-phase-number,
+    owns dm-input-types,
+    owns dm-output-types,
+    plays dm-in-domain:subject,
+    plays dm-phase-artifact:phase-subject,
+    plays dm-phase-depends-on:dependent,
+    plays dm-phase-depends-on:dependency;
+
+# Spec note (forward-looking requirement - TypeQL, API spec, function signature, etc.)
+entity dm-phase-spec sub note,
+    owns dm-feasibility,
+    owns dm-phase-number,
+    plays dm-phase-artifact:phase-spec;
+
+# Design gap (something missing or unclear in any phase)
+entity dm-design-gap sub domain-thing,
+    owns dm-phase-number,
+    owns dm-error-severity,
+    owns dm-error-status,
+    plays dm-in-domain:subject,
+    plays dm-phase-artifact:phase-gap;

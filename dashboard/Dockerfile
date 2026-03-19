@@ -29,7 +29,8 @@ WORKDIR /app
 
 # Install dashboard dependencies first (better layer caching)
 COPY dashboard/package*.json ./dashboard/
-RUN cd dashboard && npm ci
+# Skip Electron binary download — Electron is only used for the desktop app, not the Docker server
+RUN cd dashboard && ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
 
 # Copy dashboard source (host symlinks for skill dashboards are dangling in Docker;
 # they'll be overwritten by ln -sfn below)
@@ -94,7 +95,6 @@ COPY local_skills/jobhunt/jobhunt.py ./.claude/skills/jobhunt/
 COPY local_skills/jobhunt/job_forager.py ./.claude/skills/jobhunt/
 COPY skills/typedb-notebook/typedb_notebook.py ./.claude/skills/typedb-notebook/
 COPY local_skills/techrecon/techrecon.py ./.claude/skills/techrecon/
-
 # Copy Node.js build and dependencies
 COPY --from=node-builder /app/dashboard/.next ./.next
 COPY --from=node-builder /app/dashboard/public ./public
