@@ -101,9 +101,11 @@ build-dashboard: build-skills ## Wire skill dashboard pages/routes/components in
 	@echo "$(BLUE)Wiring skill dashboards into Next.js app...$(NC)"
 	@mkdir -p dashboard/src/components dashboard/src/lib \
 	           dashboard/src/app dashboard/src/app/api
-	@for skill_dir in local_skills/*/; do \
+	@PUBLIC_SKILLS=$$(uv run python -c "import yaml; cfg=yaml.safe_load(open('skills-registry.yaml')); print(' '.join(s['name'] for s in (cfg.get('skills') or [])))"); \
+	for skill_dir in local_skills/*/; do \
 	  [ -d "$${skill_dir}dashboard" ] || continue; \
 	  skill_name=$$(basename $$skill_dir); \
+	  echo " $$PUBLIC_SKILLS " | grep -q " $$skill_name " || { echo "  Skipping $${skill_name} (local-registry — not wired into tracked dashboard)"; continue; }; \
 	  echo "  Wiring $${skill_name} dashboard..."; \
 	  [ -d "$${skill_dir}dashboard/components" ] && \
 	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/components" \
