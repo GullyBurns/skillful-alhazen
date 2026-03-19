@@ -28,6 +28,11 @@ show_help() {
     echo "  --telegram-token TOKEN   Telegram bot token (from @BotFather)"
     echo "  --telegram-user ID       Telegram user ID to allow (repeatable)"
     echo "  --non-interactive        Fail if missing arguments instead of prompting"
+    echo "  --skills LIST            Comma-separated skill allowlist (default: all)"
+    echo "                           Example: --skills \"jobhunt,typedb-notebook,web-search\""
+    echo "  --anthropic-rpm N        Anthropic RPM cap for LiteLLM (default: 50)"
+    echo "  --anthropic-tpm N        Anthropic TPM cap for LiteLLM (default: 40000)"
+    echo "  --litellm-max-parallel N Max concurrent LiteLLM requests (default: 3)"
     echo "  -h, --help               Show this help message"
     echo ""
 }
@@ -48,6 +53,10 @@ ASK_PASS=false
 SSH_KEY=""
 TELEGRAM_BOT_TOKEN=""
 TELEGRAM_USERS=""
+SKILLS_ALLOWLIST=""
+ANTHROPIC_RPM=""
+ANTHROPIC_TPM=""
+LITELLM_MAX_PARALLEL=""
 
 # Parse Arguments
 while [[ "$#" -gt 0 ]]; do
@@ -73,6 +82,10 @@ while [[ "$#" -gt 0 ]]; do
             shift ;;
         --ask-pass) ASK_PASS=true ;;
         --non-interactive) INTERACTIVE=false ;;
+        --skills) SKILLS_ALLOWLIST="$2"; shift ;;
+        --anthropic-rpm) ANTHROPIC_RPM="$2"; shift ;;
+        --anthropic-tpm) ANTHROPIC_TPM="$2"; shift ;;
+        --litellm-max-parallel) LITELLM_MAX_PARALLEL="$2"; shift ;;
         -h|--help) show_help; exit 0 ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
@@ -192,6 +205,13 @@ if [ "$INTERACTIVE" = true ]; then
         read -p "Telegram User IDs: " input_users
         TELEGRAM_USERS="${input_users}"
     fi
+
+    if [ -z "$SKILLS_ALLOWLIST" ]; then
+        echo ""
+        echo "Skills to deploy (comma-separated, leave empty for all):"
+        read -p "Skills [all]: " input_skills
+        SKILLS_ALLOWLIST="${input_skills}"
+    fi
 fi
 
 # --- Validation ---
@@ -307,7 +327,7 @@ if [ -n "$SSH_KEY" ]; then
 fi
 
 ansible-playbook -i "$TEMP_INVENTORY" playbook.yml $ANSIBLE_ARGS \
-    --extra-vars "llm_provider='$LLM_PROVIDER' llm_model='$LLM_MODEL' llm_url='$LLM_URL' llm_key='$LLM_KEY' target_type='$TARGET_TYPE' deploy_branch='$DEPLOY_BRANCH' compose_project_name='$PROJECT_NAME' container_prefix='$CONTAINER_PREFIX' typedb_host_port='$TYPEDB_HOST_PORT' mcp_host_port='$MCP_HOST_PORT' dashboard_host_port='$DASHBOARD_HOST_PORT' telegram_bot_token='$TELEGRAM_BOT_TOKEN' telegram_users='$TELEGRAM_USERS'"
+    --extra-vars "llm_provider='$LLM_PROVIDER' llm_model='$LLM_MODEL' llm_url='$LLM_URL' llm_key='$LLM_KEY' target_type='$TARGET_TYPE' deploy_branch='$DEPLOY_BRANCH' compose_project_name='$PROJECT_NAME' container_prefix='$CONTAINER_PREFIX' typedb_host_port='$TYPEDB_HOST_PORT' mcp_host_port='$MCP_HOST_PORT' dashboard_host_port='$DASHBOARD_HOST_PORT' telegram_bot_token='$TELEGRAM_BOT_TOKEN' telegram_users='$TELEGRAM_USERS' skills_allowlist='$SKILLS_ALLOWLIST' anthropic_rpm='${ANTHROPIC_RPM:-50}' anthropic_tpm='${ANTHROPIC_TPM:-40000}' litellm_max_parallel='${LITELLM_MAX_PARALLEL:-3}'"
 
 # Cleanup
 rm "$TEMP_INVENTORY"

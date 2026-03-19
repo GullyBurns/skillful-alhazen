@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /Users/gullyburns/skillful-alhazen && uv run python /Users/gullyburns/skillful-alhazen/local_resources/skilllog/skill_logger.py"
+            "command": "REPO=$(git rev-parse --show-toplevel) && cd \"$REPO\" && uv run python \"$REPO/local_resources/skilllog/skill_logger.py\""
           }
         ]
       }

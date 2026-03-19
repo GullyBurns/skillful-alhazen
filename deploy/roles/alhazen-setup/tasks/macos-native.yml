@@ -355,16 +355,6 @@
   become: true
   become_user: "{{ openclaw_user }}"
 
-- name: Add Heartbeat Config to openclaw.json
-  shell: |
-    if ! jq -e '.agents.defaults.heartbeat' "{{ openclaw_home }}/.openclaw/openclaw.json" >/dev/null 2>&1; then
-      jq '.agents.defaults.heartbeat = {"every": "2h", "target": "last", "activeHours": {"start": "08:00", "end": "22:00", "timezone": "America/Los_Angeles"}}' \
-        "{{ openclaw_home }}/.openclaw/openclaw.json" > "{{ openclaw_home }}/.openclaw/openclaw.json.tmp" && \
-        mv "{{ openclaw_home }}/.openclaw/openclaw.json.tmp" "{{ openclaw_home }}/.openclaw/openclaw.json"
-    fi
-  become: true
-  become_user: "{{ openclaw_user }}"
-
 # --- Deploy and Load launchd Plists ---
 
 - name: Deploy launchd Plists
@@ -401,6 +391,30 @@
   delay: 4
   register: litellm_health
   until: litellm_health.rc == 0
+  ignore_errors: true
+
+- name: Wait for OpenClaw Gateway to be Ready
+  shell: curl -sf http://127.0.0.1:18789/health
+  retries: 15
+  delay: 4
+  register: openclaw_health
+  until: openclaw_health.rc == 0
+  ignore_errors: true
+
+# Run doctor --fix to apply any automated config migrations (e.g. auto-enable telegram plugin).
+# Expected residual warnings after a clean deploy (all benign):
+#   "Gateway service not installed" — doctor looks for a LaunchAgent (user-level), but we
+#     intentionally use a LaunchDaemon (system-level) so the service starts headless at boot.
+#     openclaw docs confirm this is the correct pattern for headless servers.
+#   "Gateway bound to lan" — intentional; Mac Mini acts as LAN gateway.
+#   "Port 18789 in use, process details unavailable" — false alarm; lsof unavailable as this user.
+- name: Apply automated openclaw config fixes (doctor --fix)
+  shell: "{{ openclaw_home }}/.npm-global/bin/openclaw doctor --fix"
+  become: true
+  become_user: "{{ openclaw_user }}"
+  environment:
+    HOME: "{{ openclaw_home }}"
+    PATH: "{{ openclaw_home }}/.npm-global/bin:{{ macos_path }}"
   ignore_errors: true
 
 - name: Show Service Status

@@ -172,7 +172,7 @@ deploy/ssh-keys/*.crt
 
 # Local Claude Files
 .claude/skills
-.claude/settings.local.json
+.claude/settings.local.json 
 
-# Local skills registry (private/client-specific skills not for sharing)
+# Local skills registry (private/proprietary skills)
 skills-registry-local.yaml

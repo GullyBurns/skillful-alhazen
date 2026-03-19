@@ -56,4 +56,21 @@ uv run python .claude/skills/domain-modeling/domain_modeling.py \
     export-design --domain-id dm-domain-XXXX
 ```
 
+## 5-Phase System Design Workflow
+
+Use the structured phase workflow to build a TypeDB record of the full design process for a skill. Each phase captures what the system is for, what data it models, where data comes from, what skills ingest it, and what skills analyze it.
+
+| Phase | What it captures | Key command |
+|-------|-----------------|-------------|
+| 1 -- Goal | System purpose + evaluation criteria | `define-goal`, `add-evaluation` |
+| 2 -- Entity Schema | TypeDB types the domain defines | `add-entity-schema` |
+| 3 -- Source Schema | External data sources + artifact types | `add-source-schema` |
+| 4 -- Derivation Skills | Ingestion functions (artifact -> entity) | `add-derivation-skill` |
+| 5 -- Analysis Skills | Query functions (entity -> insight) | `add-analysis-skill` |
+
+Spec notes and design gaps attach to any phase entity via `add-phase-spec` / `add-phase-gap`.
+Export the full structured report with `export-design-phases`.
+
+**Read USAGE.md section "5-Phase System Design Workflow" before using these commands.**
+
 **Before executing commands, read `USAGE.md` in this directory for the complete phase breakdown, design tracking workflow, schema templates, and documentation checklist.**

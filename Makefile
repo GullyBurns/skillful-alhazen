@@ -206,8 +206,8 @@ endif
 # =============================================================================
 
 .PHONY: deploy-claude-settings
-deploy-claude-settings: ## Write .claude/settings.json with absolute-path PostToolUse hook
-	@printf '{\n  "hooks": {\n    "PostToolUse": [\n      {\n        "matcher": "Bash",\n        "hooks": [\n          {\n            "type": "command",\n            "command": "cd $(PROJECT_ROOT) && uv run python $(SKILL_LOGGER)"\n          }\n        ]\n      }\n    ]\n  }\n}\n' > $(PROJECT_ROOT)/.claude/settings.json
+deploy-claude-settings: ## Write .claude/settings.json with portable PostToolUse hook
+	@printf '{\n  "hooks": {\n    "PostToolUse": [\n      {\n        "matcher": "Bash",\n        "hooks": [\n          {\n            "type": "command",\n            "command": "REPO=$$(git rev-parse --show-toplevel) && cd \\"$$REPO\\" && uv run python \\"$$REPO/local_resources/skilllog/skill_logger.py\\""\n          }\n        ]\n      }\n    ]\n  }\n}\n' > $(PROJECT_ROOT)/.claude/settings.json
 	@echo "$(GREEN)  ✓ Wrote .claude/settings.json$(NC)"
 
 .PHONY: deploy-claude

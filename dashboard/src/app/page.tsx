@@ -44,7 +44,7 @@ export default function HubPage() {
 
       {/* Dashboard Cards */}
       <main className="container mx-auto px-4 flex-1">
-        <div className="grid grid-cols-1 gap-6 max-w-lg mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
           {/* Job Hunt Dashboard */}
           <Link href="/jobhunt" className="group">
             <Card className="h-full transition-all hover:border-indigo-500/50 hover:-translate-y-1">
@@ -64,6 +64,7 @@ export default function HubPage() {
               </CardContent>
             </Card>
           </Link>
+
         </div>
 
         {/* Backend Services */}

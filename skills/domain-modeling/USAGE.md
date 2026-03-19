@@ -899,3 +899,165 @@ Don't create a domain for:
 - Simple lookups (use web search)
 - One-time questions (just ask)
 - Unstructured brainstorming (use notes)
+
+---
+
+## 5-Phase System Design Workflow
+
+The 5-phase workflow captures the full design record for a skill from goal to analysis. Each phase produces TypeDB entities that link spec notes and design gaps polymorphically.
+
+| Phase | Entity type | Purpose |
+|-------|-------------|---------|
+| 1 | `dm-goal` + `dm-goal-eval` | What the system is for and how success is measured |
+| 2 | `dm-entity-schema` | TypeDB entity/relation/attribute types defined |
+| 3 | `dm-source-schema` | External data sources and artifact types needed |
+| 4 | `dm-derivation-skill` | Ingestion functions: artifact types in, entity types out |
+| 5 | `dm-analysis-skill` | Analysis functions: entity types queried, outputs produced |
+
+Spec notes (`dm-phase-spec`) and design gaps (`dm-design-gap`) link to whichever phase entity they belong to via `dm-phase-artifact` -- the relation handles all five phases polymorphically.
+
+### Phase 1: System Goal
+
+```bash
+# Create domain (if not already done)
+DOMAIN=$(uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  init-domain --name "augura" --skill augura \
+  --description "FDA regulatory intelligence" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+# Define the system goal
+GOAL=$(uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  define-goal --domain-id $DOMAIN \
+  --name "Identify unmet need from 510k clearances" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+# Add an evaluation criterion
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  add-evaluation \
+  --goal-id $GOAL --domain-id $DOMAIN \
+  --name "Predicate chain completeness" \
+  --description "Given a 510(k) K-number, reconstructs the full predicate chain back to De Novo." \
+  --criterion-type completeness \
+  --success-condition "For 80% of tested Class II AI/ML devices, zero unknown links" \
+  --approach "Manual review of 20 randomly sampled submissions against FDA IQOQ database"
+
+# Show goal + evaluations
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  show-goal --domain-id $DOMAIN
+```
+
+### Phase 2: Entity Schema
+
+```bash
+SCHEMA=$(uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  add-entity-schema --domain-id $DOMAIN \
+  --name "Augura core entities" \
+  --description "augura-device, augura-submission, augura-predicate-rel, augura-mdr, augura-recall" \
+  --feasibility yes \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+# Attach a TypeQL spec note
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  add-phase-spec --phase-id $SCHEMA \
+  --content "entity augura-device sub domain-thing, owns fda-device-name, owns fda-product-code;"
+
+# Show the phase item with specs
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  show-phase-item --phase-id $SCHEMA
+```
+
+### Phase 3: Source Schema
+
+```bash
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  add-source-schema --domain-id $DOMAIN \
+  --name "FDA 510k database" \
+  --description "510k clearance records from accessdata.fda.gov; HTML artifact per submission" \
+  --feasibility yes
+```
+
+### Phase 4: Derivation Skills
+
+```bash
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  add-derivation-skill --domain-id $DOMAIN \
+  --name "ingest-510k" \
+  --description "Fetch 510k page, store HTML artifact, extract device + submission entities" \
+  --input-types "html artifact (510k clearance page)" \
+  --output-types "augura-device, augura-submission" \
+  --feasibility yes
+```
+
+### Phase 5: Analysis Skills
+
+```bash
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  add-analysis-skill --domain-id $DOMAIN \
+  --name "trace-predicate-chain" \
+  --description "Given a K-number, follow predicate-rel links back to De Novo or preamendment device" \
+  --input-types "augura-submission, augura-predicate-rel" \
+  --output-types "Markdown report: ordered chain with gaps flagged" \
+  --feasibility partial
+```
+
+### Cross-Phase Dependencies
+
+Use `--depends-on` to record that one phase entity builds on another:
+
+```bash
+# Derivation skill depends on the source schema
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  add-derivation-skill --domain-id $DOMAIN \
+  --name "ingest-maude" \
+  --description "Ingest MAUDE adverse event reports" \
+  --input-types "json artifact (MAUDE API response)" \
+  --output-types "augura-mdr" \
+  --depends-on $SOURCE_ID
+```
+
+### Design Gaps
+
+```bash
+# Flag something missing or unclear
+GAP=$(uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  add-phase-gap \
+  --phase-id $SCHEMA --domain-id $DOMAIN \
+  --description "No representation for 510k substantial equivalence decision text" \
+  --severity moderate \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+# List open gaps
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  list-phase-gaps --domain-id $DOMAIN --status open
+
+# Resolve a gap
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  resolve-phase-gap --gap-id $GAP
+```
+
+### Export
+
+```bash
+uv run python .claude/skills/domain-modeling/domain_modeling.py \
+  export-design-phases --domain-id $DOMAIN \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['markdown'])"
+```
+
+The export produces a Markdown document with Phase 1 goal + evaluations, followed by sections for each phase entity with embedded spec notes and open gaps.
+
+### TypeQL Query Examples
+
+```typeql
+# List all open design gaps for a domain
+match $g isa dm-design-gap, has dm-error-status "open";
+      $d isa dm-domain, has id "dm-domain-XXXX";
+      (subject: $g, domain: $d) isa dm-in-domain;
+fetch { "id": $g.id, "description": $g.description,
+        "severity": $g.dm-error-severity, "phase": $g.dm-phase-number };
+
+# Trace a derivation skill's outputs
+match $sk isa dm-derivation-skill, has id "dm-derivation-skill-YYYY";
+fetch { "id": $sk.id, "name": $sk.name,
+        "inputs": $sk.dm-input-types, "outputs": $sk.dm-output-types,
+        "feasibility": $sk.dm-feasibility };
+```

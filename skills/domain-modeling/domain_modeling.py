@@ -348,6 +348,54 @@ def cmd_show_domain(args):
         """
         errors = fetch_query(driver, err_q)
 
+        # Goals + evaluations
+        goal_q = f"""
+            match $g isa dm-goal;
+                  $d isa dm-domain, has id "{eid}";
+                  (system: $d, goal: $g) isa dm-system-goal;
+            fetch {{ "id": $g.id, "name": $g.name, "description": $g.description,
+                    "phase": $g.dm-phase-number }};
+        """
+        goals = fetch_query(driver, goal_q)
+
+        goal_evals_map = {}
+        for g in goals:
+            gid = escape_string(g.get("id", ""))
+            eval_q = f"""
+                match $e isa dm-goal-eval;
+                      $g isa dm-goal, has id "{gid}";
+                      (goal: $g, evaluation: $e) isa dm-goal-evaluation;
+                fetch {{ "id": $e.id, "name": $e.name,
+                        "criterion_type": $e.dm-evaluation-criterion-type,
+                        "success_condition": $e.dm-evaluation-success-condition }};
+            """
+            goal_evals_map[g.get("id")] = fetch_query(driver, eval_q)
+
+        # Phase entities grouped by type
+        phase_items = {}
+        for ptype in ["dm-entity-schema", "dm-source-schema", "dm-derivation-skill", "dm-analysis-skill"]:
+            pq = f"""
+                match $p isa {ptype};
+                      $d isa dm-domain, has id "{eid}";
+                      (subject: $p, domain: $d) isa dm-in-domain;
+                fetch {{ "id": $p.id, "name": $p.name, "feasibility": $p.dm-feasibility,
+                        "phase": $p.dm-phase-number }};
+            """
+            phase_items[ptype] = fetch_query(driver, pq)
+
+        # Count open design gaps per phase entity
+        open_gap_counts = {}
+        gap_count_q = f"""
+            match $g isa dm-design-gap, has dm-error-status "open";
+                  $d isa dm-domain, has id "{eid}";
+                  (subject: $g, domain: $d) isa dm-in-domain;
+            fetch {{ "id": $g.id, "phase": $g.dm-phase-number }};
+        """
+        for row in fetch_query(driver, gap_count_q):
+            pn = row.get("phase")
+            if pn is not None:
+                open_gap_counts[pn] = open_gap_counts.get(pn, 0) + 1
+
     out({
         "success": True,
         "domain": domain,
@@ -356,6 +404,10 @@ def cmd_show_domain(args):
         "decision_version_map": dv_map,
         "experiments": experiments,
         "errors": errors,
+        "goals": goals,
+        "goal_evaluations": goal_evals_map,
+        "phase_items": phase_items,
+        "open_gap_counts_by_phase": open_gap_counts,
     })
 
 
@@ -1338,6 +1390,641 @@ def cmd_export_design(args):
 
 
 # =============================================================================
+# 5-PHASE SYSTEM DESIGN WORKFLOW
+# =============================================================================
+
+
+def cmd_define_goal(args):
+    """Insert dm-goal + dm-system-goal relation to domain."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    goal_id = generate_id("dm-goal")
+    ts = get_timestamp()
+
+    clauses = [
+        s("id", goal_id),
+        s("name", args.name),
+        dt("created-at", ts),
+    ]
+    if args.description:
+        clauses.append(s("description", args.description))
+    clauses.append(num("dm-phase-number", 1))
+
+    with get_driver() as driver:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            insert_entity(tx, "dm-goal", clauses)
+            insert_relation(tx, "dm-system-goal", {
+                "system": ("dm-domain", args.domain_id),
+                "goal": ("dm-goal", goal_id),
+            })
+            insert_relation(tx, "dm-in-domain", {
+                "subject": ("dm-goal", goal_id),
+                "domain": ("dm-domain", args.domain_id),
+            })
+            tx.commit()
+
+    out({"success": True, "id": goal_id, "name": args.name, "domain_id": args.domain_id})
+
+
+def cmd_add_evaluation(args):
+    """Insert dm-goal-eval + dm-goal-evaluation relation to goal."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    eval_id = generate_id("dm-goal-eval")
+    ts = get_timestamp()
+
+    clauses = [
+        s("id", eval_id),
+        s("name", args.name),
+        s("description", args.description),
+        dt("created-at", ts),
+    ]
+    clauses.append(num("dm-phase-number", 1))
+    if args.criterion_type:
+        clauses.append(s("dm-evaluation-criterion-type", args.criterion_type))
+    if args.success_condition:
+        clauses.append(s("dm-evaluation-success-condition", args.success_condition))
+    if args.approach:
+        clauses.append(s("dm-evaluation-approach", args.approach))
+
+    with get_driver() as driver:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            insert_entity(tx, "dm-goal-eval", clauses)
+            insert_relation(tx, "dm-goal-evaluation", {
+                "goal": ("dm-goal", args.goal_id),
+                "evaluation": ("dm-goal-eval", eval_id),
+            })
+            insert_relation(tx, "dm-in-domain", {
+                "subject": ("dm-goal-eval", eval_id),
+                "domain": ("dm-domain", args.domain_id),
+            })
+            tx.commit()
+
+    out({"success": True, "id": eval_id, "goal_id": args.goal_id, "name": args.name})
+
+
+def cmd_show_goal(args):
+    """Fetch goal + all evaluations for a domain."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    eid = escape_string(args.domain_id)
+
+    with get_driver() as driver:
+        goal_q = f"""
+            match $g isa dm-goal;
+                  $d isa dm-domain, has id "{eid}";
+                  (system: $d, goal: $g) isa dm-system-goal;
+            fetch {{ "id": $g.id, "name": $g.name, "description": $g.description,
+                    "phase": $g.dm-phase-number, "created": $g.created-at }};
+        """
+        goals = fetch_query(driver, goal_q)
+
+        evaluations = []
+        for goal in goals:
+            gid = escape_string(goal.get("id", ""))
+            eval_q = f"""
+                match $e isa dm-goal-eval;
+                      $g isa dm-goal, has id "{gid}";
+                      (goal: $g, evaluation: $e) isa dm-goal-evaluation;
+                fetch {{ "id": $e.id, "name": $e.name, "description": $e.description,
+                        "criterion_type": $e.dm-evaluation-criterion-type,
+                        "success_condition": $e.dm-evaluation-success-condition,
+                        "approach": $e.dm-evaluation-approach,
+                        "created": $e.created-at }};
+            """
+            evals = fetch_query(driver, eval_q)
+            evaluations.append({"goal": goal, "evaluations": evals})
+
+    out({"success": True, "domain_id": args.domain_id, "goals": evaluations})
+
+
+def cmd_ingest_design_doc(args):
+    """Store design document and link to domain via aboutness relation."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    doc_path = Path(args.file)
+    if not doc_path.exists():
+        out({"success": False, "error": f"File not found: {args.file}"})
+        return
+
+    with get_driver() as driver:
+        file_id = _insert_skill_file(
+            driver,
+            args.snapshot_id if hasattr(args, "snapshot_id") and args.snapshot_id else args.domain_id,
+            doc_path,
+            "design-doc",
+            args.format or "markdown",
+        )
+        # Link to domain via a description update on the file
+        if args.description:
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                q = f"""
+                    match $f isa dm-skill-file, has id "{escape_string(file_id)}";
+                    insert $f has description "{escape_string(args.description)}";
+                """
+                tx.query(q).resolve()
+                tx.commit()
+
+    out({
+        "success": True,
+        "id": file_id,
+        "domain_id": args.domain_id,
+        "file": str(doc_path),
+        "format": args.format or "markdown",
+    })
+
+
+_PHASE_ENTITY_TYPES = [
+    "dm-entity-schema",
+    "dm-source-schema",
+    "dm-derivation-skill",
+    "dm-analysis-skill",
+    "dm-goal",
+    "dm-goal-eval",
+    "dm-design-gap",
+]
+
+
+def _resolve_phase_entity_type(driver, entity_id: str) -> str | None:
+    """Probe each known phase entity type to find the concrete type of this id."""
+    eid = escape_string(entity_id)
+    for etype in _PHASE_ENTITY_TYPES:
+        q = f'match $p isa {etype}, has id "{eid}"; fetch {{ "id": $p.id }};'
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            results = list(tx.query(q).resolve())
+        if results:
+            return etype
+    return None
+
+
+def _insert_phase_entity(driver, entity_type: str, domain_id: str, name: str,
+                          phase_number: int, description: str = None,
+                          feasibility: str = "unknown",
+                          input_types: str = None, output_types: str = None,
+                          depends_on_id: str = None) -> str:
+    """Insert a phase entity (dm-entity-schema, dm-source-schema, etc.) + dm-in-domain."""
+    entity_id = generate_id(entity_type)
+    ts = get_timestamp()
+
+    clauses = [
+        s("id", entity_id),
+        s("name", name),
+        dt("created-at", ts),
+        num("dm-phase-number", phase_number),
+        s("dm-feasibility", feasibility),
+    ]
+    if description:
+        clauses.append(s("description", description))
+    if input_types:
+        clauses.append(s("dm-input-types", input_types))
+    if output_types:
+        clauses.append(s("dm-output-types", output_types))
+
+    with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+        insert_entity(tx, entity_type, clauses)
+        insert_relation(tx, "dm-in-domain", {
+            "subject": (entity_type, entity_id),
+            "domain": ("dm-domain", domain_id),
+        })
+        if depends_on_id:
+            # depends_on_id could be any phase entity type — no isa hint, TypeDB infers from role
+            match_str = f'$dep has id "{escape_string(depends_on_id)}";'
+            match_str2 = f'$ent isa {entity_type}, has id "{escape_string(entity_id)}";'
+            tx.query(f"match {match_str} {match_str2} insert (dependent: $ent, dependency: $dep) isa dm-phase-depends-on;").resolve()
+        tx.commit()
+
+    return entity_id
+
+
+def cmd_add_entity_schema(args):
+    """Insert dm-entity-schema + dm-in-domain."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    with get_driver() as driver:
+        entity_id = _insert_phase_entity(
+            driver, "dm-entity-schema", args.domain_id, args.name, 2,
+            description=args.description,
+            feasibility=args.feasibility or "unknown",
+            depends_on_id=args.depends_on,
+        )
+    out({"success": True, "id": entity_id, "type": "dm-entity-schema", "domain_id": args.domain_id})
+
+
+def cmd_add_source_schema(args):
+    """Insert dm-source-schema + dm-in-domain."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    with get_driver() as driver:
+        entity_id = _insert_phase_entity(
+            driver, "dm-source-schema", args.domain_id, args.name, 3,
+            description=args.description,
+            feasibility=args.feasibility or "unknown",
+            depends_on_id=args.depends_on,
+        )
+    out({"success": True, "id": entity_id, "type": "dm-source-schema", "domain_id": args.domain_id})
+
+
+def cmd_add_derivation_skill(args):
+    """Insert dm-derivation-skill + dm-in-domain."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    with get_driver() as driver:
+        entity_id = _insert_phase_entity(
+            driver, "dm-derivation-skill", args.domain_id, args.name, 4,
+            description=args.description,
+            feasibility=args.feasibility or "unknown",
+            input_types=getattr(args, 'input_types', None),
+            output_types=getattr(args, 'output_types', None),
+            depends_on_id=args.depends_on,
+        )
+    out({"success": True, "id": entity_id, "type": "dm-derivation-skill", "domain_id": args.domain_id})
+
+
+def cmd_add_analysis_skill(args):
+    """Insert dm-analysis-skill + dm-in-domain."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    with get_driver() as driver:
+        entity_id = _insert_phase_entity(
+            driver, "dm-analysis-skill", args.domain_id, args.name, 5,
+            description=args.description,
+            feasibility=args.feasibility or "unknown",
+            input_types=getattr(args, 'input_types', None),
+            output_types=getattr(args, 'output_types', None),
+            depends_on_id=args.depends_on,
+        )
+    out({"success": True, "id": entity_id, "type": "dm-analysis-skill", "domain_id": args.domain_id})
+
+
+def cmd_add_phase_spec(args):
+    """Insert dm-phase-spec + dm-phase-artifact(phase-subject, phase-spec) relation."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    spec_id = generate_id("dm-phase-spec")
+    ts = get_timestamp()
+
+    clauses = [
+        s("id", spec_id),
+        s("name", f"spec-{ts[:10]}"),
+        dt("created-at", ts),
+        s("content", args.content),
+        s("format", "text"),
+    ]
+    if args.feasibility:
+        clauses.append(s("dm-feasibility", args.feasibility))
+
+    phase_id = args.phase_id
+
+    with get_driver() as driver:
+        phase_type = _resolve_phase_entity_type(driver, phase_id)
+        if not phase_type:
+            out({"success": False, "error": f"Phase entity not found: {phase_id}"})
+            return
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            insert_entity(tx, "dm-phase-spec", clauses)
+            match_q = f'$ps isa {phase_type}, has id "{escape_string(phase_id)}";'
+            spec_q = f'$sp isa dm-phase-spec, has id "{escape_string(spec_id)}";'
+            rel_q = f"(phase-subject: $ps, phase-spec: $sp) isa dm-phase-artifact;"
+            tx.query(f"match {match_q} {spec_q} insert {rel_q}").resolve()
+            tx.commit()
+
+    out({"success": True, "id": spec_id, "phase_id": phase_id})
+
+
+def cmd_add_phase_gap(args):
+    """Insert dm-design-gap + dm-phase-artifact(phase-subject, phase-gap) + dm-in-domain."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    gap_id = generate_id("dm-design-gap")
+    ts = get_timestamp()
+
+    clauses = [
+        s("id", gap_id),
+        s("name", args.description[:80]),
+        s("description", args.description),
+        dt("created-at", ts),
+        s("dm-error-severity", args.severity or "moderate"),
+        s("dm-error-status", "open"),
+    ]
+
+    phase_id = args.phase_id
+
+    with get_driver() as driver:
+        phase_type = _resolve_phase_entity_type(driver, phase_id)
+        if not phase_type:
+            out({"success": False, "error": f"Phase entity not found: {phase_id}"})
+            return
+
+        # Get phase number from the phase entity
+        pn_q = f"""
+            match $p isa {phase_type}, has id "{escape_string(phase_id)}",
+                  has dm-phase-number $pn;
+            fetch {{ "phase_number": $pn }};
+        """
+        pn_res = fetch_query(driver, pn_q)
+        if pn_res:
+            pn = pn_res[0].get("phase_number")
+            if pn is not None:
+                clauses.append(num("dm-phase-number", pn))
+
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            insert_entity(tx, "dm-design-gap", clauses)
+            match_q = f'$ps isa {phase_type}, has id "{escape_string(phase_id)}";'
+            gap_q = f'$gp isa dm-design-gap, has id "{escape_string(gap_id)}";'
+            rel_q = "(phase-subject: $ps, phase-gap: $gp) isa dm-phase-artifact;"
+            tx.query(f"match {match_q} {gap_q} insert {rel_q}").resolve()
+            # Link to domain
+            insert_relation(tx, "dm-in-domain", {
+                "subject": ("dm-design-gap", gap_id),
+                "domain": ("dm-domain", args.domain_id),
+            })
+            tx.commit()
+
+    out({"success": True, "id": gap_id, "phase_id": phase_id, "domain_id": args.domain_id})
+
+
+def cmd_resolve_phase_gap(args):
+    """Update dm-error-status to 'resolved'; optionally link to dm-design-decision."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    with get_driver() as driver:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            update_attr(tx, "dm-design-gap", args.gap_id, "dm-error-status", "resolved")
+            if args.decision_id:
+                insert_relation(tx, "dm-resolved-by", {
+                    "error": ("dm-design-gap", args.gap_id),
+                    "resolution": ("dm-design-decision", args.decision_id),
+                })
+            tx.commit()
+
+    out({"success": True, "id": args.gap_id, "status": "resolved"})
+
+
+def cmd_list_phase_gaps(args):
+    """List dm-design-gap entities for a domain."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    eid = escape_string(args.domain_id)
+    status = args.status or "open"
+    status_filter = f', has dm-error-status "{escape_string(status)}"'
+
+    q = f"""
+        match $g isa dm-design-gap{status_filter};
+              $d isa dm-domain, has id "{eid}";
+              (subject: $g, domain: $d) isa dm-in-domain;
+        fetch {{ "id": $g.id, "name": $g.name, "description": $g.description,
+                "severity": $g.dm-error-severity, "status": $g.dm-error-status,
+                "phase": $g.dm-phase-number, "created": $g.created-at }};
+    """
+    with get_driver() as driver:
+        results = fetch_query(driver, q)
+
+    out({"success": True, "domain_id": args.domain_id, "status": status,
+         "count": len(results), "gaps": results})
+
+
+def cmd_show_phase_item(args):
+    """Fetch one phase entity with its specs and gaps."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    pid = escape_string(args.phase_id)
+
+    with get_driver() as driver:
+        phase_type = _resolve_phase_entity_type(driver, args.phase_id)
+        if not phase_type:
+            out({"success": False, "error": f"Phase item not found: {args.phase_id}"})
+            return
+
+        _HAS_IO = phase_type in ("dm-derivation-skill", "dm-analysis-skill")
+        io_fields = ', "input_types": $p.dm-input-types, "output_types": $p.dm-output-types' if _HAS_IO else ""
+        item_q = f"""
+            match $p isa {phase_type}, has id "{pid}";
+            fetch {{ "id": $p.id, "name": $p.name, "description": $p.description,
+                    "feasibility": $p.dm-feasibility, "phase": $p.dm-phase-number{io_fields},
+                    "created": $p.created-at }};
+        """
+        item_res = fetch_query(driver, item_q)
+        if not item_res:
+            out({"success": False, "error": f"Phase item not found: {args.phase_id}"})
+            return
+        item = item_res[0]
+
+        spec_q = f"""
+            match $p isa {phase_type}, has id "{pid}";
+                  $sp isa dm-phase-spec;
+                  (phase-subject: $p, phase-spec: $sp) isa dm-phase-artifact;
+            fetch {{ "id": $sp.id, "content": $sp.content,
+                    "feasibility": $sp.dm-feasibility, "created": $sp.created-at }};
+        """
+        specs = fetch_query(driver, spec_q)
+
+        gap_q = f"""
+            match $p isa {phase_type}, has id "{pid}";
+                  $gp isa dm-design-gap;
+                  (phase-subject: $p, phase-gap: $gp) isa dm-phase-artifact;
+            fetch {{ "id": $gp.id, "name": $gp.name, "description": $gp.description,
+                    "severity": $gp.dm-error-severity, "status": $gp.dm-error-status,
+                    "created": $gp.created-at }};
+        """
+        gaps = fetch_query(driver, gap_q)
+
+    out({"success": True, "item": item, "specs": specs, "gaps": gaps})
+
+
+def cmd_export_design_phases(args):
+    """Structured Markdown report: goal -> evaluations -> each phase entity with specs and gaps."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    domain_id = args.domain_id
+    eid = escape_string(domain_id)
+
+    with get_driver() as driver:
+        # Domain info
+        d_q = f"""
+            match $d isa dm-domain, has id "{eid}";
+            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-skill-name }};
+        """
+        d_res = fetch_query(driver, d_q)
+        if not d_res:
+            out({"success": False, "error": f"Domain not found: {domain_id}"})
+            return
+        domain = d_res[0]
+
+        # Goals
+        goal_q = f"""
+            match $g isa dm-goal;
+                  $d isa dm-domain, has id "{eid}";
+                  (system: $d, goal: $g) isa dm-system-goal;
+            fetch {{ "id": $g.id, "name": $g.name, "description": $g.description }};
+        """
+        goals = fetch_query(driver, goal_q)
+
+        # Evaluations per goal
+        goal_evals = {}
+        for g in goals:
+            gid = escape_string(g.get("id", ""))
+            eval_q = f"""
+                match $e isa dm-goal-eval;
+                      $g isa dm-goal, has id "{gid}";
+                      (goal: $g, evaluation: $e) isa dm-goal-evaluation;
+                fetch {{ "id": $e.id, "name": $e.name, "description": $e.description,
+                        "criterion_type": $e.dm-evaluation-criterion-type,
+                        "success_condition": $e.dm-evaluation-success-condition,
+                        "approach": $e.dm-evaluation-approach }};
+            """
+            goal_evals[g.get("id")] = fetch_query(driver, eval_q)
+
+        # Phase entities by type
+        phase_types = [
+            ("dm-entity-schema", 2, "Entity Schema"),
+            ("dm-source-schema", 3, "Source Schema"),
+            ("dm-derivation-skill", 4, "Derivation Skills"),
+            ("dm-analysis-skill", 5, "Analysis Skills"),
+        ]
+        phase_data = {}
+        for ptype, pnum, _ in phase_types:
+            _has_io = ptype in ("dm-derivation-skill", "dm-analysis-skill")
+            io_fields = ', "input_types": $p.dm-input-types, "output_types": $p.dm-output-types' if _has_io else ""
+            pq = f"""
+                match $p isa {ptype};
+                      $d isa dm-domain, has id "{eid}";
+                      (subject: $p, domain: $d) isa dm-in-domain;
+                fetch {{ "id": $p.id, "name": $p.name, "description": $p.description,
+                        "feasibility": $p.dm-feasibility{io_fields} }};
+            """
+            items = fetch_query(driver, pq)
+            # For each item, get specs and gaps
+            enriched = []
+            for item in items:
+                iid = escape_string(item.get("id", ""))
+                sq = f"""
+                    match $p isa {ptype}, has id "{iid}";
+                          $sp isa dm-phase-spec;
+                          (phase-subject: $p, phase-spec: $sp) isa dm-phase-artifact;
+                    fetch {{ "id": $sp.id, "content": $sp.content,
+                            "feasibility": $sp.dm-feasibility }};
+                """
+                gq = f"""
+                    match $p isa {ptype}, has id "{iid}";
+                          $gp isa dm-design-gap;
+                          (phase-subject: $p, phase-gap: $gp) isa dm-phase-artifact;
+                    fetch {{ "id": $gp.id, "description": $gp.description,
+                            "severity": $gp.dm-error-severity, "status": $gp.dm-error-status }};
+                """
+                item["specs"] = fetch_query(driver, sq)
+                item["gaps"] = fetch_query(driver, gq)
+                enriched.append(item)
+            phase_data[ptype] = enriched
+
+    # Build Markdown
+    lines = []
+    domain_name = domain.get("name", domain_id)
+    skill = domain.get("skill", "")
+    lines.append(f"# System Design: {domain_name}")
+    if skill:
+        lines.append(f"\n_Skill: {skill}_  ")
+    lines.append(f"_Domain ID: {domain_id}_\n")
+
+    # Phase 1: Goals + Evaluations
+    lines.append("\n---\n")
+    lines.append("## Phase 1 -- System Goal\n")
+    if not goals:
+        lines.append("_No goals defined yet._\n")
+    for g in goals:
+        lines.append(f"### Goal: {g.get('name', '')}\n")
+        desc = g.get("description")
+        if desc:
+            lines.append(f"{desc}\n")
+        evals = goal_evals.get(g.get("id"), [])
+        if evals:
+            lines.append("\n**Evaluation Criteria:**\n")
+            for e in evals:
+                ctype = e.get("criterion_type") or ""
+                name = e.get("name", "")
+                lines.append(f"- **{name}**" + (f" _{ctype}_" if ctype else ""))
+                desc_e = e.get("description")
+                if desc_e:
+                    lines.append(f"\n  {desc_e}")
+                sc = e.get("success_condition")
+                if sc:
+                    lines.append(f"\n  _Success when:_ {sc}")
+                approach = e.get("approach")
+                if approach:
+                    lines.append(f"\n  _Approach:_ {approach}")
+                lines.append("")
+
+    # Phases 2-5
+    for ptype, pnum, plabel in phase_types:
+        items = phase_data.get(ptype, [])
+        lines.append(f"\n---\n")
+        lines.append(f"## Phase {pnum} -- {plabel}\n")
+        if not items:
+            lines.append("_No items defined yet._\n")
+            continue
+        for item in items:
+            name = item.get("name", "")
+            feasibility = item.get("feasibility") or "unknown"
+            lines.append(f"### {name} _(feasibility: {feasibility})_\n")
+            desc = item.get("description")
+            if desc:
+                lines.append(f"{desc}\n")
+            input_t = item.get("input_types")
+            output_t = item.get("output_types")
+            if input_t:
+                lines.append(f"- **Inputs:** {input_t}")
+            if output_t:
+                lines.append(f"- **Outputs:** {output_t}")
+            specs = item.get("specs", [])
+            if specs:
+                lines.append("\n**Specs:**\n")
+                for sp in specs:
+                    content = sp.get("content") or ""
+                    feas = sp.get("feasibility") or ""
+                    feas_str = f" _(feasibility: {feas})_" if feas else ""
+                    lines.append(f"```\n{content}\n```{feas_str}\n")
+            gaps = item.get("gaps", [])
+            if gaps:
+                open_gaps = [g for g in gaps if g.get("status") != "resolved"]
+                if open_gaps:
+                    lines.append("\n**Open Gaps:**\n")
+                    for g in open_gaps:
+                        sev = g.get("severity") or "?"
+                        desc_g = g.get("description") or ""
+                        lines.append(f"- [{sev}] {desc_g}")
+
+    markdown = "\n".join(lines)
+    out({"success": True, "domain_id": domain_id, "markdown": markdown})
+
+
+# =============================================================================
 # ARGUMENT PARSER
 # =============================================================================
 
@@ -1489,6 +2176,100 @@ def main():
     p = subparsers.add_parser("export-design", help="Export annotated Markdown design changelog")
     p.add_argument("--domain-id", required=True, help="Domain ID")
 
+    # --- Phase 1: Goals ---
+    p = subparsers.add_parser("define-goal", help="Define the system goal for a domain")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--name", required=True, help="Goal name")
+    p.add_argument("--description", help="Goal description")
+
+    p = subparsers.add_parser("add-evaluation", help="Add an evaluation criterion to a goal")
+    p.add_argument("--goal-id", required=True, help="Goal ID")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--name", required=True, help="Criterion name")
+    p.add_argument("--description", required=True, help="Full natural language criterion")
+    p.add_argument("--criterion-type",
+                   choices=["accuracy", "coverage", "usability", "completeness"],
+                   help="Criterion type")
+    p.add_argument("--success-condition", help="When X, system should Y")
+    p.add_argument("--approach", help="How to assess performance")
+
+    p = subparsers.add_parser("show-goal", help="Show goal + evaluations for a domain")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+
+    p = subparsers.add_parser("ingest-design-doc", help="Store a design document and link to domain")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--file", required=True, help="Path to document file")
+    p.add_argument("--format", default="markdown", help="File format (default: markdown)")
+    p.add_argument("--description", help="Brief description")
+    p.add_argument("--snapshot-id", help="Snapshot to attach to (optional)")
+
+    # --- Phases 2-5: Phase entities ---
+    p = subparsers.add_parser("add-entity-schema", help="Add Phase 2 entity schema description")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--name", required=True, help="Schema name")
+    p.add_argument("--description", help="What types are defined (plain text)")
+    p.add_argument("--feasibility", choices=["yes", "partial", "no", "unknown"],
+                   default="unknown", help="Feasibility assessment")
+    p.add_argument("--depends-on", help="Phase entity ID this builds on")
+
+    p = subparsers.add_parser("add-source-schema", help="Add Phase 3 source/artifact schema")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--name", required=True, help="Source name")
+    p.add_argument("--description", help="What sources/artifact types are needed")
+    p.add_argument("--feasibility", choices=["yes", "partial", "no", "unknown"],
+                   default="unknown", help="Feasibility assessment")
+    p.add_argument("--depends-on", help="Phase entity ID this builds on")
+
+    p = subparsers.add_parser("add-derivation-skill", help="Add Phase 4 derivation/ingestion skill")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--name", required=True, help="Skill name")
+    p.add_argument("--description", help="What this skill does")
+    p.add_argument("--input-types", help="Artifact types consumed (free text)")
+    p.add_argument("--output-types", help="Entity types produced (free text)")
+    p.add_argument("--feasibility", choices=["yes", "partial", "no", "unknown"],
+                   default="unknown", help="Feasibility assessment")
+    p.add_argument("--depends-on", help="Phase entity ID this builds on")
+
+    p = subparsers.add_parser("add-analysis-skill", help="Add Phase 5 analysis skill")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--name", required=True, help="Skill name")
+    p.add_argument("--description", help="What this skill does")
+    p.add_argument("--input-types", help="Entity types queried (free text)")
+    p.add_argument("--output-types", help="Output format/report type (free text)")
+    p.add_argument("--feasibility", choices=["yes", "partial", "no", "unknown"],
+                   default="unknown", help="Feasibility assessment")
+    p.add_argument("--depends-on", help="Phase entity ID this builds on")
+
+    # --- Shared phase operations ---
+    p = subparsers.add_parser("add-phase-spec", help="Add a spec note to any phase entity")
+    p.add_argument("--phase-id", required=True, help="Phase entity ID")
+    p.add_argument("--content", required=True, help="Spec text (TypeQL, API desc, function sig, etc.)")
+    p.add_argument("--feasibility", choices=["yes", "partial", "no", "unknown"],
+                   help="Feasibility of this spec")
+
+    p = subparsers.add_parser("add-phase-gap", help="Add a design gap to any phase entity")
+    p.add_argument("--phase-id", required=True, help="Phase entity ID")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--description", required=True, help="Description of the gap")
+    p.add_argument("--severity", choices=["minor", "moderate", "critical"],
+                   default="moderate", help="Gap severity")
+
+    p = subparsers.add_parser("resolve-phase-gap", help="Mark a design gap as resolved")
+    p.add_argument("--gap-id", required=True, help="Gap ID")
+    p.add_argument("--decision-id", help="Decision that resolved this gap")
+
+    p = subparsers.add_parser("list-phase-gaps", help="List design gaps for a domain")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--status", choices=["open", "resolved", "accepted"],
+                   default="open", help="Filter by status")
+
+    p = subparsers.add_parser("show-phase-item", help="Show a phase entity with its specs and gaps")
+    p.add_argument("--phase-id", required=True, help="Phase entity ID")
+
+    p = subparsers.add_parser("export-design-phases",
+                              help="Export structured Markdown design phases report")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -1519,6 +2300,20 @@ def main():
         "resolve-error": cmd_resolve_error,
         "list-errors": cmd_list_errors,
         "export-design": cmd_export_design,
+        "define-goal": cmd_define_goal,
+        "add-evaluation": cmd_add_evaluation,
+        "show-goal": cmd_show_goal,
+        "ingest-design-doc": cmd_ingest_design_doc,
+        "add-entity-schema": cmd_add_entity_schema,
+        "add-source-schema": cmd_add_source_schema,
+        "add-derivation-skill": cmd_add_derivation_skill,
+        "add-analysis-skill": cmd_add_analysis_skill,
+        "add-phase-spec": cmd_add_phase_spec,
+        "add-phase-gap": cmd_add_phase_gap,
+        "resolve-phase-gap": cmd_resolve_phase_gap,
+        "list-phase-gaps": cmd_list_phase_gaps,
+        "show-phase-item": cmd_show_phase_item,
+        "export-design-phases": cmd_export_design_phases,
     }
 
     try:
