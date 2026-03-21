@@ -1,11 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* dashboard/.gitignore excludes src/components subdirs (Tailwind v4 respects gitignore),
-   inadvertently excluding src/components/ui/ (shadcn) and skill components.
-   Use @source with explicit directory paths to override gitignore exclusions. */
+/* Tailwind v4 scans the module graph automatically — skill components are detected
+   when their routes are compiled. Only @source "../components/ui" is needed here
+   to override gitignore for shadcn (which IS within the project root). Any @source
+   pointing outside dashboard/ (incl. via symlinks to local_skills/) causes a
+   Turbopack panic (FileSystemPath("") bug). Do NOT add such paths here. */
 @source "../components/ui";
-@source "../../../local_skills";
 
 @custom-variant dark (&:is(.dark *));
 
