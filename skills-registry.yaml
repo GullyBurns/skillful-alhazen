@@ -53,6 +53,9 @@ skills:
   - name: domain-modeling
     path: skills/domain-modeling
 
+  - name: they-said-whaaa
+    path: skills/they-said-whaaa
+
   - name: scientific-literature
     subdir: skills/biomed/scientific-literature
 

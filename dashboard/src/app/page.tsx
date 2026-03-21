@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, Database, Dna, Layers, Search } from 'lucide-react';
+import { Briefcase, Database, Dna, Layers, Search, MessageSquareWarning } from 'lucide-react';
 
 type ServiceStatus = 'checking' | 'online' | 'offline';
 
@@ -119,6 +119,26 @@ export default function HubPage() {
                   Track skill design processes, decisions, gaps, and experiments across all knowledge domains.
                 </p>
                 <span className="text-sm text-violet-400 mt-4 inline-block group-hover:underline">
+                  Open Dashboard &rarr;
+                </span>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* They Said Whaaa Dashboard */}
+          <Link href="/they-said-whaaa" className="group">
+            <Card className="h-full transition-all hover:border-orange-500/50 hover:-translate-y-1">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                  <MessageSquareWarning className="w-6 h-6 text-orange-400" />
+                  They Said Whaaa
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Track politician statements, detect contradictions, and assess credibility over time.
+                </p>
+                <span className="text-sm text-orange-400 mt-4 inline-block group-hover:underline">
                   Open Dashboard &rarr;
                 </span>
               </CardContent>
