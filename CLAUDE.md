@@ -76,7 +76,7 @@ make build-skills
 ls local_skills/
 ```
 
-Expected: directories for `typedb-notebook`, `web-search`, `domain-modeling`, `jobhunt`, `techrecon`, `scientific-literature`, and others listed in `skills-registry.yaml`. If external skills are absent, network access to `https://github.com/sciknow-io/alhazen-skill-examples` may have failed — run `make skills-update` to retry.
+Expected: directories for `typedb-notebook`, `web-search`, `skill-builder`, `jobhunt`, `techrecon`, `scientific-literature`, and others listed in `skills-registry.yaml`. If external skills are absent, network access to `https://github.com/sciknow-io/alhazen-skill-examples` may have failed — run `make skills-update` to retry.
 
 #### Step 3: Start TypeDB and load schemas
 
@@ -334,8 +334,8 @@ local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
   - `skills/typedb-notebook/`
 - **web-search** *(core)* — Web search via SearXNG
   - `skills/web-search/`
-- **domain-modeling** *(core)* — Design guidance for new skills
-  - `skills/domain-modeling/`
+- **skill-builder** *(core)* — Design guidance for new skills
+  - `skills/skill-builder/`
 - **jobhunt** *(external)* — Job hunting notebook
   - registered in `skills-registry.yaml`, resolved to `local_skills/jobhunt/`
 - **techrecon** *(external)* — Systematic investigation of software systems
@@ -486,7 +486,7 @@ skills/                 # Core skills (committed — mirrors alhazen-skill-examp
 ├── _template/          # Template for new skills (excluded from registry)
 ├── typedb-notebook/    # SKILL.md, skill.yaml, typedb_notebook.py
 ├── web-search/         # SKILL.md, skill.yaml
-└── domain-modeling/    # SKILL.md, skill.yaml
+└── skill-builder/    # SKILL.md, skill.yaml
 
 skills-registry.yaml    # Single source of truth: path: (core) + git: (external)
 
@@ -548,7 +548,7 @@ When Claude makes a mistake, add it to this section so it doesn't happen again.
 
 ### Domain-Modeling: Record Design Gaps After Every Plan
 
-**Whenever a Claude plan creates, updates, or changes the design of a skill, record any design gaps discovered during implementation in the domain-modeling knowledge graph.**
+**Whenever a Claude plan creates, updates, or changes the design of a skill, record any design gaps discovered during implementation in the skill-builder knowledge graph.**
 
 This includes:
 - Plans that add new entity types, relations, or attributes to a skill schema
@@ -559,16 +559,16 @@ This includes:
 **After completing a plan**, run:
 ```bash
 # 1. Find or create the domain for the affected skill
-uv run python .claude/skills/domain-modeling/domain_modeling.py list-domains 2>/dev/null \
+uv run python .claude/skills/skill-builder/skill_builder.py list-domains 2>/dev/null \
     | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin),indent=2))"
 
 # 2. Find the relevant phase item (entity schema, source schema, etc.)
-uv run python .claude/skills/domain-modeling/domain_modeling.py show-domain \
+uv run python .claude/skills/skill-builder/skill_builder.py show-domain \
     --id <domain_id> 2>/dev/null \
     | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin),indent=2))"
 
 # 3. Record the gap
-uv run python .claude/skills/domain-modeling/domain_modeling.py add-phase-gap \
+uv run python .claude/skills/skill-builder/skill_builder.py add-phase-gap \
     --phase-id <phase_id> \
     --domain-id <domain_id> \
     --description "What was missing, what broke, what the fix was, and the general pattern to avoid." \

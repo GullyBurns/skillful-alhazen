@@ -105,8 +105,8 @@ export default function HubPage() {
             </Card>
           </Link>
 
-          {/* Domain Modeling Dashboard */}
-          <Link href="/domain-modeling" className="group">
+          {/* Skill Builder Dashboard */}
+          <Link href="/skill-builder" className="group">
             <Card className="h-full transition-all hover:border-violet-500/50 hover:-translate-y-1">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">

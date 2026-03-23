@@ -32,7 +32,7 @@ current without manual intervention.
 - /typedb-notebook -- Store and retrieve knowledge in the Alhazen TypeDB knowledge graph
 - /epmc-search -- Search Europe PMC for scientific papers
 - /jobhunt -- Track job applications, skill gaps, learning plans
-- /domain-modeling -- Design new knowledge skills (meta-skill)
+- /skill-builder -- Design new knowledge skills (meta-skill)
 <!-- END AUTO-GENERATED -->
 
 ## Safety

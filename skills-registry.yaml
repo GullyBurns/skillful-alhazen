@@ -50,11 +50,8 @@ skills:
   - name: web-search
     path: skills/web-search
 
-  - name: domain-modeling
-    path: skills/domain-modeling
-
-  - name: they-said-whaaa
-    path: skills/they-said-whaaa
+  - name: skill-builder
+    path: skills/skill-builder
 
   - name: scientific-literature
     subdir: skills/biomed/scientific-literature
@@ -71,6 +68,9 @@ skills:
 
   - name: literature-trends
     subdir: skills/biomed/literature-trends
+
+  - name: they-said-whaaa
+    subdir: skills/journalism/they-said-whaaa
 
 
 # To add more skills from the default library:
