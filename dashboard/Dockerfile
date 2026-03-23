@@ -20,6 +20,20 @@ COPY src/skillful_alhazen/__init__.py ./src/skillful_alhazen/
 RUN uv sync --extra typedb --extra skills --extra skilllog --no-dev
 
 # ==============================================================================
+# Stage 2b: Generate skills-config.json from skills-registry.yaml
+# ==============================================================================
+FROM python-base AS skills-config-gen
+WORKDIR /app
+RUN pip install --quiet pyyaml
+COPY skills-registry.yaml ./
+RUN python3 -c "\
+import yaml, json; \
+registry = yaml.safe_load(open('skills-registry.yaml')); \
+configs = [{'slug': s['name'], **s['dashboard']} for s in registry.get('skills', []) if s.get('dashboard', {}).get('enabled')]; \
+json.dump(configs, open('/app/skills-config.json', 'w'), indent=2) \
+"
+
+# ==============================================================================
 # Stage 3: Node.js build
 # ==============================================================================
 FROM node:20-slim AS node-builder
@@ -36,12 +50,12 @@ RUN cd dashboard && ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
 # they'll be overwritten by ln -sfn below)
 COPY dashboard/ ./dashboard/
 
-# Copy skill dashboard code (only the small dashboard/ subdirs, not full repos)
-COPY local_skills/jobhunt/dashboard/ ./local_skills/jobhunt/dashboard/
-COPY local_skills/techrecon/dashboard/ ./local_skills/techrecon/dashboard/
-COPY local_skills/alg-precision-therapeutics/dashboard/ ./local_skills/alg-precision-therapeutics/dashboard/
-COPY skills/skill-builder/dashboard/ ./local_skills/skill-builder/dashboard/
-COPY local_skills/they-said-whaaa/dashboard/ ./local_skills/they-said-whaaa/dashboard/
+# Copy all skill dashboard code (broad copy picks up any skill with a dashboard/ subdir)
+COPY local_skills/ ./local_skills/
+COPY skills/ ./skills/
+
+# Inject generated skills-config.json into the public dir
+COPY --from=skills-config-gen /app/skills-config.json ./dashboard/public/skills-config.json
 
 # Wire skill dashboards using real file copies (symlinks crossing the project boundary
 # cause ENOENT during Next.js build; cp avoids that entirely)

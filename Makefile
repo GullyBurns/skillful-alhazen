@@ -117,6 +117,15 @@ build-dashboard: build-skills ## Wire skill dashboard pages/routes/components in
 	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/routes" \
 	             "dashboard/src/app/api/$${skill_name}"; \
 	done
+	@echo "  Generating dashboard/public/skills-config.json..."
+	@uv run python -c "\
+import yaml, json, os; \
+registry = yaml.safe_load(open('skills-registry.yaml')); \
+configs = [{'slug': s['name'], **s['dashboard']} for s in registry.get('skills', []) if s.get('dashboard', {}).get('enabled')]; \
+os.makedirs('dashboard/public', exist_ok=True); \
+json.dump(configs, open('dashboard/public/skills-config.json', 'w'), indent=2); \
+print(f'  {len(configs)} skill dashboards registered') \
+"
 	@echo "$(GREEN)✓ Skill dashboards wired$(NC)"
 
 # Deprecated aliases (kept for backward compatibility)

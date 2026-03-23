@@ -52,6 +52,13 @@ skills:
 
   - name: skill-builder
     path: skills/skill-builder
+    dashboard:
+      enabled: true
+      name: "Domain Modeling"
+      description: "Track skill design processes, decisions, gaps, and experiments across all knowledge domains."
+      url_path: "/skill-builder"
+      icon: Layers
+      color: violet
 
   - name: scientific-literature
     subdir: skills/biomed/scientific-literature
@@ -59,18 +66,46 @@ skills:
   # -- External skills (git-based: cloned from defaults.git) ------------------
   - name: jobhunt
     subdir: skills/demo/jobhunt
+    dashboard:
+      enabled: true
+      name: "Job Hunt Dashboard"
+      description: "Track job applications, analyze skill gaps, and manage your learning plan."
+      url_path: "/jobhunt"
+      icon: Briefcase
+      color: indigo
 
   - name: techrecon
     subdir: skills/demo/techrecon
+    dashboard:
+      enabled: true
+      name: "Tech Recon Dashboard"
+      description: "Systematically investigate software systems, libraries, and frameworks."
+      url_path: "/techrecon"
+      icon: Search
+      color: cyan
 
   - name: alg-precision-therapeutics
     subdir: skills/biomed/alg-precision-therapeutics
+    dashboard:
+      enabled: true
+      name: "Disease Mechanism Dashboard"
+      description: "Investigate rare disease mechanisms and therapeutic strategies from MONDO diagnoses."
+      url_path: "/apt"
+      icon: Dna
+      color: teal
 
   - name: literature-trends
     subdir: skills/biomed/literature-trends
 
   - name: they-said-whaaa
     subdir: skills/journalism/they-said-whaaa
+    dashboard:
+      enabled: true
+      name: "They Said Whaaa?"
+      description: "Track public statements, detect contradictions, build credibility timelines."
+      url_path: "/they-said-whaaa"
+      icon: Megaphone
+      color: amber
 
 
 # To add more skills from the default library:

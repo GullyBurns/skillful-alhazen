@@ -1,0 +1,47 @@
+[
+  {
+    "slug": "skill-builder",
+    "enabled": true,
+    "name": "Domain Modeling",
+    "description": "Track skill design processes, decisions, gaps, and experiments across all knowledge domains.",
+    "url_path": "/skill-builder",
+    "icon": "Layers",
+    "color": "violet"
+  },
+  {
+    "slug": "jobhunt",
+    "enabled": true,
+    "name": "Job Hunt Dashboard",
+    "description": "Track job applications, analyze skill gaps, and manage your learning plan.",
+    "url_path": "/jobhunt",
+    "icon": "Briefcase",
+    "color": "indigo"
+  },
+  {
+    "slug": "techrecon",
+    "enabled": true,
+    "name": "Tech Recon Dashboard",
+    "description": "Systematically investigate software systems, libraries, and frameworks.",
+    "url_path": "/techrecon",
+    "icon": "Search",
+    "color": "cyan"
+  },
+  {
+    "slug": "alg-precision-therapeutics",
+    "enabled": true,
+    "name": "Disease Mechanism Dashboard",
+    "description": "Investigate rare disease mechanisms and therapeutic strategies from MONDO diagnoses.",
+    "url_path": "/apt",
+    "icon": "Dna",
+    "color": "teal"
+  },
+  {
+    "slug": "they-said-whaaa",
+    "enabled": true,
+    "name": "They Said Whaaa?",
+    "description": "Track public statements, detect contradictions, build credibility timelines.",
+    "url_path": "/they-said-whaaa",
+    "icon": "Megaphone",
+    "color": "amber"
+  }
+]

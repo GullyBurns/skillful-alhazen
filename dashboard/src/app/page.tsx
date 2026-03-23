@@ -5,9 +5,18 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, Database, Dna, Layers, Megaphone, Search } from 'lucide-react';
+import { Briefcase, Database, Dna, LayoutDashboard, Layers, Megaphone, Search } from 'lucide-react';
 
 type ServiceStatus = 'checking' | 'online' | 'offline';
+
+type SkillConfig = {
+  slug: string;
+  name: string;
+  description: string;
+  url_path: string;
+  icon: string;
+  color: string;
+};
 
 const STATUS_STYLES: Record<ServiceStatus, string> = {
   checking: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -15,14 +24,39 @@ const STATUS_STYLES: Record<ServiceStatus, string> = {
   offline: 'bg-red-500/20 text-red-400 border-red-500/30',
 };
 
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Briefcase,
+  Search,
+  Dna,
+  Layers,
+  Megaphone,
+  LayoutDashboard,
+};
+
+const COLOR_MAP: Record<string, { border: string; text: string; icon: string }> = {
+  indigo: { border: 'hover:border-indigo-500/50', text: 'text-primary',    icon: 'text-indigo-400' },
+  cyan:   { border: 'hover:border-cyan-500/50',   text: 'text-cyan-400',   icon: 'text-cyan-400' },
+  teal:   { border: 'hover:border-teal-500/50',   text: 'text-teal-400',   icon: 'text-teal-400' },
+  violet: { border: 'hover:border-violet-500/50', text: 'text-violet-400', icon: 'text-violet-400' },
+  amber:  { border: 'hover:border-amber-500/50',  text: 'text-amber-400',  icon: 'text-amber-400' },
+};
+
 export default function HubPage() {
   const [typedbStatus, setTypedbStatus] = useState<ServiceStatus>('checking');
+  const [skills, setSkills] = useState<SkillConfig[]>([]);
 
   useEffect(() => {
     fetch('/api/typedb-status')
       .then(r => r.json())
       .then(d => setTypedbStatus(d.status === 'online' ? 'online' : 'offline'))
       .catch(() => setTypedbStatus('offline'));
+  }, []);
+
+  useEffect(() => {
+    fetch('/skills-config.json')
+      .then(r => r.json())
+      .then(setSkills)
+      .catch(() => {});
   }, []);
 
   return (
@@ -45,106 +79,28 @@ export default function HubPage() {
       {/* Dashboard Cards */}
       <main className="container mx-auto px-4 flex-1">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-          {/* Job Hunt Dashboard */}
-          <Link href="/jobhunt" className="group">
-            <Card className="h-full transition-all hover:border-indigo-500/50 hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Briefcase className="w-6 h-6 text-indigo-400" />
-                  Job Hunt Dashboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Track job applications, analyze skill gaps, and manage your learning plan.
-                </p>
-                <span className="text-sm text-primary mt-4 inline-block group-hover:underline">
-                  Open Dashboard &rarr;
-                </span>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* TechRecon Dashboard */}
-          <Link href="/techrecon" className="group">
-            <Card className="h-full transition-all hover:border-cyan-500/50 hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Search className="w-6 h-6 text-cyan-400" />
-                  Tech Recon Dashboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Systematically investigate software systems, libraries, and frameworks.
-                </p>
-                <span className="text-sm text-cyan-400 mt-4 inline-block group-hover:underline">
-                  Open Dashboard &rarr;
-                </span>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Disease Mechanism Dashboard */}
-          <Link href="/apt" className="group">
-            <Card className="h-full transition-all hover:border-teal-500/50 hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Dna className="w-6 h-6 text-teal-400" />
-                  Disease Mechanism Dashboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Investigate rare disease mechanisms of harm and therapeutic strategies from MONDO diagnoses.
-                </p>
-                <span className="text-sm text-teal-400 mt-4 inline-block group-hover:underline">
-                  Open Dashboard &rarr;
-                </span>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Skill Builder Dashboard */}
-          <Link href="/skill-builder" className="group">
-            <Card className="h-full transition-all hover:border-violet-500/50 hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Layers className="w-6 h-6 text-violet-400" />
-                  Domain Modeling
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Track skill design processes, decisions, gaps, and experiments across all knowledge domains.
-                </p>
-                <span className="text-sm text-violet-400 mt-4 inline-block group-hover:underline">
-                  Open Dashboard &rarr;
-                </span>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* They Said Whaaa? Dashboard */}
-          <Link href="/they-said-whaaa" className="group">
-            <Card className="h-full transition-all hover:border-amber-500/50 hover:-translate-y-1">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Megaphone className="w-6 h-6 text-amber-400" />
-                  They Said Whaaa?
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Track public statements by politicians, detect contradictions, and build credibility timelines.
-                </p>
-                <span className="text-sm text-amber-400 mt-4 inline-block group-hover:underline">
-                  Open Dashboard &rarr;
-                </span>
-              </CardContent>
-            </Card>
-          </Link>
-
+          {skills.map(skill => {
+            const Icon = ICON_MAP[skill.icon] ?? LayoutDashboard;
+            const c = COLOR_MAP[skill.color] ?? COLOR_MAP.indigo;
+            return (
+              <Link key={skill.slug} href={skill.url_path} className="group">
+                <Card className={`h-full transition-all ${c.border} hover:-translate-y-1`}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3">
+                      <Icon className={`w-6 h-6 ${c.icon}`} />
+                      {skill.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">{skill.description}</p>
+                    <span className={`text-sm ${c.text} mt-4 inline-block group-hover:underline`}>
+                      Open Dashboard &rarr;
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
 
         {/* Backend Services */}
