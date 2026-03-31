@@ -1474,19 +1474,37 @@ def cmd_list_papers(args):
 
             system_name = sys_result[0].get("name")
 
-            # Fetch all linked papers
+            # Fetch all linked papers with citation metadata
             paper_query = f'''match
     $s isa techrecon-system, has id "{escape_string(args.system)}";
     (system: $s, paper: $p) isa techrecon-references-paper;
     $p has id $pid;
 fetch {{
     "id": $pid,
-    "name": $p.name
+    "name": $p.name,
+    "doi": $p.doi,
+    "publication-year": $p.publication-year,
+    "journal-name": $p.journal-name
 }};'''
             paper_result = list(tx.query(paper_query).resolve())
 
+    def build_citation(r):
+        title = r.get("name") or ""
+        year = r.get("publication-year")
+        journal = r.get("journal-name") or ""
+        parts = [title]
+        if year:
+            parts.append(f"({year})")
+        if journal:
+            parts.append(journal)
+        return ". ".join(p for p in parts if p) or r.get("id", "unknown")
+
     papers = [
-        {"id": r.get("id"), "name": r.get("name")}
+        {
+            "id": r.get("id"),
+            "citation": build_citation(r),
+            "doi": r.get("doi"),
+        }
         for r in paper_result
     ]
 
