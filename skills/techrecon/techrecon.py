@@ -1461,39 +1461,38 @@ def cmd_list_systems(args):
 def cmd_list_papers(args):
     """List all scientific papers linked to a system via techrecon-references-paper."""
     with get_driver() as driver:
-        # Verify the system exists
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
-            sys_check = list(tx.query(
+            # Get system details and verify it exists
+            sys_result = list(tx.query(
                 f'match $s isa techrecon-system, has id "{escape_string(args.system)}"; '
                 f'fetch {{ "id": $s.id, "name": $s.name }};'
             ).resolve())
 
-        if not sys_check:
-            print(json.dumps({"success": False, "error": f"System not found: {args.system}"}))
-            sys.exit(1)
+            if not sys_result:
+                print(json.dumps({"success": False, "error": f"System not found: {args.system}"}))
+                sys.exit(1)
 
-        system_id = sys_check[0].get("id")
-        system_name = sys_check[0].get("name")
+            system_name = sys_result[0].get("name")
 
-        # Fetch all linked papers
-        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
-            query = f'''match
+            # Fetch all linked papers
+            paper_query = f'''match
     $s isa techrecon-system, has id "{escape_string(args.system)}";
     (system: $s, paper: $p) isa techrecon-references-paper;
-    $p has id $pid, has name $title;
-fetch {{ "id": $pid, "title": $title }};'''
-            results = list(tx.query(query).resolve())
+    $p has id $pid;
+fetch {{
+    "id": $pid,
+    "name": $p.name
+}};'''
+            paper_result = list(tx.query(paper_query).resolve())
 
-    papers = []
-    for r in results:
-        papers.append({
-            "id": r.get("id"),
-            "title": r.get("title"),
-        })
+    papers = [
+        {"id": r.get("id"), "name": r.get("name")}
+        for r in paper_result
+    ]
 
     print(json.dumps({
         "success": True,
-        "system_id": system_id,
+        "system_id": args.system,
         "system_name": system_name,
         "count": len(papers),
         "papers": papers,
