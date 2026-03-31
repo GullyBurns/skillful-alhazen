@@ -2164,6 +2164,7 @@ def cmd_add_note(args):
         "provenance": "techrecon-provenance-note",
         "use-case": "techrecon-use-case-note",
         "ml-evaluation": "techrecon-ml-evaluation-note",
+        "literature-review": "techrecon-literature-review-note",
         "general": "note",
     }
 
@@ -2891,7 +2892,7 @@ def main():
     p = subparsers.add_parser("add-note", help="Add a note about any entity")
     p.add_argument("--about", required=True, help="Entity ID this note is about")
     p.add_argument("--type", required=True,
-                   choices=["architecture", "design-pattern", "integration", "comparison", "data-model", "assessment", "provenance", "use-case", "ml-evaluation", "general"],
+                   choices=["architecture", "design-pattern", "integration", "comparison", "data-model", "assessment", "provenance", "use-case", "ml-evaluation", "literature-review", "general"],
                    help="Note type")
     p.add_argument("--content", required=True, help="Note content")
     p.add_argument("--name", help="Note title")

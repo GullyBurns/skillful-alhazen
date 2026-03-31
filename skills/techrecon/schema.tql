@@ -301,6 +301,7 @@ entity techrecon-provenance-note sub note,
 
 entity techrecon-use-case-note sub note;
 entity techrecon-ml-evaluation-note sub note;
+entity techrecon-literature-review-note sub note;
 
 entity techrecon-workflow sub domain-thing,
     owns techrecon-workflow-granularity,
