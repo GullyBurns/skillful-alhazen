@@ -1526,8 +1526,6 @@ def cmd_search_literature(args):
         print(json.dumps({"success": False, "error": "scientific-literature skill not found"}))
         sys.exit(1)
 
-    project_root = os.path.normpath(os.path.join(skill_dir, "..", ".."))
-
     # --- Verify system exists (own driver context) ---
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
@@ -1540,17 +1538,19 @@ def cmd_search_literature(args):
         sys.exit(1)
 
     # --- Run scilit search (outside driver context) ---
+    # project_root is the cwd for subprocess so uv uses the project's venv
+    project_root = os.path.normpath(os.path.join(skill_dir, "..", ".."))
     cmd = ["uv", "run", "python", scilit_path, "search",
            "--source", args.source, "--query", args.query,
            "--max-results", str(args.limit)]
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=project_root)
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=project_root, timeout=120)
 
-    if result.returncode != 0:
-        print(json.dumps({"success": False, "error": f"scilit search failed: {result.stderr[:500]}"}))
+    if proc.returncode != 0:
+        print(json.dumps({"success": False, "error": f"scilit search failed: {proc.stderr[-500:]}"}))
         sys.exit(1)
 
     try:
-        data = json.loads(result.stdout)
+        data = json.loads(proc.stdout)
     except json.JSONDecodeError as e:
         print(json.dumps({"success": False, "error": f"Failed to parse scilit output: {e}"}))
         sys.exit(1)
@@ -1582,7 +1582,7 @@ def cmd_search_literature(args):
                 ).resolve())
             if existing:
                 papers_already_linked += 1
-                result_papers.append({"id": paper_id, "title": paper.get("title", ""), "linked": False})
+                result_papers.append({"id": paper_id, "title": paper.get("title", ""), "status": "already_linked"})
             else:
                 with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
                     tx.query(
@@ -1592,8 +1592,10 @@ def cmd_search_literature(args):
                     ).resolve()
                     tx.commit()
                 papers_linked += 1
-                result_papers.append({"id": paper_id, "title": paper.get("title", ""), "linked": True})
+                result_papers.append({"id": paper_id, "title": paper.get("title", ""), "status": "linked"})
 
+        # Add the system (not individual papers) to the investigation — marks that
+        # literature was searched for this system in this investigation context.
         if args.investigation:
             add_to_collection(driver, args.system, args.investigation)
 
