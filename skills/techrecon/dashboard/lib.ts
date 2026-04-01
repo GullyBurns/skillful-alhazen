@@ -100,3 +100,7 @@ export async function listWorkflows(systemId?: string) {
 export async function getWorkflow(id: string) {
   return runTechrecon(['show-workflow', '--id', id]);
 }
+
+export async function listPapers(systemId: string) {
+  return runTechrecon(['list-papers', '--system', systemId]);
+}

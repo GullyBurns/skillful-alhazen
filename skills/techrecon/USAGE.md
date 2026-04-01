@@ -124,6 +124,40 @@ uv run python .claude/skills/techrecon/techrecon.py add-note \
 [How are conclusions traced to sources?]"
 ```
 
+**For agent harness systems**, also add a harness note capturing the design-space profile:
+
+```bash
+uv run python .claude/skills/techrecon/techrecon.py add-note \
+    --type harness \
+    --about $SYS_ID \
+    --investigation $INV_ID \
+    --name "[System] Harness Profile" \
+    --content "execution_model: |
+  [Free prose: how the agent decomposes work, whether it uses sequential pipelines /
+  iterative loops / hierarchical decomposition / evolutionary search, how many phases
+  exist, how state transitions between them]
+
+context_store:
+  type_summary: [one phrase: e.g. 'SQLite + markdown files' or 'typed AST pipeline']
+  description: |
+    [How context is persisted, structured, and retrieved. What database/file format
+    is used, what the schema looks like, how the agent reads from it at each step]
+
+validation_strategy: |
+  [How outputs are verified before moving forward — schema validation, compiler checks,
+  gate-based verification, evolutionary fitness, or none. What happens on failure]
+
+recovery_mechanism: |
+  [How the system handles crashes, stalls, or partial failures — lock files,
+  targeted re-execution, session forensics, fitness-based selection, or none]
+
+context_engineering_insight: |
+  [The core design insight about why this system's approach to context management
+  is reliable or novel — the 'why it works' explanation]"
+```
+
+This YAML-structured content enables Claude to compare harness profiles across systems at synthesis time without needing a controlled vocabulary.
+
 ### Step 7: Map use cases — what problems does it solve, for whom?
 
 ```bash
@@ -174,9 +208,13 @@ uv run python .claude/skills/techrecon/techrecon.py add-note \
 [What existing systems or workflows does this resemble?]
 
 ### Integration Opportunities
-1. [As a data source or API]
-2. [As an architectural pattern to adopt]
-3. [As a dependency or pre-processing step]
+For each system under investigation, consider:
+- What is this system's execution model — how is work decomposed and sequenced?
+- What context store does it use — in-context window, files, database, typed pipeline?
+- What validation strategy prevents bad outputs from propagating?
+- What recovery mechanism handles crashes or stuck loops?
+- What existing patterns (in this investigation or prior art) does this resemble?
+- Where could this system's approach plug into your own architecture?
 
 ### Gaps and Limitations
 [What this system cannot do or does poorly]
@@ -211,6 +249,39 @@ uv run python .claude/skills/techrecon/techrecon.py add-note \
 ### Recommendation
 [Should we use this? Integrate it? Monitor it? Pass?]"
 ```
+
+### Step 10a: Embed notes for RAG retrieval
+
+After writing architecture, harness, and assessment notes, embed them into Qdrant so future sessions can find relevant notes by semantic similarity:
+
+```bash
+# Start Qdrant (first time only)
+make qdrant-start
+export VOYAGE_API_KEY=<your-key>   # from https://dash.voyageai.com/
+
+# Embed all analytical notes for this system
+uv run python .claude/skills/techrecon/techrecon.py embed-notes \
+    --system $SYS_ID
+
+# Or embed all notes for an entire investigation at once
+uv run python .claude/skills/techrecon/techrecon.py embed-notes \
+    --investigation $INV_ID
+```
+
+Once embedded, search across all investigations semantically:
+
+```bash
+uv run python .claude/skills/techrecon/techrecon.py search-notes \
+    --query "context persistence approaches that use SQLite for crash recovery" \
+    --limit 5
+
+# Filter to a specific note type
+uv run python .claude/skills/techrecon/techrecon.py search-notes \
+    --query "typed pipeline as context store" \
+    --type harness --limit 5
+```
+
+> **Requires:** `make qdrant-start` and `VOYAGE_API_KEY`. Commands degrade gracefully if Qdrant is unavailable.
 
 ### Step 11: Close the investigation
 
@@ -430,6 +501,7 @@ uv run python .claude/skills/techrecon/techrecon.py search-tag --tag "biomedical
 | `provenance` | `techrecon-provenance-note` | Origin, predecessor, motivation |
 | `use-case` | `techrecon-use-case-note` | Problem/solution/user mapping |
 | `literature-review` | `techrecon-literature-review-note` | Synthesis of literature linked to a system |
+| `harness` | `techrecon-harness-note` | YAML-structured profile of an agent harness system: execution model, context store, validation strategy, recovery mechanism, core insight. Use for any system whose primary novelty is _how it orchestrates_ an LLM rather than what domain it solves. |
 | `general` | `note` | Unstructured note |
 
 ### Relations
@@ -479,6 +551,36 @@ uv run python .claude/skills/techrecon/techrecon.py search-tag --tag "biomedical
 | `add-fragment` | Add fragment | `--type`, `--content`, `--source` |
 | `tag` | Tag entity | `--entity`, `--tag` |
 | `search-tag` | Search by tag | `--tag` |
+| `embed-notes` | Embed notes into Qdrant | `--system` or `--investigation`, `--type`, `--reembed` |
+| `search-notes` | Semantic search over notes | `--query`, `--limit`, `--type`, `--investigation` |
+
+---
+
+## Cross-System Synthesis
+
+After investigating multiple systems, retrieve and synthesize across them:
+
+```bash
+# List all systems in the investigation
+uv run python .claude/skills/techrecon/techrecon.py list-systems 2>/dev/null \
+    | python3 -c "import json,sys; [print(s['id'], s['name']) for s in json.load(sys.stdin)['systems']]"
+
+# Show harness profiles for each system to compare
+for SID in $SYS_ID_1 $SYS_ID_2 $SYS_ID_3; do
+    uv run python .claude/skills/techrecon/techrecon.py show-system --id $SID 2>/dev/null \
+        | python3 -c "import json,sys; d=json.load(sys.stdin); [print(n['type'],'|',n['content'][:200]) for n in d.get('notes',[]) if n.get('type')=='harness']"
+done
+
+# Semantic search across all embedded notes for a pattern
+uv run python .claude/skills/techrecon/techrecon.py search-notes \
+    --query "how validation and recovery work together in production harnesses" \
+    --type harness --limit 5
+```
+
+**Synthesis workflow:** Once harness notes are embedded, ask Claude to retrieve and compare:
+1. `search-notes --query "context store design"` — surfaces the most relevant harness profiles
+2. Read each result's `content` (full YAML) to compare `context_store`, `validation_strategy`, etc.
+3. Write a comparison note summarizing trends: `add-note --type comparison --investigation $INV_ID`
 
 ---
 
