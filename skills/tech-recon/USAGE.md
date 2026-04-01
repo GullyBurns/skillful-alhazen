@@ -244,7 +244,7 @@ uv run python .claude/skills/tech-recon/tech_recon.py add-analysis \
     --investigation INVESTIGATION_ID \
     --title "GitHub Stars Comparison" \
     --analysis-type bar \
-    --tql-query "match \$s isa tech-recon-system, has name \$n, has star-count \$sc; fetch { \"name\": \$n, \"stars\": \$sc };" \
+    --query "match \$s isa tech-recon-system, has name \$n, has star-count \$sc; fetch { \"name\": \$n, \"stars\": \$sc };" \
     --plot-code "Plot.barY(data, {x: 'name', y: 'stars'}).plot()"
 ```
 
