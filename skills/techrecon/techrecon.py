@@ -51,8 +51,12 @@ Commands:
     show-workflow         Show workflow details
 
     # Notes and Fragments
-    add-note              Add a note about any entity
+    add-note              Add a note about any entity (types: architecture, harness, assessment, comparison, ...)
     add-fragment          Add a fragment extracted from an artifact
+
+    # Embedding / Semantic Search
+    embed-notes           Embed notes into Qdrant for RAG retrieval
+    search-notes          Semantic search over embedded notes
 
     # Tagging
     tag                   Tag an entity
@@ -545,6 +549,7 @@ def cmd_show_investigation(args):
                 ("assessment", "techrecon-assessment-note"),
                 ("provenance", "techrecon-provenance-note"),
                 ("use-case", "techrecon-use-case-note"),
+                ("harness", "techrecon-harness-note"),
                 ("general", "note"),
             ]
             all_notes = []
@@ -1458,6 +1463,65 @@ def cmd_list_systems(args):
     print(json.dumps({"success": True, "systems": systems, "count": len(systems)}, indent=2))
 
 
+def cmd_list_papers(args):
+    """List all scientific papers linked to a system via techrecon-references-paper."""
+    with get_driver() as driver:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            # Get system details and verify it exists
+            sys_result = list(tx.query(
+                f'match $s isa techrecon-system, has id "{escape_string(args.system)}"; '
+                f'fetch {{ "id": $s.id, "name": $s.name }};'
+            ).resolve())
+
+            if not sys_result:
+                print(json.dumps({"success": False, "error": f"System not found: {args.system}"}))
+                sys.exit(1)
+
+            system_name = sys_result[0].get("name")
+
+            # Fetch all linked papers with citation metadata
+            paper_query = f'''match
+    $s isa techrecon-system, has id "{escape_string(args.system)}";
+    (system: $s, paper: $p) isa techrecon-references-paper;
+    $p has id $pid;
+fetch {{
+    "id": $pid,
+    "name": $p.name,
+    "doi": $p.doi,
+    "publication-year": $p.publication-year,
+    "journal-name": $p.journal-name
+}};'''
+            paper_result = list(tx.query(paper_query).resolve())
+
+    def build_citation(r):
+        title = r.get("name") or ""
+        year = r.get("publication-year")
+        journal = r.get("journal-name") or ""
+        parts = [title]
+        if year:
+            parts.append(f"({year})")
+        if journal:
+            parts.append(journal)
+        return ". ".join(p for p in parts if p) or r.get("id", "unknown")
+
+    papers = [
+        {
+            "id": r.get("id"),
+            "citation": build_citation(r),
+            "doi": r.get("doi"),
+        }
+        for r in paper_result
+    ]
+
+    print(json.dumps({
+        "success": True,
+        "system_id": args.system,
+        "system_name": system_name,
+        "count": len(papers),
+        "papers": papers,
+    }, indent=2))
+
+
 def cmd_link_paper(args):
     """Link a techrecon-system to an existing scilit-paper via techrecon-references-paper."""
     with get_driver() as driver:
@@ -1510,6 +1574,104 @@ def cmd_link_paper(args):
         "system_name": sys_check[0].get("name"),
         "paper_id": args.paper_id,
         "paper_name": paper_check[0].get("name"),
+    }, indent=2))
+
+
+def cmd_search_literature(args):
+    """Search scientific literature and link papers to a techrecon-system."""
+    skill_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # --- Path resolution ---
+    scilit_path = os.path.join(skill_dir, "..", "scientific-literature", "scientific_literature.py")
+    if not os.path.exists(scilit_path):
+        project_root = os.path.dirname(os.path.dirname(skill_dir))
+        scilit_path = os.path.join(project_root, ".claude", "skills", "scientific-literature", "scientific_literature.py")
+    if not os.path.exists(scilit_path):
+        print(json.dumps({"success": False, "error": "scientific-literature skill not found"}))
+        sys.exit(1)
+
+    # --- Verify system exists (own driver context) ---
+    with get_driver() as driver:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            sys_check = list(tx.query(
+                f'match $s isa techrecon-system, has id "{escape_string(args.system)}"; '
+                f'fetch {{ "id": $s.id, "name": $s.name }};'
+            ).resolve())
+    if not sys_check:
+        print(json.dumps({"success": False, "error": f"System not found: {args.system}"}))
+        sys.exit(1)
+
+    # --- Run scilit search (outside driver context) ---
+    # project_root is the cwd for subprocess so uv uses the project's venv
+    project_root = os.path.normpath(os.path.join(skill_dir, "..", ".."))
+    cmd = ["uv", "run", "python", scilit_path, "search",
+           "--source", args.source, "--query", args.query,
+           "--max-results", str(args.limit)]
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=project_root, timeout=120)
+
+    if proc.returncode != 0:
+        print(json.dumps({"success": False, "error": f"scilit search failed: {proc.stderr[-500:]}"}))
+        sys.exit(1)
+
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError as e:
+        print(json.dumps({"success": False, "error": f"Failed to parse scilit output: {e}"}))
+        sys.exit(1)
+
+    # --- Check scilit success flag ---
+    if not data.get("success"):
+        print(json.dumps({"success": False, "error": f"scilit search returned failure: {data.get('error', 'unknown')}"}))
+        sys.exit(1)
+
+    papers = data.get("papers", [])
+
+    # --- Link papers to system ---
+    papers_linked = 0
+    papers_already_linked = 0
+    result_papers = []
+
+    with get_driver() as driver:
+        for paper in papers:
+            paper_id = paper.get("id")
+            if not paper_id:
+                continue
+            # Check if link already exists
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+                existing = list(tx.query(
+                    f'match $s isa techrecon-system, has id "{escape_string(args.system)}"; '
+                    f'$p isa scilit-paper, has id "{escape_string(paper_id)}"; '
+                    f'(system: $s, paper: $p) isa techrecon-references-paper; '
+                    f'fetch {{ "system": $s.id }};'
+                ).resolve())
+            if existing:
+                papers_already_linked += 1
+                result_papers.append({"id": paper_id, "title": paper.get("title", ""), "status": "already_linked"})
+            else:
+                with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                    tx.query(
+                        f'match $s isa techrecon-system, has id "{escape_string(args.system)}"; '
+                        f'$p isa scilit-paper, has id "{escape_string(paper_id)}"; '
+                        f'insert (system: $s, paper: $p) isa techrecon-references-paper;'
+                    ).resolve()
+                    tx.commit()
+                papers_linked += 1
+                result_papers.append({"id": paper_id, "title": paper.get("title", ""), "status": "linked"})
+
+        # Add the system (not individual papers) to the investigation — marks that
+        # literature was searched for this system in this investigation context.
+        if args.investigation:
+            add_to_collection(driver, args.system, args.investigation)
+
+    print(json.dumps({
+        "success": True,
+        "system_id": args.system,
+        "query": args.query,
+        "source": args.source,
+        "papers_found": len(papers),
+        "papers_linked": papers_linked,
+        "papers_already_linked": papers_already_linked,
+        "papers": result_papers,
     }, indent=2))
 
 
@@ -1589,16 +1751,36 @@ def cmd_show_system(args):
             }};'''
             artifact_result = list(tx.query(artifact_query).resolve())
 
-            # Notes
-            notes_query = f'''match
-                $s isa techrecon-system, has id "{args.id}";
-                (note: $n, subject: $s) isa aboutness;
-            fetch {{
-                "id": $n.id,
-                "name": $n.name,
-                "content": $n.content
-            }};'''
-            notes_result = list(tx.query(notes_query).resolve())
+            # Notes — query by subtype so each note includes its type label
+            system_note_types = [
+                ("architecture", "techrecon-architecture-note"),
+                ("design-pattern", "techrecon-design-pattern-note"),
+                ("integration", "techrecon-integration-note"),
+                ("comparison", "techrecon-comparison-note"),
+                ("data-model", "techrecon-data-model-note"),
+                ("assessment", "techrecon-assessment-note"),
+                ("provenance", "techrecon-provenance-note"),
+                ("use-case", "techrecon-use-case-note"),
+                ("harness", "techrecon-harness-note"),
+                ("general", "note"),
+            ]
+            notes_result = []
+            for note_type_label, note_type_name in system_note_types:
+                nq = f'''match
+                    $s isa techrecon-system, has id "{args.id}";
+                    (note: $n, subject: $s) isa aboutness;
+                    $n isa {note_type_name};
+                fetch {{
+                    "id": $n.id,
+                    "name": $n.name,
+                    "content": $n.content
+                }};'''
+                try:
+                    typed_notes = list(tx.query(nq).resolve())
+                except Exception:
+                    typed_notes = []
+                for nr in typed_notes:
+                    notes_result.append({**nr, "_type": note_type_label})
 
             # Tags
             tags_query = f'''match
@@ -1666,6 +1848,7 @@ def cmd_show_system(args):
             "id": n.get("id"),
             "name": n.get("name"),
             "content": n.get("content"),
+            "type": n.get("_type"),
         } for n in notes_result],
         "tags": [t.get("name") for t in tags_result],
         "papers": [{
@@ -2164,6 +2347,8 @@ def cmd_add_note(args):
         "provenance": "techrecon-provenance-note",
         "use-case": "techrecon-use-case-note",
         "ml-evaluation": "techrecon-ml-evaluation-note",
+        "literature-review": "techrecon-literature-review-note",
+        "harness": "techrecon-harness-note",
         "general": "note",
     }
 
@@ -2720,6 +2905,320 @@ def cmd_cache_stats(args):
 
 
 # =============================================================================
+# EMBEDDING AND SEMANTIC SEARCH
+# =============================================================================
+
+TECHRECON_NOTES_COLLECTION = "techrecon_notes"
+
+# Note types eligible for embedding (longer, analytical notes worth indexing)
+EMBEDDABLE_NOTE_TYPES = [
+    ("architecture", "techrecon-architecture-note"),
+    ("harness", "techrecon-harness-note"),
+    ("assessment", "techrecon-assessment-note"),
+    ("comparison", "techrecon-comparison-note"),
+    ("design-pattern", "techrecon-design-pattern-note"),
+    ("literature-review", "techrecon-literature-review-note"),
+]
+
+
+def _get_notes_for_embed(driver, system_id=None, investigation_id=None, note_type_filter=None):
+    """Fetch notes from TypeDB for embedding. Returns list of note dicts with metadata."""
+    import sys
+
+    note_types_to_query = [
+        (lbl, tname) for lbl, tname in EMBEDDABLE_NOTE_TYPES
+        if note_type_filter is None or lbl == note_type_filter
+    ]
+
+    results = []
+    with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+        if system_id:
+            # Fetch notes about a specific system
+            for note_label, note_typename in note_types_to_query:
+                q = f'''match
+                    $s isa techrecon-system, has id "{system_id}";
+                    (note: $n, subject: $s) isa aboutness;
+                    $n isa {note_typename};
+                fetch {{
+                    "id": $n.id,
+                    "name": $n.name,
+                    "content": $n.content
+                }};'''
+                try:
+                    rows = list(tx.query(q).resolve())
+                except Exception as e:
+                    print(f"[warn] query failed for {note_typename}: {e}", file=sys.stderr)
+                    rows = []
+                for r in rows:
+                    results.append({
+                        "note_id": r.get("id"),
+                        "note_type": note_label,
+                        "note_name": r.get("name"),
+                        "content": r.get("content"),
+                        "system_id": system_id,
+                        "system_name": None,
+                        "investigation_id": None,
+                    })
+
+        elif investigation_id:
+            # Fetch systems in the investigation first
+            sys_q = f'''match
+                $inv isa techrecon-investigation, has id "{investigation_id}";
+                (collection: $inv, member: $s) isa collection-membership;
+                $s isa techrecon-system;
+            fetch {{
+                "id": $s.id,
+                "name": $s.name
+            }};'''
+            try:
+                sys_rows = list(tx.query(sys_q).resolve())
+            except Exception:
+                sys_rows = []
+
+            for sr in sys_rows:
+                sid = sr.get("id")
+                sname = sr.get("name")
+                for note_label, note_typename in note_types_to_query:
+                    q = f'''match
+                        $s isa techrecon-system, has id "{sid}";
+                        (note: $n, subject: $s) isa aboutness;
+                        $n isa {note_typename};
+                    fetch {{
+                        "id": $n.id,
+                        "name": $n.name,
+                        "content": $n.content
+                    }};'''
+                    try:
+                        rows = list(tx.query(q).resolve())
+                    except Exception:
+                        rows = []
+                    for r in rows:
+                        results.append({
+                            "note_id": r.get("id"),
+                            "note_type": note_label,
+                            "note_name": r.get("name"),
+                            "content": r.get("content"),
+                            "system_id": sid,
+                            "system_name": sname,
+                            "investigation_id": investigation_id,
+                        })
+
+            # Also fetch investigation-level notes (e.g., comparison)
+            for note_label, note_typename in note_types_to_query:
+                q = f'''match
+                    $inv isa techrecon-investigation, has id "{investigation_id}";
+                    (collection: $inv, member: $n) isa collection-membership;
+                    $n isa {note_typename};
+                fetch {{
+                    "id": $n.id,
+                    "name": $n.name,
+                    "content": $n.content
+                }};'''
+                try:
+                    rows = list(tx.query(q).resolve())
+                except Exception:
+                    rows = []
+                for r in rows:
+                    nid = r.get("id")
+                    if not any(x["note_id"] == nid for x in results):
+                        results.append({
+                            "note_id": nid,
+                            "note_type": note_label,
+                            "note_name": r.get("name"),
+                            "content": r.get("content"),
+                            "system_id": None,
+                            "system_name": None,
+                            "investigation_id": investigation_id,
+                        })
+
+    return results
+
+
+def cmd_embed_notes(args):
+    """Embed notes into Qdrant for semantic search."""
+    import sys
+    import uuid
+
+    try:
+        from skillful_alhazen.utils.embeddings import embed_texts
+        from skillful_alhazen.utils.vector_store import get_qdrant_client, VECTOR_DIM
+        from qdrant_client.models import Distance, VectorParams, PointStruct
+    except ImportError as e:
+        print(json.dumps({
+            "success": False,
+            "error": f"Missing dependency: {e}. Run: uv sync --all-extras and make qdrant-start",
+        }))
+        return
+
+    try:
+        qdrant = get_qdrant_client()
+    except Exception as e:
+        print(json.dumps({"success": False, "error": f"Cannot connect to Qdrant: {e}"}))
+        return
+
+    # Ensure collection exists
+    existing = {c.name for c in qdrant.get_collections().collections}
+    if TECHRECON_NOTES_COLLECTION not in existing:
+        qdrant.create_collection(
+            collection_name=TECHRECON_NOTES_COLLECTION,
+            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
+        )
+
+    # Stable UUID from note ID (same namespace as paper_id_to_uuid)
+    _ns = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
+    def note_id_to_uuid(note_id):
+        return str(uuid.uuid5(_ns, note_id))
+
+    with get_driver() as driver:
+        notes = _get_notes_for_embed(
+            driver,
+            system_id=args.system,
+            investigation_id=args.investigation,
+            note_type_filter=args.type,
+        )
+
+    if not notes:
+        print(json.dumps({"success": True, "embedded": 0, "skipped": 0, "total": 0}))
+        return
+
+    # Check which are already embedded (unless --reembed)
+    to_embed = notes
+    skipped = 0
+    if not args.reembed:
+        existing_ids = set()
+        try:
+            point_ids = [note_id_to_uuid(n["note_id"]) for n in notes if n["note_id"]]
+            results = qdrant.retrieve(
+                collection_name=TECHRECON_NOTES_COLLECTION,
+                ids=point_ids,
+                with_payload=False,
+            )
+            existing_ids = {r.id for r in results}
+        except Exception:
+            pass
+        to_embed = [n for n in notes if note_id_to_uuid(n.get("note_id", "")) not in existing_ids]
+        skipped = len(notes) - len(to_embed)
+
+    embedded = 0
+    if to_embed:
+        # Embed in batches of 128
+        batch_size = 128
+        for i in range(0, len(to_embed), batch_size):
+            batch = to_embed[i : i + batch_size]
+            texts = [f"{n['note_type']}\n\n{n['content'] or ''}" for n in batch]
+            try:
+                vectors = embed_texts(texts, input_type="document")
+            except Exception as e:
+                print(json.dumps({"success": False, "error": f"Embedding failed: {e}"}))
+                return
+
+            points = []
+            for n, vec in zip(batch, vectors):
+                pid = note_id_to_uuid(n["note_id"])
+                points.append(PointStruct(
+                    id=pid,
+                    vector=vec,
+                    payload={
+                        "note_id": n["note_id"],
+                        "note_type": n["note_type"],
+                        "system_id": n["system_id"],
+                        "system_name": n["system_name"],
+                        "investigation_id": n["investigation_id"],
+                    },
+                ))
+            qdrant.upsert(collection_name=TECHRECON_NOTES_COLLECTION, points=points)
+            embedded += len(points)
+
+    print(json.dumps({
+        "success": True,
+        "embedded": embedded,
+        "skipped": skipped,
+        "total": len(notes),
+    }))
+
+
+def cmd_search_notes(args):
+    """Semantic search over embedded notes in Qdrant."""
+    try:
+        from skillful_alhazen.utils.embeddings import embed_texts
+        from skillful_alhazen.utils.vector_store import get_qdrant_client
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+    except ImportError as e:
+        print(json.dumps({"success": False, "error": f"Missing dependency: {e}"}))
+        return
+
+    try:
+        qdrant = get_qdrant_client()
+    except Exception as e:
+        print(json.dumps({"success": False, "error": f"Cannot connect to Qdrant: {e}"}))
+        return
+
+    # Embed query
+    try:
+        vectors = embed_texts([args.query], input_type="query")
+        query_vector = vectors[0]
+    except Exception as e:
+        print(json.dumps({"success": False, "error": f"Embedding failed: {e}"}))
+        return
+
+    # Build optional filters
+    conditions = []
+    if args.type:
+        conditions.append(FieldCondition(key="note_type", match=MatchValue(value=args.type)))
+    if args.investigation:
+        conditions.append(FieldCondition(key="investigation_id", match=MatchValue(value=args.investigation)))
+    query_filter = Filter(must=conditions) if conditions else None
+
+    try:
+        response = qdrant.query_points(
+            collection_name=TECHRECON_NOTES_COLLECTION,
+            query=query_vector,
+            query_filter=query_filter,
+            limit=args.limit,
+            with_payload=True,
+        )
+    except Exception as e:
+        print(json.dumps({"success": False, "error": f"Search failed: {e}"}))
+        return
+
+    # Fetch full note content from TypeDB for each result
+    results = []
+    if response.points:
+        with get_driver() as driver:
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+                for pt in response.points:
+                    payload = pt.payload or {}
+                    note_id = payload.get("note_id", "")
+                    content = ""
+                    note_name = ""
+                    if note_id:
+                        nq = f'''match $n isa note, has id "{note_id}";
+                        fetch {{ "name": $n.name, "content": $n.content }};'''
+                        try:
+                            rows = list(tx.query(nq).resolve())
+                            if rows:
+                                content = rows[0].get("content") or ""
+                                note_name = rows[0].get("name") or ""
+                        except Exception:
+                            pass
+
+                    results.append({
+                        "note_id": note_id,
+                        "note_type": payload.get("note_type", ""),
+                        "note_name": note_name,
+                        "system_id": payload.get("system_id"),
+                        "system_name": payload.get("system_name"),
+                        "investigation_id": payload.get("investigation_id"),
+                        "score": round(pt.score, 4),
+                        "content_preview": (content[:200] + "...") if len(content) > 200 else content,
+                        "content": content,
+                    })
+
+    print(json.dumps({"success": True, "results": results}, indent=2))
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -2859,6 +3358,15 @@ def main():
     p.add_argument("--system-id", required=True, dest="system_id", help="techrecon-system ID")
     p.add_argument("--paper-id", required=True, dest="paper_id", help="scilit-paper ID")
 
+    p = subparsers.add_parser("search-literature", help="Search scientific literature and link papers to a system")
+    p.add_argument("--query", required=True, help="Search query")
+    p.add_argument("--system", required=True, help="System ID to link papers to")
+    p.add_argument("--source", default="openalex",
+                   choices=["pubmed", "openalex", "biorxiv"],
+                   help="Literature source (default: openalex)")
+    p.add_argument("--limit", type=int, default=10, help="Maximum results (default: 10)")
+    p.add_argument("--investigation", help="Investigation ID")
+
     # --- Queries ---
 
     subparsers.add_parser("list-systems", help="List all systems")
@@ -2891,7 +3399,7 @@ def main():
     p = subparsers.add_parser("add-note", help="Add a note about any entity")
     p.add_argument("--about", required=True, help="Entity ID this note is about")
     p.add_argument("--type", required=True,
-                   choices=["architecture", "design-pattern", "integration", "comparison", "data-model", "assessment", "provenance", "use-case", "ml-evaluation", "general"],
+                   choices=["architecture", "design-pattern", "integration", "comparison", "data-model", "assessment", "provenance", "use-case", "ml-evaluation", "literature-review", "harness", "general"],
                    help="Note type")
     p.add_argument("--content", required=True, help="Note content")
     p.add_argument("--name", help="Note title")
@@ -2993,6 +3501,26 @@ def main():
     g.add_argument("--system", help="System ID")
     g.add_argument("--component", help="Component ID")
 
+    p = subparsers.add_parser("list-papers", help="List scientific papers linked to a system")
+    p.add_argument("--system", required=True, help="System ID")
+
+    # --- Embedding ---
+
+    p = subparsers.add_parser("embed-notes", help="Embed notes into Qdrant for semantic search")
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--system", help="System ID — embed notes for this system")
+    g.add_argument("--investigation", help="Investigation ID — embed notes for all systems")
+    p.add_argument("--type", choices=["architecture", "harness", "assessment", "comparison", "design-pattern", "literature-review"],
+                   help="Filter to a specific note type")
+    p.add_argument("--reembed", action="store_true", help="Re-embed even if already indexed")
+
+    p = subparsers.add_parser("search-notes", help="Semantic search over embedded notes")
+    p.add_argument("--query", required=True, help="Search query text")
+    p.add_argument("--limit", type=int, default=5, help="Max results (default: 5)")
+    p.add_argument("--type", choices=["architecture", "harness", "assessment", "comparison", "design-pattern", "literature-review"],
+                   help="Filter by note type")
+    p.add_argument("--investigation", help="Filter by investigation ID")
+
     # --- Parse and dispatch ---
 
     args = parser.parse_args()
@@ -3029,8 +3557,10 @@ def main():
         "link-data-model": cmd_link_data_model,
         "link-dependency": cmd_link_dependency,
         "link-paper": cmd_link_paper,
+        "search-literature": cmd_search_literature,
         # Queries
         "list-systems": cmd_list_systems,
+        "list-papers": cmd_list_papers,
         "show-system": cmd_show_system,
         "show-architecture": cmd_show_architecture,
         "list-artifacts": cmd_list_artifacts,
@@ -3059,6 +3589,9 @@ def main():
         # Design decisions
         "add-decision": cmd_add_decision,
         "show-decisions": cmd_show_decisions,
+        # Embedding / semantic search
+        "embed-notes": cmd_embed_notes,
+        "search-notes": cmd_search_notes,
     }
 
     try:

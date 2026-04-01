@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Server, FileText, StickyNote, Calendar } from 'lucide-react';
 import { InvestigationStatusBadge } from './badges';
 
@@ -22,12 +23,29 @@ interface Investigation {
   summary?: InvestigationSummary;
 }
 
+type Stage = 'discovery' | 'analysis' | 'synthesis' | 'done';
+
+const STAGE_STYLES: Record<Stage, string> = {
+  discovery: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  analysis: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
+  synthesis: 'bg-teal-500/15 text-teal-400 border-teal-500/30',
+  done: 'bg-green-500/15 text-green-400 border-green-500/30',
+};
+
+function deriveStageBadge(status: string, summary?: InvestigationSummary): Stage {
+  if (status === 'complete') return 'done';
+  if (summary?.notes && summary.notes > 0) return 'synthesis';
+  if ((summary?.components ?? 0) > 0 || (summary?.concepts ?? 0) > 0) return 'analysis';
+  return 'discovery';
+}
+
 interface InvestigationCardProps {
   investigation: Investigation;
 }
 
 export function InvestigationCard({ investigation }: InvestigationCardProps) {
   const summary = investigation.summary;
+  const stage = deriveStageBadge(investigation.status, summary);
 
   return (
     <Link href={`/techrecon/investigation/${investigation.id}`}>
@@ -35,7 +53,12 @@ export function InvestigationCard({ investigation }: InvestigationCardProps) {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-sm truncate">{investigation.name}</CardTitle>
-            <InvestigationStatusBadge status={investigation.status} />
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Badge variant="outline" className={`text-xs ${STAGE_STYLES[stage]}`}>
+                {stage}
+              </Badge>
+              <InvestigationStatusBadge status={investigation.status} />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">

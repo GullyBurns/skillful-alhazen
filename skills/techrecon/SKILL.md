@@ -34,6 +34,12 @@ uv run python .claude/skills/techrecon/techrecon.py start-investigation \
 uv run python .claude/skills/techrecon/techrecon.py ingest-repo \
     --url "https://github.com/webyrd/mediKanren" \
     --investigation "investigation-abc123"
+
+# Find and link papers about a system
+uv run python .claude/skills/techrecon/techrecon.py search-literature \
+    --query "knowledge graph TypeDB" \
+    --system "system-abc123" \
+    --source openalex --limit 10
 ```
 
 **Before executing any commands, read `USAGE.md` in this directory for the complete command reference, sensemaking workflow, data model, and full investigation example.**

@@ -1,4 +1,5 @@
 _proc/
+.worktrees/
 
 *.bak
 .gitattributes
@@ -175,4 +176,4 @@ deploy/ssh-keys/*.crt
 .claude/settings.local.json 
 
 # Local skills registry (private/proprietary skills)
-skills-registry-local.yaml
+skills-registry-local.yaml.worktrees/
