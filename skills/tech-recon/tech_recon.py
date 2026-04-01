@@ -209,9 +209,8 @@ def cmd_list_investigations(args):
 def cmd_show_investigation(args):
     """Show investigation details with system and analysis counts."""
     inv_id = escape_string(args.id)
+    driver = get_driver()
     try:
-        driver = get_driver()
-
         # Fetch investigation details
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
@@ -249,8 +248,6 @@ def cmd_show_investigation(args):
                 fetch {{ "id": $ana.id }};
             ''').resolve())
 
-        driver.close()
-
         print(json.dumps({
             "success": True,
             "investigation": {
@@ -264,9 +261,13 @@ def cmd_show_investigation(args):
             },
         }))
 
+    except SystemExit:
+        raise
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))
         sys.exit(1)
+    finally:
+        driver.close()
 
 
 def cmd_update_investigation(args):
@@ -352,7 +353,7 @@ def cmd_add_system(args):
     ts = get_timestamp()
     name = escape_string(args.name)
     url = escape_string(args.url)
-    status = escape_string(args.status or "confirmed")
+    status = escape_string(args.status)
 
     try:
         driver = get_driver()
@@ -405,7 +406,7 @@ def cmd_add_system(args):
                 "id": sys_id,
                 "name": args.name,
                 "url": args.url,
-                "status": args.status or "confirmed",
+                "status": args.status,
             },
         }))
 
@@ -514,8 +515,8 @@ def cmd_list_systems(args):
 def cmd_show_system(args):
     """Show full system details including artifact and note counts."""
     sys_id = escape_string(args.id)
+    driver = get_driver()
     try:
-        driver = get_driver()
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
                 match $sys isa tech-recon-system, has id "{sys_id}";
@@ -555,8 +556,6 @@ def cmd_show_system(args):
                 fetch {{ "id": $n.id }};
             ''').resolve())
 
-        driver.close()
-
         print(json.dumps({
             "success": True,
             "system": {
@@ -573,16 +572,20 @@ def cmd_show_system(args):
             },
         }))
 
+    except SystemExit:
+        raise
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))
         sys.exit(1)
+    finally:
+        driver.close()
 
 
 def cmd_discover_systems(args):
     """Return investigation goal/criteria and existing systems for Claude-driven discovery."""
     inv_id = escape_string(args.investigation)
+    driver = get_driver()
     try:
-        driver = get_driver()
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
                 match $inv isa tech-recon-investigation, has id "{inv_id}";
@@ -609,8 +612,6 @@ def cmd_discover_systems(args):
                 fetch {{ "name": $sys.name }};
             ''').resolve())
 
-        driver.close()
-
         existing_systems = [r.get("name") for r in sys_results if r.get("name")]
 
         print(json.dumps({
@@ -624,9 +625,13 @@ def cmd_discover_systems(args):
             },
         }))
 
+    except SystemExit:
+        raise
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))
         sys.exit(1)
+    finally:
+        driver.close()
 
 
 # =============================================================================
