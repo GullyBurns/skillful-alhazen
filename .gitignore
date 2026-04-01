@@ -1,4 +1,5 @@
 _proc/
+.worktrees/
 
 *.bak
 .gitattributes
