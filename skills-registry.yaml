@@ -84,6 +84,16 @@ skills:
       icon: Search
       color: cyan
 
+  - name: tech-recon
+    path: skills/tech-recon
+    dashboard:
+      enabled: true
+      name: "Tech Recon (v2)"
+      description: "Goal-driven technology investigation with dynamic Observable Plot analysis."
+      url_path: "/tech-recon"
+      icon: Search
+      color: cyan
+
   - name: alg-precision-therapeutics
     subdir: skills/biomed/alg-precision-therapeutics
     dashboard:

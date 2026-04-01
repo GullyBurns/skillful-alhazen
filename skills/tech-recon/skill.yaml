@@ -1,0 +1,17 @@
+name: tech-recon
+version: 0.1.0
+description: Goal-driven technology investigation with dynamic Observable Plot analysis
+author: skillful-alhazen
+license: MIT
+typedb_schema: schema.tql
+dashboard:
+  enabled: true
+  lib: dashboard/lib.ts
+dependencies:
+  - typedb-notebook
+  - web-search
+tags:
+  - research
+  - technology
+  - visualization
+  - investigation

@@ -1,0 +1,122 @@
+# =============================================================================
+# TECH-RECON NAMESPACE - TypeDB 3.x Schema Extension
+# =============================================================================
+# Goal-driven technology investigation skill.
+# A tech-recon investigation organizes systems, artifacts, notes, and analyses
+# into a structured knowledge graph aligned with the Alhazen Notebook Model:
+#
+#   Collection = tech-recon-investigation (organizes everything)
+#   Thing      = tech-recon-system (the technology being investigated)
+#   Artifact   = tech-recon-artifact (raw evidence: pages, repos, PDFs)
+#              = tech-recon-analysis (Observable Plot visualizations)
+#   Note       = tech-recon-note (Claude's analysis and sensemaking)
+#
+# Namespace prefix: tech-recon-*
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Tech-Recon Specific
+# (license, format, content, cache-path, description, name, created-at are
+#  already defined in the core schema — not redefined here)
+# All tech-recon-specific attributes use the tech-recon- prefix to avoid
+# collisions with other namespaces.
+# -----------------------------------------------------------------------------
+
+attribute goal-description, value string;
+attribute success-criteria, value string;
+attribute artifact-type, value string;
+attribute topic, value string;
+attribute plot-code, value string;
+attribute tql-query, value string;
+attribute analysis-type, value string;
+attribute github-url, value string;
+attribute star-count, value integer;
+attribute tech-recon-url, value string;
+attribute tech-recon-status, value string;
+attribute tech-recon-language, value string;
+attribute tech-recon-title, value string;
+attribute tech-recon-tag, value string;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES
+# (defined before entities so role names resolve in plays clauses)
+# -----------------------------------------------------------------------------
+
+# INVESTIGATED-IN - A system is under investigation in an investigation
+relation investigated-in,
+    relates system,
+    relates investigation;
+
+# SOURCED-FROM - An artifact was sourced from a system or investigation
+relation sourced-from,
+    relates artifact,
+    relates source;
+
+# ANALYSIS-OF - An analysis belongs to an investigation
+relation analysis-of,
+    relates analysis,
+    relates investigation;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech-Recon Collection
+# -----------------------------------------------------------------------------
+
+entity tech-recon-investigation sub collection,
+    owns goal-description,
+    owns success-criteria,
+    owns tech-recon-status,
+    plays investigated-in:investigation,
+    plays sourced-from:source,
+    plays analysis-of:investigation;
+    # inherits plays aboutness:subject from identifiable-entity
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech-Recon Things
+# -----------------------------------------------------------------------------
+
+entity tech-recon-system sub domain-thing,
+    owns tech-recon-url,
+    owns github-url,
+    owns tech-recon-language,
+    owns star-count,
+    owns tech-recon-status,
+    plays investigated-in:system,
+    plays sourced-from:source;
+    # inherits plays aboutness:subject from identifiable-entity
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech-Recon Artifacts
+# -----------------------------------------------------------------------------
+
+entity tech-recon-artifact sub artifact,
+    owns artifact-type,
+    owns tech-recon-url,
+    plays sourced-from:artifact;
+
+entity tech-recon-analysis sub artifact,
+    owns tech-recon-title,
+    owns analysis-type,
+    owns plot-code,
+    owns tql-query,
+    plays analysis-of:analysis;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Tech-Recon Notes
+# -----------------------------------------------------------------------------
+
+entity tech-recon-note sub note,
+    owns topic,
+    owns tech-recon-tag;
+    # inherits plays aboutness:note from note base type
+
+
+# =============================================================================
+# END TECH-RECON NAMESPACE
+# =============================================================================
