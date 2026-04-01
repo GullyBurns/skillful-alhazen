@@ -3,8 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, RefreshCw, Play, BarChart2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { AnalysisRunner } from '@/components/tech-recon/analysis-runner';
 import type { TechReconAnalysis } from '@/lib/tech-recon';
 
 const linkClass =
@@ -22,12 +22,6 @@ function getAnalysisTypeColor(type: string | null | undefined): string {
   return ANALYSIS_TYPE_COLORS[type.toLowerCase()] || 'bg-slate-500/20 text-slate-300 border-slate-500/30';
 }
 
-interface RunResult {
-  plot_code?: string;
-  data?: unknown[];
-  error?: string;
-}
-
 interface AnalysisPageProps {
   params: Promise<{ id: string; aid: string }>;
 }
@@ -37,9 +31,6 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
   const [analysis, setAnalysis] = useState<TechReconAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [runResult, setRunResult] = useState<RunResult | null>(null);
-  const [running, setRunning] = useState(false);
-  const [runError, setRunError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,22 +49,6 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
     };
     fetchData();
   }, [aid]);
-
-  const handleRun = async () => {
-    setRunning(true);
-    setRunError(null);
-    setRunResult(null);
-    try {
-      const res = await fetch(`/api/tech-recon/analysis/${aid}/run`);
-      if (!res.ok) throw new Error(`Run failed: ${res.status}`);
-      const json = await res.json();
-      setRunResult(json);
-    } catch (err) {
-      setRunError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRunning(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -114,77 +89,29 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
               Investigation
             </Link>
           </div>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                  {analysis.title}
-                </h1>
-                {analysis.type && (
-                  <Badge className={`${getAnalysisTypeColor(analysis.type)} text-xs`}>
-                    {analysis.type}
-                  </Badge>
-                )}
-              </div>
-              {analysis.description && (
-                <p className="text-sm text-muted-foreground max-w-2xl">
-                  {analysis.description}
-                </p>
-              )}
-            </div>
-            <Button
-              onClick={handleRun}
-              disabled={running}
-              className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 shrink-0"
-            >
-              {running ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4 mr-2" />
-              )}
-              Run Analysis
-            </Button>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+              {analysis.title}
+            </h1>
+            {analysis.type && (
+              <Badge className={`${getAnalysisTypeColor(analysis.type)} text-xs`}>
+                {analysis.type}
+              </Badge>
+            )}
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        {/* Run error */}
-        {runError && (
-          <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-lg">
-            <strong>Run failed:</strong> {runError}
-          </div>
-        )}
+        {/* Observable Plot analysis runner */}
+        <AnalysisRunner
+          analysisId={aid}
+          title={analysis.title}
+          description={analysis.description}
+          analysisType={analysis.type || 'plot'}
+        />
 
-        {/* Run result: Observable Plot code + data */}
-        {/* Note: Task 8 will add actual Plot rendering. For now, display code blocks. */}
-        {runResult && (
-          <div className="space-y-4">
-            {runResult.plot_code && (
-              <div>
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-                  <BarChart2 className="w-3.5 h-3.5" />
-                  Observable Plot Code
-                </h2>
-                <pre className="text-xs rounded-lg bg-muted/50 border border-border/40 p-4 overflow-x-auto">
-                  <code>{runResult.plot_code}</code>
-                </pre>
-              </div>
-            )}
-            {runResult.data && Array.isArray(runResult.data) && runResult.data.length > 0 && (
-              <div>
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-                  Data ({runResult.data.length} records)
-                </h2>
-                <pre className="text-xs rounded-lg bg-muted/50 border border-border/40 p-4 overflow-x-auto max-h-64">
-                  <code>{JSON.stringify(runResult.data, null, 2)}</code>
-                </pre>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Analysis metadata */}
+        {/* Static metadata: stored query */}
         {analysis.query && (
           <div>
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
@@ -192,17 +119,6 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
             </h2>
             <pre className="text-xs rounded-lg bg-muted/50 border border-border/40 p-4 overflow-x-auto">
               <code>{analysis.query}</code>
-            </pre>
-          </div>
-        )}
-        {analysis.plot_code && !runResult && (
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-              <BarChart2 className="w-3.5 h-3.5" />
-              Observable Plot Code (template)
-            </h2>
-            <pre className="text-xs rounded-lg bg-muted/50 border border-border/40 p-4 overflow-x-auto">
-              <code>{analysis.plot_code}</code>
             </pre>
           </div>
         )}
