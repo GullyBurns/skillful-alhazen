@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { StageIndicator } from '@/components/tech-recon/stage-indicator';
 import { SystemsGrid } from '@/components/tech-recon/systems-grid';
 import { NotesList } from '@/components/tech-recon/notes-list';
+import { ReportContent } from '@/components/tech-recon/report-content';
 import {
   ArrowLeft,
   RefreshCw,
@@ -16,6 +17,8 @@ import {
   BarChart2,
   StickyNote,
   BarChart,
+  FileText,
+  ClipboardCheck,
 } from 'lucide-react';
 import type { Investigation, TechReconSystem, TechReconNote, TechReconAnalysis } from '@/lib/tech-recon';
 
@@ -62,7 +65,7 @@ export default function InvestigationPage({ params }: InvestigationPageProps) {
   const [data, setData] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'analyses' | 'viz-plan' | 'notes'>('analyses');
+  const [activeTab, setActiveTab] = useState<'report' | 'analyses' | 'viz-plan' | 'notes' | 'completion'>('report');
 
   const fetchData = async () => {
     setLoading(true);
@@ -108,10 +111,15 @@ export default function InvestigationPage({ params }: InvestigationPageProps) {
   }
 
   const { investigation, systems, notes, analyses } = data;
+  const allNotes = notes;
 
-  // Separate viz-plan notes from others
-  const vizPlanNotes = notes.filter((n) => n.topic === 'viz-plan');
-  const otherNotes = notes.filter((n) => n.topic !== 'viz-plan');
+  // Separate special notes from others
+  const vizPlanNotes = allNotes.filter((n) => n.topic === 'viz-plan');
+  const synthesisNote = allNotes.find((n) => n.topic === 'synthesis-report') ?? null;
+  const completionNote = allNotes.find((n) => n.topic === 'completion-assessment') ?? null;
+  const otherNotes = allNotes.filter(
+    (n) => !['viz-plan', 'synthesis-report', 'completion-assessment'].includes(n.topic)
+  );
 
   return (
     <div className="min-h-screen">
@@ -134,6 +142,10 @@ export default function InvestigationPage({ params }: InvestigationPageProps) {
                       {investigation.status}
                     </Badge>
                   )}
+                  {completionNote
+                    ? <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">Assessed</Badge>
+                    : <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">Not evaluated</Badge>
+                  }
                 </div>
               </div>
             </div>
@@ -205,18 +217,20 @@ export default function InvestigationPage({ params }: InvestigationPageProps) {
           <SystemsGrid systems={systems} investigationId={id} />
         </section>
 
-        {/* Tabs: Analyses | Viz Plan | Notes */}
+        {/* Tabs: Report | Analyses | Viz Plan | Notes | Completion */}
         <section>
-          <div className="flex gap-1 border-b border-border/50 mb-4">
+          <div className="flex gap-1 border-b border-border/50 mb-4 overflow-x-auto">
             {([
+              { key: 'report', label: 'Report', icon: FileText },
               { key: 'analyses', label: 'Analyses', icon: BarChart2 },
               { key: 'viz-plan', label: 'Viz Plan', icon: BarChart },
               { key: 'notes', label: 'Notes', icon: StickyNote },
+              { key: 'completion', label: 'Completion', icon: ClipboardCheck },
             ] as const).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === key
                     ? 'border-cyan-400 text-cyan-400'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -237,6 +251,28 @@ export default function InvestigationPage({ params }: InvestigationPageProps) {
               </button>
             ))}
           </div>
+
+          {/* Report Tab */}
+          {activeTab === 'report' && (
+            <div>
+              {!synthesisNote ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground italic">No synthesis report yet. Run:</p>
+                  <pre className="text-xs bg-muted/50 border border-border/40 rounded p-3 whitespace-pre-wrap">
+                    {`uv run python .claude/skills/tech-recon/tech_recon.py compile-report --investigation ${id}`}
+                  </pre>
+                  <p className="text-xs text-muted-foreground">
+                    Then ask Claude to write the synthesis report using the returned context.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Note: {synthesisNote.id}</p>
+                  <ReportContent noteId={synthesisNote.id} preview={synthesisNote.content_preview} />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Analyses Tab */}
           {activeTab === 'analyses' && (
@@ -317,6 +353,28 @@ export default function InvestigationPage({ params }: InvestigationPageProps) {
           {/* Notes Tab */}
           {activeTab === 'notes' && (
             <NotesList notes={otherNotes} />
+          )}
+
+          {/* Completion Tab */}
+          {activeTab === 'completion' && (
+            <div>
+              {!completionNote ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground italic">No completion assessment yet. Run:</p>
+                  <pre className="text-xs bg-muted/50 border border-border/40 rounded p-3 whitespace-pre-wrap">
+                    {`uv run python .claude/skills/tech-recon/tech_recon.py evaluate-completion --investigation ${id}`}
+                  </pre>
+                  <p className="text-xs text-muted-foreground">
+                    Then ask Claude to write the completion assessment using the returned context.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Note: {completionNote.id}</p>
+                  <ReportContent noteId={completionNote.id} preview={completionNote.content_preview} />
+                </div>
+              )}
+            </div>
           )}
         </section>
       </main>

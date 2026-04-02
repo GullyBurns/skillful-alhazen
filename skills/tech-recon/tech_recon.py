@@ -33,6 +33,10 @@ Commands:
     show-analysis         Show full analysis details including plot code and query
     run-analysis          Execute a stored analysis: run its TypeQL query + return data
     plan-analyses         Return investigation context for visualization planning
+    explore-repo          Return clone path + file list for Explore subagent dispatch
+    extract-fragments     Extract code/heading fragments from repo-clone or HTML artifacts
+    compile-report        Return full note content + context for synthesis report writing
+    evaluate-completion   Return coverage stats for completion assessment writing
 
 Environment:
     TYPEDB_HOST       TypeDB server host (default: localhost)
@@ -801,6 +805,65 @@ def _update_system_status_if_confirmed(tx, sys_id):
         ''').resolve()
 
 
+def _clone_repo(url: str, owner: str, repo: str):
+    """Git clone --depth 1 into ALHAZEN_CACHE_DIR/repos/{owner}/{repo}. Return (clone_path, error_msg)."""
+    import subprocess
+    cache_dir = os.environ.get("ALHAZEN_CACHE_DIR", os.path.expanduser("~/.alhazen/cache"))
+    clone_path = os.path.join(cache_dir, "repos", owner, repo)
+    if os.path.isdir(os.path.join(clone_path, ".git")):
+        return clone_path, None  # already cloned -- idempotent
+    os.makedirs(os.path.dirname(clone_path), exist_ok=True)
+    result = subprocess.run(
+        ["git", "clone", "--depth", "1", url, clone_path],
+        capture_output=True, text=True, timeout=120,
+    )
+    if result.returncode != 0:
+        return None, result.stderr.strip()
+    return clone_path, None
+
+
+def _insert_note_tx(tx, subject_id: str, topic: str, content: str, fmt: str, tags=None) -> str:
+    """Insert a tech-recon-note and link it to subject_id via aboutness. Returns note_id.
+
+    Accepts an open write transaction -- caller is responsible for commit.
+    """
+    note_id = generate_id("trn")
+    ts = get_timestamp()
+    esc_subj = escape_string(subject_id)
+    esc_topic = escape_string(topic)
+    esc_fmt = escape_string(fmt)
+    esc_content = escape_string(content)
+
+    tx.query(f'''
+        insert $n isa tech-recon-note,
+            has id "{note_id}",
+            has name "{esc_topic}",
+            has topic "{esc_topic}",
+            has format "{esc_fmt}",
+            has content "{esc_content}",
+            has created-at {ts};
+    ''').resolve()
+
+    if tags:
+        for raw_tag in tags:
+            tag = escape_string(str(raw_tag).strip())
+            if tag:
+                tx.query(f'''
+                    match $n isa tech-recon-note, has id "{note_id}";
+                    insert $n has tech-recon-tag "{tag}";
+                ''').resolve()
+
+    tx.query(f'''
+        match
+            $e isa identifiable-entity, has id "{esc_subj}";
+            $n isa tech-recon-note, has id "{note_id}";
+        insert
+            (note: $n, subject: $e) isa aboutness;
+    ''').resolve()
+
+    return note_id
+
+
 # =============================================================================
 # INGESTION COMMANDS
 # =============================================================================
@@ -958,11 +1021,397 @@ def cmd_ingest_repo(args):
             tx.commit()
         driver.close()
 
-        print(json.dumps({"success": True, "artifacts": artifacts}))
+        clone_path = None
+        clone_artifact_id = None
+        clone_error = None
+        if getattr(args, 'clone', False):
+            clone_path, clone_error = _clone_repo(url, owner, repo)
+            if clone_path:
+                # Insert repo-clone artifact in a new transaction
+                art_id = generate_id("tra")
+                ts2 = get_timestamp()
+                rel_cache_path = f"repos/{owner}/{repo}"
+                driver2 = get_driver()
+                try:
+                    with driver2.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx2:
+                        # Check for existing repo-clone artifact (idempotent)
+                        existing = list(tx2.query(f'''
+                            match
+                                $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+                                $art isa tech-recon-artifact, has artifact-type "repo-clone";
+                                (artifact: $art, source: $sys) isa sourced-from;
+                            fetch {{ "id": $art.id, "cache_path": $art.cache-path }};
+                        ''').resolve())
+                        if existing:
+                            clone_artifact_id = existing[0].get("id")
+                        else:
+                            esc_url = escape_string(url)
+                            esc_cp = escape_string(rel_cache_path)
+                            tx2.query(f'''
+                                insert $art isa tech-recon-artifact,
+                                    has id "{art_id}",
+                                    has artifact-type "repo-clone",
+                                    has tech-recon-url "{esc_url}",
+                                    has format "directory",
+                                    has cache-path "{esc_cp}",
+                                    has created-at {ts2};
+                            ''').resolve()
+                            tx2.query(f'''
+                                match
+                                    $art isa tech-recon-artifact, has id "{art_id}";
+                                    $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+                                insert
+                                    (artifact: $art, source: $sys) isa sourced-from;
+                            ''').resolve()
+                            tx2.commit()
+                            clone_artifact_id = art_id
+                            artifacts.append({
+                                "id": art_id,
+                                "type": "repo-clone",
+                                "url": url,
+                                "format": "directory",
+                                "cache_path": rel_cache_path,
+                                "system_id": sys_id,
+                            })
+                finally:
+                    driver2.close()
+
+        result = {"success": True, "artifacts": artifacts}
+        if getattr(args, 'clone', False):
+            result["clone_path"] = clone_path
+            result["clone_artifact_id"] = clone_artifact_id
+            if clone_error:
+                result["clone_error"] = clone_error
+        print(json.dumps(result))
 
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))
         sys.exit(1)
+
+
+def cmd_explore_repo(args):
+    """Return clone path + file list + dispatch instructions for a Claude Explore subagent."""
+    sys_id = escape_string(args.system)
+    driver = get_driver()
+    try:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            # Find the repo-clone artifact for this system
+            art_results = list(tx.query(f'''
+                match
+                    $sys isa tech-recon-system, has id "{sys_id}";
+                    $art isa tech-recon-artifact, has artifact-type "repo-clone";
+                    (artifact: $art, source: $sys) isa sourced-from;
+                fetch {{
+                    "id": $art.id,
+                    "cache_path": $art.cache-path,
+                    "url": $art.tech-recon-url
+                }};
+            ''').resolve())
+
+            if not art_results:
+                print(json.dumps({
+                    "success": False,
+                    "error": "No repo-clone artifact found for this system. Run: ingest-repo --clone first."
+                }))
+                sys.exit(1)
+
+            art = art_results[0]
+            rel_cache_path = art.get("cache_path", "")
+            repo_url = art.get("url", "")
+            artifact_id = art.get("id", "")
+
+            # Get system name
+            sys_results = list(tx.query(f'''
+                match $sys isa tech-recon-system, has id "{sys_id}";
+                fetch {{ "id": $sys.id, "name": $sys.name }};
+            ''').resolve())
+            sys_name = sys_results[0].get("name", "") if sys_results else ""
+
+            # Fetch investigation context if provided
+            goal = ""
+            criteria = ""
+            if args.investigation:
+                inv_id = escape_string(args.investigation)
+                inv_results = list(tx.query(f'''
+                    match $inv isa tech-recon-investigation, has id "{inv_id}";
+                    fetch {{
+                        "goal": $inv.goal-description,
+                        "criteria": $inv.success-criteria
+                    }};
+                ''').resolve())
+                if inv_results:
+                    goal = inv_results[0].get("goal", "")
+                    criteria = inv_results[0].get("criteria", "")
+
+        # Expand cache path
+        cache_dir = os.environ.get("ALHAZEN_CACHE_DIR", os.path.expanduser("~/.alhazen/cache"))
+        clone_path = os.path.join(cache_dir, rel_cache_path)
+
+        if not os.path.isdir(clone_path):
+            print(json.dumps({
+                "success": False,
+                "error": f"Clone path does not exist: {clone_path}. Run: ingest-repo --clone first."
+            }))
+            sys.exit(1)
+
+        # Walk directory tree
+        INCLUDE_EXTS = {'.py', '.ts', '.js', '.rs', '.go', '.java', '.md', '.tql',
+                        '.yaml', '.yml', '.toml', '.json', '.prisma', '.tsx', '.jsx'}
+        files = []
+        for root, dirs, filenames in os.walk(clone_path):
+            # Skip hidden dirs and common noise
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in
+                       ('node_modules', '__pycache__', '.git', 'dist', 'build', '.next', 'target')]
+            for fname in sorted(filenames):
+                ext = os.path.splitext(fname)[1].lower()
+                if ext in INCLUDE_EXTS:
+                    full = os.path.join(root, fname)
+                    rel = os.path.relpath(full, clone_path)
+                    files.append(rel)
+
+        # Sort by depth then name, limit to 200
+        files.sort(key=lambda p: (p.count(os.sep), p))
+        files = files[:200]
+
+        print(json.dumps({
+            "success": True,
+            "system_id": args.system,
+            "system_name": sys_name,
+            "artifact_id": artifact_id,
+            "clone_path": clone_path,
+            "repo_url": repo_url,
+            "file_count": len(files),
+            "files": files,
+            "investigation_goal": goal,
+            "success_criteria": criteria,
+            "instruction": (
+                "Dispatch an Explore subagent over clone_path. The subagent should: "
+                "(1) read README and key source files, "
+                "(2) understand the architecture and how it addresses the investigation criteria, "
+                "(3) call write-note for each topic found. "
+                "See USAGE.md section on Repo Exploration for the full Explore subagent prompt template."
+            ),
+        }))
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+    finally:
+        driver.close()
+
+
+def cmd_extract_fragments(args):
+    """Extract code/heading fragments from a repo-clone or HTML artifact and store as notes."""
+    if not HAS_BS4 and not True:  # BS4 check happens inside for HTML
+        pass
+
+    art_id = escape_string(args.artifact)
+    max_fragments = args.max_fragments
+
+    driver = get_driver()
+    try:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            art_results = list(tx.query(f'''
+                match $art isa tech-recon-artifact, has id "{art_id}";
+                fetch {{
+                    "id": $art.id,
+                    "type": $art.artifact-type,
+                    "cache_path": $art.cache-path,
+                    "url": $art.tech-recon-url
+                }};
+            ''').resolve())
+
+            if not art_results:
+                print(json.dumps({"success": False, "error": f"Artifact {args.artifact} not found"}))
+                sys.exit(1)
+
+            art = art_results[0]
+            artifact_type = art.get("type", "")
+            rel_cache_path = art.get("cache_path", "")
+
+            # Find the system linked to this artifact
+            sys_results = list(tx.query(f'''
+                match
+                    $art isa tech-recon-artifact, has id "{art_id}";
+                    $sys isa tech-recon-system;
+                    (artifact: $art, source: $sys) isa sourced-from;
+                fetch {{ "id": $sys.id, "name": $sys.name }};
+            ''').resolve())
+
+            if not sys_results:
+                print(json.dumps({"success": False, "error": "No system linked to this artifact"}))
+                sys.exit(1)
+
+            sys_id = sys_results[0].get("id", "")
+
+            # Fetch existing fragment tags for dedup
+            existing_tags = set()
+            existing_results = list(tx.query(f'''
+                match
+                    $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+                    $n isa tech-recon-note, has topic "fragment";
+                    (note: $n, subject: $sys) isa aboutness;
+                    $n has tech-recon-tag $tag;
+                fetch {{ "tag": $tag }};
+            ''').resolve())
+            for r in existing_results:
+                existing_tags.add(r.get("tag", ""))
+
+        cache_dir = os.environ.get("ALHAZEN_CACHE_DIR", os.path.expanduser("~/.alhazen/cache"))
+        fragments = []  # list of (heading, content) tuples
+
+        if artifact_type == "repo-clone":
+            if not rel_cache_path:
+                print(json.dumps({"success": False, "error": "Artifact has no cache-path"}))
+                sys.exit(1)
+            clone_path = os.path.join(cache_dir, rel_cache_path)
+            if not os.path.isdir(clone_path):
+                print(json.dumps({"success": False, "error": f"Clone path not found: {clone_path}"}))
+                sys.exit(1)
+
+            import re
+            CODE_EXTS = {'.py', '.ts', '.js', '.tsx', '.jsx', '.rs', '.go', '.java'}
+            MD_EXTS = {'.md', '.mdx'}
+            DATA_EXTS = {'.yaml', '.yml', '.toml', '.json'}
+            ALL_EXTS = CODE_EXTS | MD_EXTS | DATA_EXTS
+
+            # Patterns for top-level definitions
+            CODE_SPLIT_RE = re.compile(
+                r'^(class |def |async def |function |export function |export async function |pub fn |func )',
+                re.MULTILINE,
+            )
+
+            for root, dirs, filenames in os.walk(clone_path):
+                dirs[:] = [d for d in dirs if not d.startswith('.') and d not in
+                           ('node_modules', '__pycache__', '.git', 'dist', 'build', '.next', 'target')]
+                for fname in sorted(filenames):
+                    if len(fragments) >= max_fragments:
+                        break
+                    ext = os.path.splitext(fname)[1].lower()
+                    if ext not in ALL_EXTS:
+                        continue
+                    full = os.path.join(root, fname)
+                    # Skip large files
+                    try:
+                        if os.path.getsize(full) > 100 * 1024:
+                            continue
+                        with open(full, encoding='utf-8', errors='replace') as fh:
+                            text = fh.read()
+                    except OSError:
+                        continue
+
+                    rel = os.path.relpath(full, clone_path)
+
+                    if ext in CODE_EXTS:
+                        # Split on top-level definitions
+                        parts = CODE_SPLIT_RE.split(text)
+                        if len(parts) <= 1:
+                            # No splits found -- store whole file
+                            heading = rel
+                            if heading not in existing_tags:
+                                fragments.append((heading, text[:5000]))
+                        else:
+                            # Reconstruct: parts[0] is preamble, then pairs (keyword, body)
+                            i = 1
+                            while i < len(parts) - 1 and len(fragments) < max_fragments:
+                                keyword = parts[i]
+                                body = parts[i + 1]
+                                # Extract name: first identifier on first line
+                                first_line = body.split('\n')[0]
+                                name_match = re.match(r'(\w+)', first_line)
+                                fn_name = name_match.group(1) if name_match else str(i)
+                                heading = f"{rel}::{fn_name}"
+                                if heading not in existing_tags:
+                                    fragments.append((heading, (keyword + body)[:5000]))
+                                i += 2
+
+                    elif ext in MD_EXTS:
+                        # Split on ## headings
+                        sections = re.split(r'^## ', text, flags=re.MULTILINE)
+                        for sec in sections:
+                            if len(fragments) >= max_fragments:
+                                break
+                            if not sec.strip():
+                                continue
+                            first_line = sec.split('\n')[0].strip()
+                            heading = f"{rel}::{first_line}" if first_line else rel
+                            if heading not in existing_tags:
+                                fragments.append((heading, ('## ' + sec)[:5000]))
+
+                    elif ext in DATA_EXTS:
+                        # Split on top-level keys
+                        lines = text.split('\n')
+                        current_key = None
+                        current_lines = []
+                        for line in lines:
+                            if line and not line[0].isspace() and ':' in line and not line.startswith('#'):
+                                if current_key and current_lines:
+                                    heading = f"{rel}::{current_key}"
+                                    if heading not in existing_tags and len(fragments) < max_fragments:
+                                        fragments.append((heading, '\n'.join(current_lines)[:5000]))
+                                current_key = line.split(':')[0].strip()
+                                current_lines = [line]
+                            else:
+                                current_lines.append(line)
+                        if current_key and current_lines:
+                            heading = f"{rel}::{current_key}"
+                            if heading not in existing_tags and len(fragments) < max_fragments:
+                                fragments.append((heading, '\n'.join(current_lines)[:5000]))
+
+        else:
+            # HTML artifact
+            if not HAS_BS4:
+                print(json.dumps({"success": False, "error": "beautifulsoup4 required for HTML extraction"}))
+                sys.exit(1)
+            if not rel_cache_path:
+                print(json.dumps({"success": False, "error": "Artifact has no cache-path"}))
+                sys.exit(1)
+            try:
+                html = load_from_cache_text(rel_cache_path)
+            except Exception as e:
+                print(json.dumps({"success": False, "error": f"Cannot load artifact: {e}"}))
+                sys.exit(1)
+
+            soup = BeautifulSoup(html, 'html.parser')
+            for heading_tag in soup.find_all(['h2', 'h3'])[:max_fragments]:
+                heading_text = heading_tag.get_text(strip=True)
+                if not heading_text or heading_text in existing_tags:
+                    continue
+                # Grab text until next heading
+                content_parts = []
+                for sib in heading_tag.next_siblings:
+                    if hasattr(sib, 'name') and sib.name in ('h2', 'h3'):
+                        break
+                    content_parts.append(sib.get_text(' ', strip=True) if hasattr(sib, 'get_text') else str(sib))
+                fragments.append((heading_text, (heading_text + '\n\n' + ' '.join(content_parts))[:5000]))
+
+        # Batch-insert all fragments
+        inserted_notes = []
+        if fragments:
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                for heading, content in fragments:
+                    note_id = _insert_note_tx(tx, sys_id, "fragment", content, "text", [heading])
+                    inserted_notes.append({"id": note_id, "tag": heading})
+                tx.commit()
+
+        print(json.dumps({
+            "success": True,
+            "artifact_id": args.artifact,
+            "artifact_type": artifact_type,
+            "system_id": sys_id,
+            "fragments_extracted": len(inserted_notes),
+            "notes": inserted_notes,
+        }))
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+    finally:
+        driver.close()
 
 
 def cmd_ingest_pdf(args):
@@ -1778,6 +2227,320 @@ def cmd_plan_analyses(args):
         driver.close()
 
 
+def cmd_compile_report(args):
+    """Return full note content + investigation context for synthesis report writing."""
+    inv_id = escape_string(args.investigation)
+    driver = get_driver()
+    try:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            # Check for existing synthesis-report
+            existing_report = list(tx.query(f'''
+                match
+                    $inv isa tech-recon-investigation, has id "{inv_id}";
+                    $n isa tech-recon-note, has topic "synthesis-report";
+                    (note: $n, subject: $inv) isa aboutness;
+                fetch {{ "id": $n.id, "content": $n.content }};
+            ''').resolve())
+
+            if existing_report and not getattr(args, 'force', False):
+                r = existing_report[0]
+                print(json.dumps({
+                    "already_exists": True,
+                    "note_id": r.get("id"),
+                    "content_preview": (r.get("content") or "")[:500],
+                    "message": "Synthesis report already exists. Use --force to regenerate.",
+                }))
+                return
+
+            # Fetch investigation
+            inv_results = list(tx.query(f'''
+                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                fetch {{
+                    "id": $inv.id,
+                    "name": $inv.name,
+                    "goal": $inv.goal-description,
+                    "criteria": $inv.success-criteria
+                }};
+            ''').resolve())
+
+            if not inv_results:
+                print(json.dumps({"success": False, "error": f"Investigation {args.investigation} not found"}))
+                sys.exit(1)
+
+            inv = inv_results[0]
+
+            # Fetch all systems
+            sys_results = list(tx.query(f'''
+                match
+                    $inv isa tech-recon-investigation, has id "{inv_id}";
+                    $sys isa tech-recon-system;
+                    (system: $sys, investigation: $inv) isa investigated-in;
+                fetch {{
+                    "id": $sys.id,
+                    "name": $sys.name,
+                    "status": $sys.tech-recon-status
+                }};
+            ''').resolve())
+
+            systems = [
+                {"id": r.get("id"), "name": r.get("name"), "status": r.get("status")}
+                for r in sys_results
+            ]
+
+            # Fetch full notes for each system (no preview truncation)
+            notes_by_system = {}
+            artifacts_by_system = {}
+            for sys_item in systems:
+                sid = escape_string(sys_item["id"])
+
+                note_results = list(tx.query(f'''
+                    match
+                        $sys isa tech-recon-system, has id "{sid}";
+                        $n isa tech-recon-note;
+                        (note: $n, subject: $sys) isa aboutness;
+                        $n has id $nid;
+                        $n has topic $topic;
+                        $n has format $fmt;
+                        $n has content $content;
+                    fetch {{
+                        "id": $nid,
+                        "topic": $topic,
+                        "format": $fmt,
+                        "content": $content
+                    }};
+                ''').resolve())
+                if note_results:
+                    notes_by_system[sys_item["id"]] = [
+                        {
+                            "id": r.get("id"),
+                            "topic": r.get("topic"),
+                            "format": r.get("format"),
+                            "content": r.get("content") or "",
+                        }
+                        for r in note_results
+                        if r.get("topic") != "fragment"  # exclude fragments from report context
+                    ]
+
+                art_results = list(tx.query(f'''
+                    match
+                        $sys isa tech-recon-system, has id "{sid}";
+                        $art isa tech-recon-artifact;
+                        (artifact: $art, source: $sys) isa sourced-from;
+                        $art has id $aid;
+                        $art has artifact-type $atype;
+                        $art has tech-recon-url $aurl;
+                    fetch {{
+                        "id": $aid,
+                        "type": $atype,
+                        "url": $aurl
+                    }};
+                ''').resolve())
+                if art_results:
+                    artifacts_by_system[sys_item["id"]] = [
+                        {"id": r.get("id"), "type": r.get("type"), "url": r.get("url")}
+                        for r in art_results
+                    ]
+
+            # Fetch investigation-level notes
+            inv_note_results = list(tx.query(f'''
+                match
+                    $inv isa tech-recon-investigation, has id "{inv_id}";
+                    $n isa tech-recon-note;
+                    (note: $n, subject: $inv) isa aboutness;
+                    $n has id $nid;
+                    $n has topic $topic;
+                    $n has content $content;
+                fetch {{
+                    "id": $nid,
+                    "topic": $topic,
+                    "content": $content
+                }};
+            ''').resolve())
+
+            inv_notes = [
+                {"id": r.get("id"), "topic": r.get("topic"), "content": r.get("content") or ""}
+                for r in inv_note_results
+                if r.get("topic") not in ("synthesis-report", "completion-assessment")
+            ]
+
+        print(json.dumps({
+            "success": True,
+            "investigation": {
+                "id": inv.get("id"),
+                "name": inv.get("name"),
+                "goal": inv.get("goal"),
+                "criteria": inv.get("criteria"),
+            },
+            "systems": systems,
+            "notes_by_system": notes_by_system,
+            "artifacts_by_system": artifacts_by_system,
+            "investigation_notes": inv_notes,
+            "instruction": (
+                "Using the above context, write a synthesis report as a tech-recon-note "
+                "with topic='synthesis-report', format='markdown', subject-id=investigation-id. "
+                "Required structure:\n"
+                "## Executive Summary\n"
+                "## Criterion N: [criterion text]  <- one section per criterion with evidence + note IDs cited\n"
+                "## System Comparison  <- prose narrative\n"
+                "## Key Findings  <- 3-7 bullets\n"
+                "## Gaps & Uncertainties\n\n"
+                "Cite notes inline as [note:trn-abc123 -- SystemName/topic]. "
+                "Run: write-note --subject-id INVESTIGATION_ID --topic synthesis-report "
+                "--format markdown --content \"...\""
+            ),
+        }))
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+    finally:
+        driver.close()
+
+
+def cmd_evaluate_completion(args):
+    """Return coverage stats for Claude to evaluate and write a completion assessment."""
+    inv_id = escape_string(args.investigation)
+    driver = get_driver()
+    try:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            # Fetch investigation
+            inv_results = list(tx.query(f'''
+                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                fetch {{
+                    "id": $inv.id,
+                    "name": $inv.name,
+                    "goal": $inv.goal-description,
+                    "criteria": $inv.success-criteria
+                }};
+            ''').resolve())
+
+            if not inv_results:
+                print(json.dumps({"success": False, "error": f"Investigation {args.investigation} not found"}))
+                sys.exit(1)
+
+            inv = inv_results[0]
+            criteria_raw = inv.get("criteria") or ""
+            # Parse criteria: split on semicolons or newlines
+            import re as _re
+            criteria_list = [c.strip() for c in _re.split(r'[;\n]+', criteria_raw) if c.strip()]
+
+            # Check for existing completion assessment
+            completion_exists = bool(list(tx.query(f'''
+                match
+                    $inv isa tech-recon-investigation, has id "{inv_id}";
+                    $n isa tech-recon-note, has topic "completion-assessment";
+                    (note: $n, subject: $inv) isa aboutness;
+                fetch {{ "id": $n.id }};
+            ''').resolve()))
+
+            # Fetch all systems
+            sys_results = list(tx.query(f'''
+                match
+                    $inv isa tech-recon-investigation, has id "{inv_id}";
+                    $sys isa tech-recon-system;
+                    (system: $sys, investigation: $inv) isa investigated-in;
+                fetch {{
+                    "id": $sys.id,
+                    "name": $sys.name,
+                    "status": $sys.tech-recon-status
+                }};
+            ''').resolve())
+
+            systems = [
+                {"id": r.get("id"), "name": r.get("name"), "status": r.get("status")}
+                for r in sys_results
+            ]
+
+            # Per-system coverage stats
+            coverage = []
+            for sys_item in systems:
+                sid = escape_string(sys_item["id"])
+
+                artifact_count = len(list(tx.query(f'''
+                    match
+                        $sys isa tech-recon-system, has id "{sid}";
+                        $art isa tech-recon-artifact;
+                        (artifact: $art, source: $sys) isa sourced-from;
+                    fetch {{ "id": $art.id }};
+                ''').resolve()))
+
+                note_results = list(tx.query(f'''
+                    match
+                        $sys isa tech-recon-system, has id "{sid}";
+                        $n isa tech-recon-note;
+                        (note: $n, subject: $sys) isa aboutness;
+                        $n has topic $topic;
+                    fetch {{ "topic": $topic }};
+                ''').resolve())
+
+                topics = list({r.get("topic") for r in note_results if r.get("topic")})
+                has_assessment = "assessment" in topics
+                has_repo_clone = bool(list(tx.query(f'''
+                    match
+                        $sys isa tech-recon-system, has id "{sid}";
+                        $art isa tech-recon-artifact, has artifact-type "repo-clone";
+                        (artifact: $art, source: $sys) isa sourced-from;
+                    fetch {{ "id": $art.id }};
+                ''').resolve()))
+
+                is_shallow = (artifact_count < 3) or (not has_repo_clone)
+
+                coverage.append({
+                    "system_id": sys_item["id"],
+                    "system_name": sys_item["name"],
+                    "artifact_count": artifact_count,
+                    "note_count": len(note_results),
+                    "topics_covered": topics,
+                    "has_assessment": has_assessment,
+                    "has_repo_clone": has_repo_clone,
+                    "is_shallow": is_shallow,
+                })
+
+        shallow_systems = [c["system_name"] for c in coverage if c["is_shallow"]]
+        missing_assessment = [c["system_name"] for c in coverage if not c["has_assessment"]]
+
+        print(json.dumps({
+            "success": True,
+            "investigation": {
+                "id": inv.get("id"),
+                "name": inv.get("name"),
+                "goal": inv.get("goal"),
+            },
+            "criteria_list": criteria_list,
+            "system_coverage": coverage,
+            "completion_assessment_exists": completion_exists,
+            "shallow_systems": shallow_systems,
+            "systems_missing_assessment": missing_assessment,
+            "instruction": (
+                "Using the above coverage data, write a completion assessment as a tech-recon-note "
+                "with topic='completion-assessment', format='markdown', subject-id=investigation-id.\n\n"
+                "Required structure:\n"
+                "| Criterion | Status (YES/PARTIAL/NO) | Strongest evidence | Gaps |\n"
+                "|-----------|------------------------|-------------------|------|\n"
+                "(one row per criterion)\n\n"
+                "## Systems Needing More Work\n"
+                "## Missing Topics\n"
+                "## Recommended Next Steps\n\n"
+                "YES/PARTIAL/NO definitions:\n"
+                "- YES: >= 2 systems have assessment notes explicitly addressing this criterion\n"
+                "- PARTIAL: evidence from only 1 system, contradictory, or inferred\n"
+                "- NO: no assessment note directly addresses this criterion\n\n"
+                "Run: write-note --subject-id INVESTIGATION_ID --topic completion-assessment "
+                "--format markdown --content \"...\""
+            ),
+        }))
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+    finally:
+        driver.close()
+
+
 # =============================================================================
 # ARGUMENT PARSER
 # =============================================================================
@@ -1813,7 +2576,7 @@ def build_parser():
     p.add_argument("--id", required=True, help="Investigation ID")
     p.add_argument(
         "--status",
-        choices=["scoping", "ingesting", "sensemaking", "viz-planning", "analysis", "done"],
+        choices=["scoping", "ingesting", "sensemaking", "viz-planning", "analysis", "synthesis", "evaluating", "done"],
         help="New status",
     )
     p.add_argument("--goal", help="New goal description")
@@ -1874,6 +2637,8 @@ def build_parser():
     )
     p.add_argument("--url", required=True, help="GitHub repo URL (e.g. https://github.com/org/repo)")
     p.add_argument("--system", required=True, help="System ID to link artifacts to")
+    p.add_argument("--clone", action="store_true", default=False,
+                   help="Git clone the repo into ~/.alhazen/cache/repos/{owner}/{repo}")
     p.set_defaults(func=cmd_ingest_repo)
 
     # -- ingest-pdf --
@@ -1975,6 +2740,42 @@ def build_parser():
     )
     p.add_argument("--investigation", required=True, help="Investigation ID")
     p.set_defaults(func=cmd_plan_analyses)
+
+    # -- explore-repo --
+    p = subparsers.add_parser(
+        "explore-repo",
+        help="Return clone path + file list for Explore subagent dispatch",
+    )
+    p.add_argument("--system", required=True, help="System ID with a repo-clone artifact")
+    p.add_argument("--investigation", help="Investigation ID (optional, adds goal/criteria to output)")
+    p.set_defaults(func=cmd_explore_repo)
+
+    # -- extract-fragments --
+    p = subparsers.add_parser(
+        "extract-fragments",
+        help="Extract code/heading fragments from a repo-clone or HTML artifact",
+    )
+    p.add_argument("--artifact", required=True, help="Artifact ID (repo-clone or webpage)")
+    p.add_argument("--max-fragments", type=int, default=30, help="Max fragments to extract (default: 30)")
+    p.set_defaults(func=cmd_extract_fragments)
+
+    # -- compile-report --
+    p = subparsers.add_parser(
+        "compile-report",
+        help="Return full note content + context for synthesis report writing",
+    )
+    p.add_argument("--investigation", required=True, help="Investigation ID")
+    p.add_argument("--force", action="store_true", default=False,
+                   help="Regenerate even if synthesis-report note already exists")
+    p.set_defaults(func=cmd_compile_report)
+
+    # -- evaluate-completion --
+    p = subparsers.add_parser(
+        "evaluate-completion",
+        help="Return coverage stats for completion assessment writing",
+    )
+    p.add_argument("--investigation", required=True, help="Investigation ID")
+    p.set_defaults(func=cmd_evaluate_completion)
 
     return parser
 

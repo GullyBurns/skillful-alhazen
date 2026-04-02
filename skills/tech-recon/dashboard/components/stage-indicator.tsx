@@ -8,6 +8,8 @@ const STAGES = [
   { key: 'sensemaking', label: 'Sensemaking' },
   { key: 'viz-planning', label: 'Viz Planning' },
   { key: 'analysis', label: 'Analysis' },
+  { key: 'synthesis', label: 'Synthesis' },
+  { key: 'evaluating', label: 'Evaluating' },
   { key: 'done', label: 'Done' },
 ];
 

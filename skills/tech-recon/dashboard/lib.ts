@@ -135,3 +135,13 @@ export async function runAnalysis(id: string): Promise<{ plot_code: string; data
 export async function planAnalyses(investigationId: string): Promise<unknown> {
   return runTechRecon(['plan-analyses', '--investigation', investigationId]) as any;
 }
+
+export async function compileReport(investigationId: string, force = false): Promise<unknown> {
+  const args = ['compile-report', '--investigation', investigationId];
+  if (force) args.push('--force');
+  return runTechRecon(args) as any;
+}
+
+export async function evaluateCompletion(investigationId: string): Promise<unknown> {
+  return runTechRecon(['evaluate-completion', '--investigation', investigationId]) as any;
+}
