@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +50,18 @@ function NoteContent({ note }: { note: TechReconNote }) {
 
 function NoteItem({ note }: { note: TechReconNote }) {
   const [open, setOpen] = useState(false);
-  const firstLine = extractFirstLine(note.content);
+  const [fullContent, setFullContent] = useState<string | null>(note.content ?? null);
+
+  useEffect(() => {
+    if (!open || fullContent) return;
+    fetch(`/api/tech-recon/note/${note.id}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.note?.content) setFullContent(d.note.content); })
+      .catch(() => {});
+  }, [open, note.id, fullContent]);
+
+  const displayNote = { ...note, content: fullContent ?? note.content_preview ?? '' };
+  const firstLine = extractFirstLine(note.content_preview ?? note.content);
   const preview = firstLine || note.topic || 'Note';
 
   return (
@@ -78,7 +89,7 @@ function NoteItem({ note }: { note: TechReconNote }) {
       </button>
       {open && (
         <div className="px-4 py-3 border-t border-border/50 bg-card/50">
-          <NoteContent note={note} />
+          <NoteContent note={displayNote} />
         </div>
       )}
     </div>

@@ -86,6 +86,17 @@ export function SystemsGrid({ systems }: SystemsGridProps) {
             )}
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {system.artifacts_count ?? 0} sources &middot; {system.notes_count ?? 0} notes
+            </span>
+            {(system.artifacts_count ?? 0) < 3 && (
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">
+                &#9888; shallow
+              </Badge>
+            )}
+          </div>
+
           {system.language && (
             <div className="flex items-center gap-1.5">
               <Code2 className="w-3 h-3 text-muted-foreground/60" />

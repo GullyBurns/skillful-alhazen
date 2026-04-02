@@ -57,6 +57,7 @@ export interface TechReconArtifact {
   url: string;
   format: string;
   cache_path?: string;
+  content?: string;
 }
 
 export interface TechReconNote {
@@ -66,6 +67,11 @@ export interface TechReconNote {
   tags: string[];
   content?: string;
   content_preview?: string;
+}
+
+export interface SystemData {
+  artifacts: TechReconArtifact[];
+  notes: TechReconNote[];
 }
 
 export interface TechReconAnalysis {

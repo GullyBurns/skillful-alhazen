@@ -444,6 +444,208 @@ def cmd_update_investigation(args):
 
 
 # =============================================================================
+# DELETION COMMANDS
+# =============================================================================
+
+
+def cmd_delete_note(args):
+    """Delete a note by ID. TypeDB automatically removes the aboutness relation."""
+    note_id = escape_string(args.id)
+    try:
+        driver = get_driver()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            check = list(tx.query(
+                f'match $n isa note, has id "{note_id}"; fetch {{ "id": $n.id }};'
+            ).resolve())
+        if not check:
+            print(json.dumps({"success": False, "error": f"Note {args.id} not found"}))
+            sys.exit(1)
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(f'match $n isa note, has id "{note_id}"; delete $n;').resolve()
+            tx.commit()
+        print(json.dumps({"success": True, "deleted": args.id}))
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+
+
+def cmd_delete_system(args):
+    """Delete a system and all its notes and artifacts.
+    Dry-run by default — use --force to confirm.
+    TypeDB automatically removes investigated-in and sourced-from relations.
+    """
+    sys_id = escape_string(args.id)
+    try:
+        driver = get_driver()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            # Verify system exists
+            check = list(tx.query(
+                f'match $s isa tech-recon-system, has id "{sys_id}"; fetch {{ "id": $s.id }};'
+            ).resolve())
+            if not check:
+                print(json.dumps({"success": False, "error": f"System {args.id} not found"}))
+                sys.exit(1)
+            # Find child notes (linked via aboutness)
+            note_ids = [r["id"] for r in tx.query(f'''
+                match $n isa note;
+                      (note: $n, subject: $s) isa aboutness;
+                      $s isa tech-recon-system, has id "{sys_id}";
+                fetch {{ "id": $n.id }};
+            ''').resolve()]
+            # Find child artifacts (linked via sourced-from)
+            artifact_ids = [r["id"] for r in tx.query(f'''
+                match $a isa artifact;
+                      (artifact: $a, source: $s) isa sourced-from;
+                      $s isa tech-recon-system, has id "{sys_id}";
+                fetch {{ "id": $a.id }};
+            ''').resolve()]
+
+        if not args.force:
+            print(json.dumps({
+                "success": False,
+                "dry_run": True,
+                "would_delete": {
+                    "notes": len(note_ids),
+                    "artifacts": len(artifact_ids),
+                    "system": 1,
+                },
+                "message": "Dry run — use --force to confirm deletion",
+            }))
+            return
+
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            for nid in note_ids:
+                tx.query(f'match $n isa note, has id "{escape_string(nid)}"; delete $n;').resolve()
+            for aid in artifact_ids:
+                tx.query(f'match $a isa artifact, has id "{escape_string(aid)}"; delete $a;').resolve()
+            tx.query(f'match $s isa tech-recon-system, has id "{sys_id}"; delete $s;').resolve()
+            tx.commit()
+
+        print(json.dumps({
+            "success": True,
+            "deleted": {
+                "system": args.id,
+                "notes": len(note_ids),
+                "artifacts": len(artifact_ids),
+            },
+        }))
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+
+
+def cmd_delete_investigation(args):
+    """Delete an investigation and all its systems, artifacts, notes, and analyses.
+    Dry-run by default — use --force to confirm.
+    """
+    inv_id = escape_string(args.id)
+    try:
+        driver = get_driver()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            check = list(tx.query(
+                f'match $i isa tech-recon-investigation, has id "{inv_id}"; fetch {{ "id": $i.id }};'
+            ).resolve())
+            if not check:
+                print(json.dumps({"success": False, "error": f"Investigation {args.id} not found"}))
+                sys.exit(1)
+            # Find all systems
+            system_ids = [r["id"] for r in tx.query(f'''
+                match $s isa tech-recon-system;
+                      (system: $s, investigation: $i) isa investigated-in;
+                      $i isa tech-recon-investigation, has id "{inv_id}";
+                fetch {{ "id": $s.id }};
+            ''').resolve()]
+            # Find investigation-level notes
+            inv_note_ids = [r["id"] for r in tx.query(f'''
+                match $n isa note;
+                      (note: $n, subject: $i) isa aboutness;
+                      $i isa tech-recon-investigation, has id "{inv_id}";
+                fetch {{ "id": $n.id }};
+            ''').resolve()]
+            # Find analyses
+            analysis_ids = [r["id"] for r in tx.query(f'''
+                match $a isa tech-recon-analysis;
+                      (analysis: $a, investigation: $i) isa analysis-of;
+                      $i isa tech-recon-investigation, has id "{inv_id}";
+                fetch {{ "id": $a.id }};
+            ''').resolve()]
+            # Count system-level children for summary
+            sys_note_count = 0
+            sys_artifact_count = 0
+            for sid in system_ids:
+                esc = escape_string(sid)
+                sys_note_count += len(list(tx.query(f'''
+                    match $n isa note; (note: $n, subject: $s) isa aboutness;
+                          $s isa tech-recon-system, has id "{esc}";
+                    fetch {{ "id": $n.id }};
+                ''').resolve()))
+                sys_artifact_count += len(list(tx.query(f'''
+                    match $a isa artifact; (artifact: $a, source: $s) isa sourced-from;
+                          $s isa tech-recon-system, has id "{esc}";
+                    fetch {{ "id": $a.id }};
+                ''').resolve()))
+
+        if not args.force:
+            print(json.dumps({
+                "success": False,
+                "dry_run": True,
+                "would_delete": {
+                    "investigation": 1,
+                    "systems": len(system_ids),
+                    "system_notes": sys_note_count,
+                    "system_artifacts": sys_artifact_count,
+                    "investigation_notes": len(inv_note_ids),
+                    "analyses": len(analysis_ids),
+                },
+                "message": "Dry run — use --force to confirm deletion",
+            }))
+            return
+
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            # Delete all system-level children, then systems
+            for sid in system_ids:
+                esc = escape_string(sid)
+                sys_notes = [r["id"] for r in tx.query(f'''
+                    match $n isa note; (note: $n, subject: $s) isa aboutness;
+                          $s isa tech-recon-system, has id "{esc}";
+                    fetch {{ "id": $n.id }};
+                ''').resolve()]
+                sys_artifacts = [r["id"] for r in tx.query(f'''
+                    match $a isa artifact; (artifact: $a, source: $s) isa sourced-from;
+                          $s isa tech-recon-system, has id "{esc}";
+                    fetch {{ "id": $a.id }};
+                ''').resolve()]
+                for nid in sys_notes:
+                    tx.query(f'match $n isa note, has id "{escape_string(nid)}"; delete $n;').resolve()
+                for aid in sys_artifacts:
+                    tx.query(f'match $a isa artifact, has id "{escape_string(aid)}"; delete $a;').resolve()
+                tx.query(f'match $s isa tech-recon-system, has id "{esc}"; delete $s;').resolve()
+            # Delete investigation-level notes and analyses
+            for nid in inv_note_ids:
+                tx.query(f'match $n isa note, has id "{escape_string(nid)}"; delete $n;').resolve()
+            for aid in analysis_ids:
+                tx.query(f'match $a isa tech-recon-analysis, has id "{escape_string(aid)}"; delete $a;').resolve()
+            # Delete investigation
+            tx.query(f'match $i isa tech-recon-investigation, has id "{inv_id}"; delete $i;').resolve()
+            tx.commit()
+
+        print(json.dumps({
+            "success": True,
+            "deleted": {
+                "investigation": args.id,
+                "systems": len(system_ids),
+                "system_notes": sys_note_count,
+                "system_artifacts": sys_artifact_count,
+                "investigation_notes": len(inv_note_ids),
+                "analyses": len(analysis_ids),
+            },
+        }))
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+
+
+# =============================================================================
 # SYSTEM COMMANDS
 # =============================================================================
 
@@ -593,18 +795,54 @@ def cmd_list_systems(args):
                     }};
                 ''').resolve())
 
+            # Bulk-count artifacts and notes per system for this investigation
+            art_rows = list(tx.query(f'''
+                match
+                    $inv isa tech-recon-investigation, has id "{inv_id}";
+                    $sys isa tech-recon-system;
+                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $sys has id $sid;
+                    $art isa tech-recon-artifact;
+                    (artifact: $art, source: $sys) isa sourced-from;
+                fetch {{ "sid": $sid }};
+            ''').resolve())
+            note_rows = list(tx.query(f'''
+                match
+                    $inv isa tech-recon-investigation, has id "{inv_id}";
+                    $sys isa tech-recon-system;
+                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $sys has id $sid;
+                    $n isa tech-recon-note;
+                    (note: $n, subject: $sys) isa aboutness;
+                fetch {{ "sid": $sid }};
+            ''').resolve())
+
         driver.close()
+
+        art_counts: dict = {}
+        for row in art_rows:
+            sid = row.get("sid")
+            if sid:
+                art_counts[sid] = art_counts.get(sid, 0) + 1
+        note_counts: dict = {}
+        for row in note_rows:
+            sid = row.get("sid")
+            if sid:
+                note_counts[sid] = note_counts.get(sid, 0) + 1
 
         systems = []
         for r in results:
+            sid = r.get("id")
             systems.append({
-                "id": r.get("id"),
+                "id": sid,
                 "name": r.get("name"),
                 "url": r.get("url"),
                 "status": r.get("status"),
                 "language": r.get("language"),
                 "license": r.get("license"),
                 "star_count": r.get("star_count"),
+                "artifacts_count": art_counts.get(sid, 0),
+                "notes_count": note_counts.get(sid, 0),
             })
 
         print(json.dumps({"success": True, "systems": systems}))
@@ -1665,20 +1903,9 @@ def cmd_show_artifact(args):
             "cache_path": art.get("cache_path"),
         }
 
-        # Load content preview
-        content_preview = None
-        cp = art.get("cache_path")
-        if cp:
-            try:
-                text = load_from_cache_text(cp)
-                content_preview = text[:500]
-            except Exception as load_err:
-                content_preview = f"[Error loading cache: {load_err}]"
-        elif art.get("content"):
-            content_preview = art.get("content")[:500]
-
-        if content_preview is not None:
-            artifact_data["content_preview"] = content_preview
+        # Include inline content (stored directly in TypeDB, not on disk)
+        if art.get("content"):
+            artifact_data["content"] = art.get("content")
 
         print(json.dumps({"success": True, "artifact": artifact_data}))
 
@@ -2582,6 +2809,23 @@ def build_parser():
     p.add_argument("--goal", help="New goal description")
     p.add_argument("--success-criteria", help="New success criteria")
     p.set_defaults(func=cmd_update_investigation)
+
+    # -- delete-note --
+    p = subparsers.add_parser("delete-note", help="Delete a note by ID")
+    p.add_argument("--id", required=True, help="Note ID")
+    p.set_defaults(func=cmd_delete_note)
+
+    # -- delete-system --
+    p = subparsers.add_parser("delete-system", help="Delete a system and all its data (dry-run by default)")
+    p.add_argument("--id", required=True, help="System ID")
+    p.add_argument("--force", action="store_true", help="Required to actually delete")
+    p.set_defaults(func=cmd_delete_system)
+
+    # -- delete-investigation --
+    p = subparsers.add_parser("delete-investigation", help="Delete an investigation and all its data (dry-run by default)")
+    p.add_argument("--id", required=True, help="Investigation ID")
+    p.add_argument("--force", action="store_true", help="Required to actually delete")
+    p.set_defaults(func=cmd_delete_investigation)
 
     # -- add-system --
     p = subparsers.add_parser("add-system", help="Add a system to an investigation")

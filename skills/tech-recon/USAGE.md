@@ -30,12 +30,18 @@ Run one question per conversation turn. After the 8th answer, synthesize a conci
 
 **Synthesis:** After Q8, write a 2-3 sentence goal statement and a bullet list of 3-5 success criteria. Present to user for approval before calling `start-investigation`.
 
+**Goal and criteria are Markdown.** Both fields are rendered in the dashboard with full Markdown support. Use `**bold**` for emphasis, blank lines between paragraphs in the goal, and a `- **Label**: description` bullet list for success criteria.
+
 **Start the investigation:**
 ```bash
 uv run python .claude/skills/tech-recon/tech_recon.py start-investigation \
     --name "INVESTIGATION NAME" \
-    --goal "GOAL STATEMENT" \
-    --success-criteria "CRITERIA 1; CRITERIA 2; CRITERIA 3"
+    --goal "2-3 sentence goal with **key terms** bolded.
+
+Second paragraph if needed." \
+    --success-criteria "- **Criterion one**: description of what to find
+- **Criterion two**: description
+- **Criterion three**: description"
 ```
 
 Returns: `{ "success": true, "id": "tech-recon-investigation-<uuid>", "name": "..." }`
