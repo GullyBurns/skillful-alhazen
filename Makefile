@@ -244,10 +244,10 @@ endif
 	[ -f "local_skills/$$skill_name/schema.tql" ] && \
 	  uv run python scripts/db_init.py "local_skills/$$skill_name/schema.tql" || \
 	  echo "  No schema.tql found — skipping schema load"
-	@echo "$(BLUE)Importing skill-builder knowledge graph...$(NC)"
+	@echo "$(BLUE)Importing curation-skill-builder knowledge graph...$(NC)"
 	@skill_name=$$(uv run python -c "import yaml,zipfile; z=zipfile.ZipFile('$(ZIP)'); print(yaml.safe_load(z.read('skill.yaml'))['name'])" 2>/dev/null); \
 	[ -f "local_skills/$$skill_name/data/skill_builder.json" ] && \
-	  uv run python $(CLAUDE_SKILLS_DIR)/skill-builder/skill_builder.py import-skill-data \
+	  uv run python $(CLAUDE_SKILLS_DIR)/curation-skill-builder/skill_builder.py import-skill-data \
 	    --file "local_skills/$$skill_name/data/skill_builder.json" || true
 	@echo "$(BLUE)Wiring dashboard (if present)...$(NC)"
 	@skill_name=$$(uv run python -c "import yaml,zipfile; z=zipfile.ZipFile('$(ZIP)'); print(yaml.safe_load(z.read('skill.yaml'))['name'])" 2>/dev/null); \

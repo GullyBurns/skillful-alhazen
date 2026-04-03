@@ -1,0 +1,41 @@
+{
+  "skill_name": "curation-skill-builder",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need to build a skill to track academic paper reviews for a conference. Set up a new curation-skill-builder domain called 'paper-review-tracker', define its goal (to help program chairs manage reviewer assignments and track review completion), add at least one evaluation criterion, and design the core entity schema with the main entity types needed.",
+      "expected_output": "A domain record in TypeDB with a defined goal, at least one evaluation criterion, and an entity schema containing review-related entities with a TypeQL spec note.",
+      "expectations": [
+        "init-domain was called with the name 'paper-review-tracker'",
+        "define-goal was called with a goal description that mentions reviews or reviewers",
+        "add-evaluation was called with a criterion-type of accuracy, coverage, usability, or completeness",
+        "add-entity-schema was called with entity types that include at least one review-related entity (e.g. review, reviewer, paper, or assignment)",
+        "add-phase-spec was called with TypeQL content defining attributes or entity structure"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "For the paper-review-tracker domain you just created, design the source schema (what external data sources we need to ingest) and at least one derivation skill (how to extract review entities from those sources). Then export the full design phases to Markdown.",
+      "expected_output": "A source schema record naming at least one data source, a derivation skill record with input-types and output-types, and an exported Markdown document containing all defined phases.",
+      "expectations": [
+        "add-source-schema was called with a description naming at least one data source (e.g. submission system, EasyChair, HotCRP, email, or API)",
+        "add-derivation-skill was called with non-empty --input-types and --output-types arguments",
+        "export-design-phases was called",
+        "the exported Markdown output contains the word 'Phase' at least twice",
+        "the exported Markdown includes the goal defined in the domain"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "While designing the paper-review-tracker skill, you realize the schema has no way to represent reviewer conflicts of interest (COI). Record this as a design gap on the entity schema phase with severity 'moderate'. Then resolve the gap by adding a spec note that defines a TypeQL attribute for tracking COI. Finally, confirm the gap is resolved by listing open gaps.",
+      "expected_output": "A design gap recorded with severity moderate, a spec note added with TypeQL content defining a COI-related attribute, the gap resolved, and a list-phase-gaps call confirming zero open gaps.",
+      "expectations": [
+        "add-phase-gap was called with --severity moderate or --severity critical",
+        "add-phase-gap description mentions conflict of interest or COI",
+        "add-phase-spec was called with TypeQL content that includes 'coi' or 'conflict' in the attribute or entity name",
+        "resolve-phase-gap was called with a gap ID",
+        "list-phase-gaps was called with --status open after the resolution"
+      ]
+    }
+  ]
+}

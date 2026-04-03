@@ -50,13 +50,13 @@ skills:
   - name: web-search
     path: skills/web-search
 
-  - name: skill-builder
-    path: skills/skill-builder
+  - name: curation-skill-builder
+    path: skills/curation-skill-builder
     dashboard:
       enabled: true
       name: "Domain Modeling"
       description: "Track skill design processes, decisions, gaps, and experiments across all knowledge domains."
-      url_path: "/skill-builder"
+      url_path: "/curation-skill-builder"
       icon: Layers
       color: violet
 
