@@ -16,166 +16,138 @@ A **skill** is a bundle of five artifacts that implements a curation pipeline:
 
 ---
 
-## Process: How we define 'curation' 
+## The Curation Workflow Pattern
 
-Our model of curation follows a 5-step process. This is what the skill *does* at runtime after it has been built:
-
-```
-+-----------------------------------------------------------------------------+
-|                         CURATION WORKFLOW                                   |
-+-----------------------------------------------------------------------------+
-|                                                                             |
-|  1. DISCOVER         2. INGESTION         3. SENSEMAKING                    |
-|  +----------+        +----------+         +--------------+                  |
-|  | Discover |------->|  Capture |-------->| Claude reads |                  |
-|  | sources  |        |   raw    |         | & extracts   |                  |
-|  +----------+        +----------+         +--------------+                  |
-|       |                   |                      |                          |
-|       v                   v                      v                          |
-|  - URLs             - Artifacts            - Fragments                      |
-|  - APIs             - Provenance           - Notes                          |
-|  - Feeds            - Timestamps           - Relations                      |
-|                                                                             |
-|                              |                                              |
-|                              v                                              |
-|               4. ANALYZE/SUMMARIZE        5. REPORT                         |
-|               +------------------+       +--------------+                   |
-|               | Reason over many |------>|  Dashboard   |                   |
-|               | notes over time  |       |  & answers   |                   |
-|               +------------------+       +--------------+                   |
-|                        |                        |                           |
-|                        v                        v                           |
-|                   - Synthesis notes        - Pipeline views                 |
-|                   - Trend analysis         - Strategic reports              |
-|                   - Recommendations        - Output Code / Artifacts        |
-|                                                                             |
-+-----------------------------------------------------------------------------+
-```
-Note: `skill-builder` uses domain modeling to *design and generate* the artifacts listed above for a new target skill.
+This is the 7-phase investigation lifecycle that MUST be followed for any skill that curates knowledge from external sources. The tech-recon skill is the reference implementation — see `skills/tech-recon/USAGE.md` for concrete commands matching each phase.
 
 ---
 
-### Phase 1: Discover — Finding Information Sources
+### Phase 1: Goal Specification
 
-**What it is:** Finding things in the world worth capturing. Often the most creative/expansive phase.
+Before any discovery or ingestion, interview the user to produce a measurable goal and success criteria.
 
-**Examples by domain:**
-| Domain | Foraging Activities |
-|--------|---------------------|
-| Job hunting | Job boards, company career pages, VC portfolio sites, LinkedIn, referrals |
-| Literature review | PubMed, Google Scholar, citation chains, conference proceedings |
-| News investigation | RSS feeds, social media, press releases, public records |
-| Biology research | Databases (UniProt, GenBank), preprints, lab websites |
+**Interview pattern — 8 questions, one per conversation turn:**
+1. What problem are you trying to solve?
+2. What does success look like — what questions must this answer?
+3. Are there existing tools or approaches you already know about?
+4. What programming language or ecosystem are you working in?
+5. What scale or performance requirements matter?
+6. What licensing constraints apply?
+7. What is your timeline — are you choosing now or exploring?
+8. Any non-negotiables?
 
-**Key insight:** Discovery can be recursive - finding one thing leads to finding  others.
+**After Q8:** Synthesize a 2-3 sentence goal statement and 3-5 success criteria. Present for user approval before proceeding.
 
----
+**Goal quality bar:** The goal must be answerable yes/no at the end of the investigation — "Can we identify X such that Y?" not "Learn about X." Each success criterion must be independently verifiable.
 
-### Phase 2: Ingestion — Raw Capture with Provenance
-
-**What it is:** Pulling material in UNEDITED format. The artifact is the authoritative record. We make copies of external data, store them in the cache when needed and record their existance in the database.  
-
-**Critical properties:**
-- **Provenance** - Where did this come from? (URL, timestamp, API, email)
-- **Immutability** - The raw content doesn't change after capture
-- **Completeness** - Capture the whole thing, not just parts you think matter now
-
-**Maps to TypeDB:**
-```
-Artifact (raw content)
-+-- owns source-uri
-+-- owns created-at (timestamp)
-+-- owns content (full text/HTML)
-+-- plays representation:artifact --> Thing
-```
-
-**Script responsibility:** Fetch and store raw content. NO parsing, NO extraction, NO interpretation.
-
-```python
-def ingest_url(url):
-    content = fetch(url)
-    artifact_id = store_artifact(
-        content=content,
-        source_url=url,
-        retrieved_at=now(),
-        content_type=detect_type(content)
-    )
-    return artifact_id  # Claude does the rest
-```
-
-**Browser-based ingestion tip:** When using Playwright to browse large web pages (especially LinkedIn profiles), use `mcp__playwright__browser_take_screenshot` instead of parsing the DOM snapshot. The accessibility tree for these pages can be 100KB+ and easy to misread. 
+**Goal and criteria are Markdown.** Use `**bold**` for emphasis and `- **Label**: description` bullet format for criteria. Both are rendered in the dashboard.
 
 ---
 
-### Phase 3: Sensemaking — Claude Reads and Extracts
+### Phase 2: Discovery (with approval gate)
 
-**What it is:** Claude reads the artifact and creates structured understanding.
+Search for candidate entities (systems, papers, datasets, companies — whatever the skill domain defines as its primary subjects) from multiple sources. Present a table of N candidates to the user.
 
-**Sensemaking Subtasks:**
+**Do not proceed to ingestion without explicit user approval.** Ingestion is expensive (many subagents, significant time). Spending it on wrong candidates wastes everything.
 
-| Subtask | Description | Output |
-|---------|-------------|--------|
-| **Parsing** | Understanding document structure | Structure map |
-| **Entity Extraction** | Identifying named entities | Entities -> Things |
-| **Relation Extraction** | How entities connect | Relations |
-| **Classification** | Categorizing (role type, seniority) | Classification Tags |
-| **Summarization** | Condensing key points | Summary notes |
-| **Gap Analysis** | Comparisons between entities and pre-existing standards | Gap notes |
-| **Inference** | Drawing conclusions not explicitly stated | Analysis notes |
+**Sources to search:**
+- Web search (SearXNG)
+- GitHub (by topic, language, stars)
+- Hugging Face (models, spaces — if ML-adjacent)
+- arXiv / OpenAlex (if research-adjacent)
+- Domain-specific directories or registries
 
-**Maps to TypeDB:**
-```
-Fragment (extracted piece of artifact)
-+-- owns content (the specific text)
-+-- plays extraction:fragment --> Artifact (provenance back to source)
-+-- plays aboutness:subject <-- Note (Claude's interpretation)
-
-Note (Claude's understanding)
-+-- owns content (Claude's interpretation/analysis)
-+-- owns confidence (how sure Claude is)
-+-- plays aboutness:note --> [Thing, Artifact, Fragment, other Notes]
-+-- owns tags
-```
-
-**Key architectural point:** Sensemaking is ITERATIVE. Claude might:
-1. First pass: Extract obvious entities (company name, job title, location)
-2. Second pass: Deeper analysis (requirements, responsibilities, culture signals)
-3. Later: Re-analyze when you have more context (compare to other postings)
-Past notes and sensemaking runs provide context for current sensemaking work. 
----
-
-### Phase 4: Analyze / Summarize — Reasoning Over Time
-
-**What it is:** Looking across many sensemaking notes to answer questions and generate insights.
-
-**Examples:**
-- "What skills appear most frequently across my high-priority positions?"
-- "How does this company's culture compare to others I'm considering?"
-
-**Output:** Synthesis notes that reference multiple sources
-
-```
-Synthesis Note
-+-- about --> [position-1, position-2, position-3]
-+-- content: "Across these three roles, distributed systems appears
-|            as required in 2/3 and preferred in 1/3. This is your
-|            biggest gap. Recommend prioritizing DDIA book."
-+-- tags: [synthesis, skill-gaps, recommendation]
-```
+**Approval gate:** Present the candidate table, wait for user confirmation, then dispatch ingestion subagents.
 
 ---
 
-### Phase 5: Report — Presentation for Action
+### Phase 3: Ingestion
 
-**Dashboard components:**
-- **Pipeline views** - Where things stand (Kanban)
-- **Matrices** - Comparisons across dimensions (skills x positions)
-- **Progress tracking** - Learning plan completion
-- **Alerts** - Deadlines, required actions
-- **Deep dives** - All context about a specific entity
-- **Output code** - Source code for a website / dashboard / reporting framework
+Execute the ingestion process defined in the skill's specification. The specifics (which commands, which sources, how many pages) live in the skill's own USAGE.md.
 
-**Key insight:** Reports should be generated from TypeDB data.
+**Exhaustiveness principle:** It is better to over-ingest and have unused artifacts than to under-ingest and miss key evidence. The sensemaking phase filters; ingestion should cast wide.
+
+**Subagent dispatch:** Dispatch one ingestion subagent per approved entity in parallel. Each subagent:
+1. Shows the entity record
+2. Ingests all sources it can find
+3. Reports "N artifacts recorded" when complete
+
+**User-assisted ingestion:** Some sources require user participation — content behind a paywall, pages requiring authentication, or files the user must download manually. In those cases, guide the user through the acquisition step and copy the material to the cache. Facilitating user-assisted acquisition is a first-class part of the ingestion workflow, not a fallback.
+
+---
+
+### Phase 4: Sensemaking (detailed and structured)
+
+For each ingested entity, one sensemaking subagent reads all artifacts and writes one note per topic. Each note should be substantive and self-sufficient — the notes alone should be sufficient to answer the success criteria without returning to the raw artifacts.
+
+**Note format:** Notes may be Markdown (narrative analysis, 300-1000 words) or JSON (structured data for downstream TypeQL queries) depending on whether the content is prose analysis or machine-readable facts. Choose based on what will be most useful for the analysis phase.
+
+**Typical sensemaking topics:**
+
+| Topic | Content |
+|-------|---------|
+| `architecture` | How the system is structured, components, data flow |
+| `api` | Key interfaces, entry points |
+| `data-model` | Schema, types, data structures |
+| `integration` | How to embed in another system |
+| `performance` | Benchmarks, scaling characteristics |
+| `community` | Activity, maintainers, ecosystem |
+| `assessment` | Fit against each success criterion (explicit per-criterion scoring) |
+
+**Iterative sensemaking:** Notes from earlier passes provide context for later passes. Re-analyze after getting broader context across multiple entities.
+
+---
+
+### Phase 5: Analysis
+
+Review the sensemaking notes against the success criteria. Propose a set of analyses that directly answer each criterion — visualizations, comparisons, derived metrics. Implement them as stored artifacts (TypeQL query + Observable Plot code or equivalent).
+
+**Goal alignment:** Every analysis should trace back to a specific success criterion. Don't build charts for their own sake.
+
+**Viz planning workflow:**
+1. Review all sensemaking notes and the success criteria
+2. Propose a viz-plan: for each analysis, state which criterion it answers, what TypeQL query extracts the data, and what chart type renders it
+3. Present the viz-plan to the user (or proceed autonomously if criteria are clear)
+4. Implement each approved analysis as a stored artifact
+
+**Observable Plot types:**
+
+| Type | Best for |
+|------|----------|
+| `bar` | Categorical comparisons |
+| `line` | Trends over time |
+| `dot` | Scatter (two continuous dimensions) |
+| `rect` | Heatmaps |
+| `text` | Annotated tables |
+
+---
+
+### Phase 6: Report + Completion Evaluation
+
+Two required outputs:
+
+**Synthesis Report** (topic: `synthesis-report`) — Markdown note that directly addresses each success criterion with findings, compares across candidates, and gives a single recommendation with rationale.
+
+**Completion Assessment** (topic: `completion-assessment`) — Binary verdict per criterion:
+- COMPLETE: specific evidence cited
+- PARTIAL: what was found, what gap remains
+- NOT COMPLETE: why the criterion cannot be answered with current data
+
+The assessment must be conservative: if in doubt, mark PARTIAL. The investigation's goal document should be answerable yes/no after reading the synthesis.
+
+---
+
+### Phase 7: Iteration
+
+If the completion assessment reveals gaps:
+
+1. `advance-iteration --investigation ID` — increments iteration counter
+2. Targeted re-ingestion or new entity discovery
+3. New notes tagged with `--iteration N`
+4. New synthesis + assessment tagged with `--iteration N`
+5. Dashboard shows `v1 | v2 | v3` selector bar when multiple iterations exist
+
+**Schema requirement:** Both the collection entity and note entity must own `iteration-number` (integer, defaults to 1) to support versioning. Filter notes by iteration in dashboard components using `(n.iteration_number ?? 1) === selectedIteration`.
 
 ---
 
@@ -1128,3 +1100,237 @@ Don't create a domain for:
 - `search-papers --query` - Search literature databases
 - `list-papers --collection` - Papers in a collection
 - `show-paper --id` - Full paper details
+
+---
+
+## Dashboard Design System
+
+When a skill includes a dashboard component, use the **sciknow.io / Starry Night** design system. This applies to all skill dashboard pages, components, and the main `dashboard/` app.
+
+### Color Palette
+
+Derived from the sciknow.io spiral icon, which mirrors Van Gogh's Starry Night:
+
+| Role | Hex | Usage |
+|------|-----|-------|
+| Teal (primary) | `#5aadaf` | Primary accent, links, icons, borders |
+| Aqua | `#62c4bc` | Hover states, secondary accent |
+| Steel blue | `#5b8ab8` | Secondary UI elements, indigo replacement |
+| Deep cobalt | `#3d5c8f` | Borders, subtle backgrounds, purple replacement |
+| Warm chartreuse | `#b8c84a` | Accent spark, amber replacement, highlights |
+| Midnight navy | `#070d1c` | Background |
+| Deep navy | `#0c1628` | Card background |
+| Cool blue-white | `#c8dde8` | Foreground text |
+| Mid blue-gray | `#8ba4b8` | Muted text |
+
+### Font Stack
+
+- **Display (h1):** DM Serif Display, weight 400 — scholarly, distinctive
+- **Body/UI:** DM Sans — contemporary, readable, not generic
+- **Mono:** JetBrains Mono — distinctive for code
+
+### Applying to a New Skill Dashboard
+
+The color system is implemented as Tailwind v4 `@theme inline` overrides in `dashboard/src/app/globals.css`. This means all standard Tailwind color utilities (`text-cyan-400`, `bg-indigo-500/20`, `from-amber-400`, etc.) automatically resolve to Starry Night colors — **new skill dashboard files do not need custom color logic**.
+
+Use standard Tailwind color classes as normal:
+- Primary accent → `text-cyan-400`, `border-cyan-500/50`, `bg-cyan-500/20`
+- Secondary/steel → `text-indigo-400`, `bg-indigo-500/20`
+- Warm accent → `text-amber-400`, `bg-amber-500/20`
+- Deep/cobalt → `text-purple-400`, `bg-purple-500/20`
+
+Page headers should use: `bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent`
+
+### Background & Structure
+
+```css
+/* Body: radial depth (already in globals.css) */
+background:
+  radial-gradient(ellipse at 20% 10%, rgba(61, 92, 143, 0.25) 0%, transparent 50%),
+  radial-gradient(ellipse at 80% 90%, rgba(90, 173, 175, 0.1) 0%, transparent 40%),
+  #070d1c;
+```
+
+Decorative spiral background for landing/hub pages:
+```tsx
+<div className="fixed inset-0 pointer-events-none overflow-hidden">
+  <div className="absolute -right-48 -top-48 w-[800px] h-[800px] opacity-[0.04] rotate-[-15deg]">
+    <Image src="/sciknow-icon.png" alt="" fill className="object-contain" />
+  </div>
+</div>
+```
+
+### sciknow.io Website (Jekyll)
+
+The sciknow-io.github.io site uses the same palette via its Tailwind CDN config in `_layouts/default.html`:
+- `midnight: '#070d1c'`, `accent: '#5aadaf'`, `secondary: '#b8c84a'`
+
+---
+
+## Skill Dashboard Design Patterns
+
+Patterns distilled from the tech-recon dashboard build (Apr 2026). Apply these when adding or updating skill dashboard pages.
+
+---
+
+### Pattern 1: Tailwind v4 Gradient Text — Use Hardcoded Hex Values
+
+Skill pages are copied into `dashboard/src/app/` at Docker build time, AFTER Tailwind's scanner runs. Named gradient utilities (`from-cyan-400`, `to-blue-400`) are purged because they only appear in dynamically-copied files; the heading text becomes invisible.
+
+**Rule:** Always use arbitrary hex values in skill pages:
+```tsx
+// WRONG — gets purged at Docker build time
+<h1 className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+
+// CORRECT
+<h1 className="bg-gradient-to-r from-[#5aadaf] to-[#4a7ab5] bg-clip-text text-transparent">
+```
+
+Theme hex values (from `dashboard/src/app/globals.css`): `cyan-400 = #5aadaf`, `blue-400 = #4a7ab5`.
+
+This applies to all five files in a skill's `pages/` subtree. Verify by checking the compiled CSS bundle for the hex values after a Docker rebuild.
+
+---
+
+### Pattern 2: Sidebar Navigation Over Tabs
+
+For multi-phase investigation workflows, use a vertical sidebar nav (not horizontal tabs). Lazy-load section data only when the user navigates to that section — don't fetch everything upfront.
+
+```tsx
+// Lazy-load: only fetch system data when user navigates to discovery/sensemaking
+useEffect(() => {
+  if (!['discovery', 'sensemaking'].includes(activeSection) || systemDataMap !== null || !data) return;
+  // dispatch parallel fetches...
+}, [activeSection, data, systemDataMap]);
+```
+
+---
+
+### Pattern 3: Stage Indicators — Icons Not Numbers
+
+Use `CheckCircle2` (green) / `XCircle` (red) from lucide-react for binary completion. Derive completion booleans from data, not from a status string.
+
+```tsx
+import { CheckCircle2, XCircle } from 'lucide-react';
+
+// Derive from data — no status string needed
+const completion = {
+  scope: !!(investigation.goal || investigation.criteria),
+  discovery: systems.length > 0,
+  sensemaking: totalArtifacts > 0 && totalNotes > 0,
+  analysis: analyses.length > 0,
+  outputs: synthesisNote !== null,
+};
+
+// Render
+{isCompleted ? (
+  <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+) : (
+  <XCircle className="w-3.5 h-3.5 text-red-400" />
+)}
+```
+
+---
+
+### Pattern 4: Compact Pills + Expandable Detail
+
+Show entities as compact pills (`Name — Xa/Yn`). Expand to a detail panel on click. Never dump full content inline in a list.
+
+```tsx
+<button onClick={() => setSelectedId(isActive ? null : s.id)}>
+  {s.name}
+  <span className="text-xs text-muted-foreground font-normal ml-1">
+    — {artCount}a/{noteCount}n
+  </span>
+</button>
+
+{selected && (
+  <div className="rounded-lg border border-cyan-500/30 bg-card/30 p-4">
+    <SystemDetail system={selected} data={selectedData} />
+  </div>
+)}
+```
+
+---
+
+### Pattern 5: Collapse-on-Demand for Notes
+
+Show topic badge + first line preview. Fetch full content from the API only when the user expands a note. Cache in component state with a `fetched` flag to prevent re-fetching.
+
+```tsx
+const [fetched, setFetched] = useState(false);
+
+const load = () => {
+  if (fetched) return;
+  setFetched(true);
+  fetch(`/api/<skill>/note/${note.id}`)
+    .then(r => r.json())
+    .then(d => { if (d.note?.content) setFullContent(d.note.content); });
+};
+```
+
+---
+
+### Pattern 6: Iteration Tracking at Schema Level
+
+Add `iteration-number` (integer) to both the collection entity and the note entity in the skill schema. Default to 1 (`?? 1`) everywhere for backward compatibility. Show the `v1|v2|v3` selector bar only when `iterations.length > 1`.
+
+```typeql
+# In schema.tql
+attribute iteration-number, value integer;
+
+entity my-skill-investigation sub collection,
+    owns iteration-number;
+
+entity my-skill-note sub note,
+    owns iteration-number;
+```
+
+```tsx
+// In the page component
+const iterations = Array.from(new Set(notes.map(n => n.iteration_number ?? 1))).sort((a, b) => a - b);
+const activeIteration = selectedIteration ?? (investigation.iteration_number ?? 1);
+const iterNotes = notes.filter(n => (n.iteration_number ?? 1) === activeIteration);
+```
+
+---
+
+### Pattern 7: Docker Wiring — Files Not Symlinks
+
+Skill dashboard structure and where each subdirectory maps at Docker build time:
+
+```
+skills/<name>/dashboard/
+  lib.ts          -> dashboard/src/lib/<name>.ts
+  components/     -> dashboard/src/components/<name>/
+  pages/          -> dashboard/src/app/(<name>)/
+  routes/         -> dashboard/src/app/api/<name>/
+```
+
+After changing skill dashboard files: `make skills-update && docker compose build --no-cache dashboard && docker compose up -d dashboard`.
+
+**Local dev:** Use symlinks for `lib.ts` (not wired by `make build-skills`):
+```bash
+cd dashboard/src/lib
+ln -sf ../../../local_skills/<name>/dashboard/lib.ts <name>.ts
+```
+
+---
+
+### Pattern 8: lib.ts as Thin CLI Wrapper
+
+All business logic stays in Python. `lib.ts` only calls `uv run python <skill>.py` via `execFile`. Always pass `TYPEDB_DATABASE: 'alhazen_notebook'` explicitly in the env.
+
+```typescript
+export async function runSkill(args: string[]): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    execFile('uv', ['run', 'python', scriptPath, ...args], {
+      env: { ...process.env, TYPEDB_DATABASE: 'alhazen_notebook' },
+    }, (err, stdout) => {
+      if (err) reject(err);
+      else resolve(JSON.parse(stdout));
+    });
+  });
+}
+```
+- Gradient text in `assets/css/custom.css`: `linear-gradient(135deg, #5aadaf, #b8c84a)`
