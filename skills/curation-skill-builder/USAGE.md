@@ -413,6 +413,33 @@ uv run python .claude/skills/curation-skill-builder/skill_builder.py \
 
 This output, combined with all the content developed in the modeling process, provides structured input for Claude to generate or regenerate a complete set of skill artifacts.
 
+### `generate-evals` — Generate runtime evals from design criteria
+
+After completing the 5 design phases, generate `evals/evals.json` for the skill you've designed. This converts TypeDB design-time criteria (`dm-goal-eval` entries) and phase entities into skill-creator-compatible test cases.
+
+```bash
+uv run python .claude/skills/curation-skill-builder/skill_builder.py \
+  generate-evals --domain-id $DOMAIN \
+  --output-dir skills/$SKILL_NAME/
+```
+
+This creates `skills/$SKILL_NAME/evals/evals.json` with:
+- One test case per `dm-goal-eval` criterion (from Phase 1) — driven by `success-condition` and `approach`
+- One test case per `dm-derivation-skill` (from Phase 4) — exercises the ingestion workflow
+- One test case per `dm-analysis-skill` (from Phase 5) — exercises the analysis workflow
+
+To preview without writing to disk (stdout only):
+
+```bash
+uv run python .claude/skills/curation-skill-builder/skill_builder.py \
+  generate-evals --domain-id $DOMAIN \
+  2>/dev/null | python3 -m json.tool
+```
+
+Once `evals/evals.json` exists in your skill directory, run it with the skill-creator plugin: invoke the `skill-creator` skill and say "run evals on \<your-skill-name\>".
+
+**When to regenerate:** After adding or updating `dm-goal-eval` entries, or after defining new derivation or analysis skills — re-run `generate-evals` to keep the test cases in sync with the design.
+
 ---
 
 ## Evaluation

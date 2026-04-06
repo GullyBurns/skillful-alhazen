@@ -100,7 +100,7 @@ class TestTypeDBClient:
         """Test creating a thing."""
         tid = client.insert_thing(
             name="Test Paper",
-            thing_type="thing",
+            thing_type="domain-thing",
             abstract="This is a test abstract.",
             source_uri="https://example.com/paper"
         )

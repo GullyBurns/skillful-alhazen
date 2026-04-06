@@ -30,6 +30,8 @@ attribute artifact-type, value string;
 attribute topic, value string;
 attribute plot-code, value string;
 attribute tql-query, value string;
+attribute pipeline-script, value string;
+attribute pipeline-config, value string;
 attribute analysis-type, value string;
 attribute github-url, value string;
 attribute star-count, value integer;
@@ -106,6 +108,8 @@ entity tech-recon-analysis sub artifact,
     owns analysis-type,
     owns plot-code,
     owns tql-query,
+    owns pipeline-script,
+    owns pipeline-config,
     plays analysis-of:analysis;
 
 

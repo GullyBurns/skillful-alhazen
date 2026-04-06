@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,92 @@ function getAnalysisTypeIcon(type: string | null | undefined) {
   if (t === 'prose') return <FileText className="w-3.5 h-3.5" />;
   if (t === 'table') return <Table className="w-3.5 h-3.5" />;
   return <BarChart2 className="w-3.5 h-3.5" />;
+}
+
+/** Try to parse a string as a JSON array. Returns null if not JSON or not an array. */
+function tryParseJsonArray(s: string | undefined): Record<string, unknown>[] | null {
+  if (!s) return null;
+  const trimmed = s.trim();
+  if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed as Record<string, unknown>[];
+    if (typeof parsed === 'object' && parsed !== null) return [parsed as Record<string, unknown>];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Render a value as a table cell — nested arrays become inline sub-tables. */
+function CellValue({ value }: { value: unknown }) {
+  if (value === null || value === undefined) return <span className="text-muted-foreground italic">—</span>;
+
+  if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
+    const rows = value as Record<string, unknown>[];
+    const cols = Object.keys(rows[0]);
+    return (
+      <table className="text-xs border-collapse w-full">
+        <thead>
+          <tr>
+            {cols.map((c) => (
+              <th key={c} className="border border-border/40 px-2 py-1 text-left font-medium text-muted-foreground whitespace-nowrap">
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="even:bg-muted/20">
+              {cols.map((c) => (
+                <td key={c} className="border border-border/40 px-2 py-1 align-top">
+                  <CellValue value={row[c]} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  if (typeof value === 'number') return <span>{value.toFixed(4).replace(/\.?0+$/, '')}</span>;
+  return <span>{String(value)}</span>;
+}
+
+/** Render an array of objects as a table. Nested arrays of objects become sub-tables. */
+function TableRenderer({ data }: { data: Record<string, unknown>[] }) {
+  if (!data.length) return <p className="text-sm text-muted-foreground">No rows.</p>;
+
+  const cols = Object.keys(data[0]);
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border/40">
+      <table className="text-xs w-full border-collapse">
+        <thead className="bg-muted/50">
+          <tr>
+            {cols.map((c) => (
+              <th key={c} className="border border-border/40 px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="even:bg-muted/10 align-top">
+              {cols.map((c) => (
+                <td key={c} className="border border-border/40 px-3 py-2">
+                  <CellValue value={row[c]} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export interface AnalysisRunnerProps {
@@ -93,14 +179,22 @@ export function AnalysisRunner({
   description,
   analysisType,
 }: AnalysisRunnerProps) {
+  const typeNorm = analysisType?.toLowerCase() || 'plot';
+
+  // If description is a JSON array, treat it as pre-loaded data (don't show as text)
+  const descriptionData = useMemo(() => tryParseJsonArray(description), [description]);
+  const isDescriptionJson = descriptionData !== null;
+
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [plotCode, setPlotCode] = useState<string | null>(null);
-  const [data, setData] = useState<unknown[] | null>(null);
+  const [data, setData] = useState<unknown[] | null>(() =>
+    typeNorm !== 'prose' && descriptionData ? descriptionData : null
+  );
   const [proseContent, setProseContent] = useState<string | null>(null);
-  const [hasRun, setHasRun] = useState(false);
-
-  const typeNorm = analysisType?.toLowerCase() || 'plot';
+  const [hasRun, setHasRun] = useState(() =>
+    typeNorm !== 'prose' && descriptionData !== null
+  );
 
   const handleRun = async () => {
     setRunning(true);
@@ -152,7 +246,7 @@ export function AnalysisRunner({
               {analysisType || 'plot'}
             </Badge>
           </div>
-          {description && (
+          {description && !isDescriptionJson && (
             <p className="text-sm text-muted-foreground max-w-2xl">{description}</p>
           )}
         </div>
@@ -197,13 +291,20 @@ export function AnalysisRunner({
             </div>
           )}
 
-          {/* Plot / table type: run Observable Plot code */}
+          {/* Plot type: run Observable Plot code */}
           {typeNorm !== 'prose' && plotCode && data !== null && (
             <PlotContainer plotCode={plotCode} data={data} />
           )}
 
-          {/* Fallback: no plot_code returned */}
-          {typeNorm !== 'prose' && !plotCode && data !== null && data.length > 0 && (
+          {/* Table type: render structured table */}
+          {typeNorm !== 'prose' && !plotCode && data !== null && data.length > 0 &&
+           typeof data[0] === 'object' && data[0] !== null && (
+            <TableRenderer data={data as Record<string, unknown>[]} />
+          )}
+
+          {/* Fallback: non-object data or raw JSON */}
+          {typeNorm !== 'prose' && !plotCode && data !== null && data.length > 0 &&
+           (typeof data[0] !== 'object' || data[0] === null) && (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
                 Data ({data.length} records)

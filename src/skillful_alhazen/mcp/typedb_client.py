@@ -150,9 +150,9 @@ class TypeDBClient:
         """
 
         if description:
-            query = query.rstrip(";") + f', has description "{description}";'
+            query = query.rstrip().rstrip(";") + f', has description "{description}";'
         if logical_query:
-            query = query.rstrip(";") + f', has logical-query "{logical_query}";'
+            query = query.rstrip().rstrip(";") + f', has logical-query "{logical_query}";'
 
         with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
@@ -229,6 +229,7 @@ class TypeDBClient:
         thing_type: str = "domain-thing",
         collection_id: str | None = None,
         description: str | None = None,
+        abstract: str | None = None,
         source_uri: str | None = None,
         thing_id: str | None = None,
     ) -> str:
@@ -259,10 +260,11 @@ class TypeDBClient:
                 has created-at {timestamp};
         """
 
-        if description:
-            query = query.rstrip(";") + f', has description "{self._escape_string(description)}";'
+        effective_description = description or abstract
+        if effective_description:
+            query = query.rstrip().rstrip(";") + f', has description "{self._escape_string(effective_description)}";'
         if source_uri:
-            query = query.rstrip(";") + f', has source-uri "{source_uri}";'
+            query = query.rstrip().rstrip(";") + f', has source-uri "{source_uri}";'
 
         with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
@@ -370,11 +372,11 @@ class TypeDBClient:
         """
 
         if content:
-            query = query.rstrip(";") + f', has content "{self._escape_string(content)}";'
+            query = query.rstrip().rstrip(";") + f', has content "{self._escape_string(content)}";'
         if format:
-            query = query.rstrip(";") + f', has format "{format}";'
+            query = query.rstrip().rstrip(";") + f', has format "{format}";'
         if source_uri:
-            query = query.rstrip(";") + f', has source-uri "{source_uri}";'
+            query = query.rstrip().rstrip(";") + f', has source-uri "{source_uri}";'
 
         with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
@@ -467,11 +469,11 @@ class TypeDBClient:
         """
 
         if offset is not None:
-            query = query.rstrip(";") + f", has offset {offset};"
+            query = query.rstrip().rstrip(";") + f", has offset {offset};"
         if length is not None:
-            query = query.rstrip(";") + f", has length {length};"
+            query = query.rstrip().rstrip(";") + f", has length {length};"
         if section_type and fragment_type == "scilit-section":
-            query = query.rstrip(";") + f', has section-type "{section_type}";'
+            query = query.rstrip().rstrip(";") + f', has section-type "{section_type}";'
 
         with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
@@ -538,9 +540,9 @@ class TypeDBClient:
         """
 
         if confidence is not None:
-            query = query.rstrip(";") + f", has confidence {confidence};"
+            query = query.rstrip().rstrip(";") + f", has confidence {confidence};"
         if note_type:
-            query = query.rstrip(";") + f', has format "{note_type}";'
+            query = query.rstrip().rstrip(";") + f', has format "{note_type}";'
 
         with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
@@ -637,7 +639,7 @@ class TypeDBClient:
         """
 
         if description:
-            query = query.rstrip(";") + f', has description "{description}";'
+            query = query.rstrip().rstrip(";") + f', has description "{description}";'
 
         with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
@@ -756,7 +758,7 @@ class TypeDBClient:
         """
 
         if model_name:
-            query = query.rstrip(";") + f', has model-name "{model_name}";'
+            query = query.rstrip().rstrip(";") + f', has model-name "{model_name}";'
 
         with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
@@ -846,11 +848,12 @@ class TypeDBClient:
         query = f"""
             match
                 $e isa identifiable-entity, has id "{entity_id}";
-                $p (produced-entity: $e) isa provenance-record;
+                $p (produced-entity: $e) isa provenance-record,
+                    has operation-type $otype,
+                    has operation-timestamp $otime;
             fetch {{
-                "operation-type": $p.operation-type,
-                "operation-timestamp": $p.operation-timestamp,
-                "operation-parameters": $p.operation-parameters
+                "operation-type": $otype,
+                "operation-timestamp": $otime
             }};
         """
 
@@ -923,18 +926,18 @@ class TypeDBClient:
         """
 
         if pmid:
-            query = query.rstrip(";") + f', has pmid "{pmid}";'
+            query = query.rstrip().rstrip(";") + f', has pmid "{pmid}";'
         if pmcid:
-            query = query.rstrip(";") + f', has pmcid "{pmcid}";'
+            query = query.rstrip().rstrip(";") + f', has pmcid "{pmcid}";'
         if abstract:
-            query = query.rstrip(";") + f', has abstract-text "{self._escape_string(abstract)}";'
+            query = query.rstrip().rstrip(";") + f', has abstract-text "{self._escape_string(abstract)}";'
         if publication_year:
-            query = query.rstrip(";") + f", has publication-year {publication_year};"
+            query = query.rstrip().rstrip(";") + f", has publication-year {publication_year};"
         if journal_name:
-            query = query.rstrip(";") + f', has journal-name "{self._escape_string(journal_name)}";'
+            query = query.rstrip().rstrip(";") + f', has journal-name "{self._escape_string(journal_name)}";'
         if keywords:
             for kw in keywords:
-                query = query.rstrip(";") + f', has keyword "{self._escape_string(kw)}";'
+                query = query.rstrip().rstrip(";") + f', has keyword "{self._escape_string(kw)}";'
 
         with self._driver.transaction(self.database, TransactionType.WRITE) as tx:
             tx.query(query).resolve()

@@ -45,6 +45,7 @@ Commands:
 
     Export:
         export-design       Export annotated Markdown design changelog
+        generate-evals      Generate evals/evals.json for the skill being designed
 
     Skill data (zip bundles):
         export-skill-data   Export KG snapshot for a skill (used by make package-skill)
@@ -2006,6 +2007,192 @@ def cmd_export_design_phases(args):
     out({"success": True, "domain_id": domain_id, "markdown": markdown})
 
 
+def cmd_generate_evals(args):
+    """Generate evals/evals.json for the skill being designed from TypeDB design data."""
+    if not TYPEDB_AVAILABLE:
+        out({"success": False, "error": "typedb-driver not installed"})
+        return
+
+    domain_id = args.domain_id
+    eid = escape_string(domain_id)
+
+    with get_driver() as driver:
+        # Domain info
+        d_q = f"""
+            match $d isa dm-domain, has id "{eid}";
+            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-skill-name }};
+        """
+        d_res = fetch_query(driver, d_q)
+        if not d_res:
+            out({"success": False, "error": f"Domain not found: {domain_id}"})
+            return
+        domain = d_res[0]
+        skill_name = domain.get("skill") or domain.get("name") or domain_id
+
+        # Goals
+        goal_q = f"""
+            match $g isa dm-goal;
+                  $d isa dm-domain, has id "{eid}";
+                  (system: $d, goal: $g) isa dm-system-goal;
+            fetch {{ "id": $g.id, "name": $g.name, "description": $g.description }};
+        """
+        goals = fetch_query(driver, goal_q)
+
+        # Evaluations per goal
+        all_evals = []
+        for g in goals:
+            gid = escape_string(g.get("id", ""))
+            eval_q = f"""
+                match $e isa dm-goal-eval;
+                      $g isa dm-goal, has id "{gid}";
+                      (goal: $g, evaluation: $e) isa dm-goal-evaluation;
+                fetch {{ "id": $e.id, "name": $e.name, "description": $e.description,
+                        "criterion_type": $e.dm-evaluation-criterion-type,
+                        "success_condition": $e.dm-evaluation-success-condition,
+                        "approach": $e.dm-evaluation-approach }};
+            """
+            all_evals.extend(fetch_query(driver, eval_q))
+
+        # Derivation skills (Phase 4)
+        deriv_q = f"""
+            match $p isa dm-derivation-skill;
+                  $d isa dm-domain, has id "{eid}";
+                  (subject: $p, domain: $d) isa dm-in-domain;
+            fetch {{ "id": $p.id, "name": $p.name, "description": $p.description,
+                    "input_types": $p.dm-input-types, "output_types": $p.dm-output-types }};
+        """
+        deriv_skills = fetch_query(driver, deriv_q)
+
+        # Analysis skills (Phase 5)
+        analysis_q = f"""
+            match $p isa dm-analysis-skill;
+                  $d isa dm-domain, has id "{eid}";
+                  (subject: $p, domain: $d) isa dm-in-domain;
+            fetch {{ "id": $p.id, "name": $p.name, "description": $p.description,
+                    "input_types": $p.dm-input-types, "output_types": $p.dm-output-types }};
+        """
+        analysis_skills = fetch_query(driver, analysis_q)
+
+    # Build eval entries
+    evals = []
+    eval_id = 1
+
+    def split_into_assertions(text):
+        """Split a success condition string into individual assertion strings."""
+        if not text:
+            return []
+        parts = []
+        for chunk in text.replace(";", ".").split(". "):
+            chunk = chunk.strip().rstrip(".")
+            if chunk:
+                parts.append(chunk)
+        return parts if parts else [text.strip()]
+
+    # One eval per dm-goal-eval
+    for ev in all_evals:
+        name = ev.get("name") or "Evaluation criterion"
+        description = ev.get("description") or ""
+        criterion_type = ev.get("criterion_type") or "general"
+        success_condition = ev.get("success_condition") or ""
+        approach = ev.get("approach") or ""
+
+        if approach:
+            prompt = f"Using the {skill_name} skill, {approach}"
+        elif description:
+            prompt = f"Using the {skill_name} skill, verify that: {description}"
+        else:
+            prompt = f"Using the {skill_name} skill, validate the {criterion_type} criterion: {name}"
+
+        expected_output = success_condition if success_condition else f"{criterion_type} criterion satisfied: {name}"
+
+        assertions = split_into_assertions(success_condition)
+        if not assertions:
+            assertions = [f"The {criterion_type} criterion '{name}' is satisfied"]
+        assertions.append(f"The output meets the {criterion_type} threshold defined in the design")
+
+        evals.append({
+            "id": eval_id,
+            "prompt": prompt,
+            "expected_output": expected_output,
+            "expectations": assertions,
+        })
+        eval_id += 1
+
+    # One eval per derivation skill
+    for ds in deriv_skills:
+        name = ds.get("name") or "ingestion"
+        description = ds.get("description") or name
+        input_types = ds.get("input_types") or "input artifacts"
+        output_types = ds.get("output_types") or "entities"
+
+        prompt = (
+            f"Using the {skill_name} skill, run the '{name}' ingestion workflow. "
+            f"Input: {input_types}. Verify the resulting entities are correctly populated."
+        )
+        expected_output = f"Entities of type '{output_types}' created with all required attributes populated."
+        assertions = [
+            f"The ingestion command for '{name}' completed without errors",
+            f"At least one entity of type '{output_types}' was created",
+            "The created entity has a non-null id attribute",
+        ]
+
+        evals.append({
+            "id": eval_id,
+            "prompt": prompt,
+            "expected_output": expected_output,
+            "expectations": assertions,
+        })
+        eval_id += 1
+
+    # One eval per analysis skill
+    for an in analysis_skills:
+        name = an.get("name") or "analysis"
+        description = an.get("description") or name
+        input_types = an.get("input_types") or "entities"
+        output_types = an.get("output_types") or "insights"
+
+        prompt = (
+            f"Using the {skill_name} skill, run the '{name}' analysis. "
+            f"Input: {input_types}. Verify meaningful output is produced."
+        )
+        expected_output = f"Analysis output of type '{output_types}' with meaningful content."
+        assertions = [
+            f"The analysis command '{name}' completed without errors",
+            f"Output contains '{output_types}'",
+        ]
+
+        evals.append({
+            "id": eval_id,
+            "prompt": prompt,
+            "expected_output": expected_output,
+            "expectations": assertions,
+        })
+        eval_id += 1
+
+    evals_doc = {"skill_name": skill_name, "evals": evals}
+
+    # Write to output-dir if specified
+    output_path = None
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+        evals_dir = output_dir / "evals"
+        evals_dir.mkdir(parents=True, exist_ok=True)
+        output_path = str(evals_dir / "evals.json")
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(evals_doc, f, indent=2)
+
+    result = {
+        "success": True,
+        "skill_name": skill_name,
+        "eval_count": len(evals),
+        "evals": evals_doc,
+    }
+    if output_path:
+        result["output_path"] = output_path
+
+    out(result)
+
+
 # =============================================================================
 # SOURCE DOCUMENT INGESTION (Phase 1 inputs)
 # =============================================================================
@@ -2668,6 +2855,11 @@ def main():
                               help="Export structured Markdown design phases report")
     p.add_argument("--domain-id", required=True, help="Domain ID")
 
+    p = subparsers.add_parser("generate-evals",
+                              help="Generate evals/evals.json for the skill being designed")
+    p.add_argument("--domain-id", required=True, help="Domain ID")
+    p.add_argument("--output-dir", help="Skill directory to write evals/evals.json into")
+
     # --- Source documents (Phase 1 inputs) ---
     p = subparsers.add_parser("ingest-source-doc",
                               help="Ingest a source document (file, text, stdin, or URL) and link to domain")
@@ -2742,6 +2934,7 @@ def main():
         "list-phase-gaps": cmd_list_phase_gaps,
         "show-phase-item": cmd_show_phase_item,
         "export-design-phases": cmd_export_design_phases,
+        "generate-evals": cmd_generate_evals,
         "ingest-source-doc": cmd_ingest_source_doc,
         "list-source-docs": cmd_list_source_docs,
         "show-source-doc": cmd_show_source_doc,

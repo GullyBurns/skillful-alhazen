@@ -61,15 +61,22 @@ export default function HubPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Decorative background spiral */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -right-48 -top-48 w-[800px] h-[800px] opacity-[0.04] rotate-[-15deg]">
+          <Image src="/sciknow-icon.png" alt="" fill className="object-contain" />
+        </div>
+      </div>
+
       {/* Header */}
-      <header className="py-16 flex justify-center">
+      <header className="py-16 flex justify-center relative">
         <div className="flex items-center gap-5">
-          <Image src="/hero-icon.svg" alt="" width={72} height={72} />
+          <Image src="/sciknow-icon.png" alt="sciknow.io" width={64} height={64} />
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-[#5aadaf] via-[#62c4bc] to-[#b8c84a] bg-clip-text text-transparent">
               Skillful-Alhazen
             </h1>
-            <p className="text-muted-foreground mt-1 text-lg">
+            <p className="text-muted-foreground mt-1 text-xs tracking-widest uppercase">
               AI-Powered Knowledge Curation System
             </p>
           </div>
@@ -77,7 +84,7 @@ export default function HubPage() {
       </header>
 
       {/* Dashboard Cards */}
-      <main className="container mx-auto px-4 flex-1">
+      <main className="container mx-auto px-4 flex-1 relative">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
           {skills.map(skill => {
             const Icon = ICON_MAP[skill.icon] ?? LayoutDashboard;
@@ -119,10 +126,10 @@ export default function HubPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border/50 mt-12">
+      <footer className="border-t border-border/50 mt-12 relative">
         <div className="container mx-auto px-4 py-4">
           <p className="text-xs text-muted-foreground text-center">
-            Skillful-Alhazen &bull; Powered by TypeDB + Next.js
+            Skillful-Alhazen &bull; sciknow.io &bull; Powered by TypeDB + Next.js
           </p>
         </div>
       </footer>

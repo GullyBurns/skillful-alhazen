@@ -32,6 +32,8 @@ Commands:
     list-analyses         List analyses linked to an investigation
     show-analysis         Show full analysis details including plot code and query
     run-analysis          Execute a stored analysis: run its TypeQL query + return data
+    add-pipeline          Add a Hamilton pipeline analysis (stores script + config)
+    run-pipeline          Execute a stored Hamilton pipeline and write outputs to TypeDB
     plan-analyses         Return investigation context for visualization planning
     explore-repo          Return clone path + file list for Explore subagent dispatch
     extract-fragments     Extract code/heading fragments from repo-clone or HTML artifacts
@@ -1390,7 +1392,7 @@ def cmd_explore_repo(args):
             if not art_results:
                 print(json.dumps({
                     "success": False,
-                    "error": "No repo-clone artifact found for this system. Run: ingest-repo --clone first."
+                    "error": "No repo-clone artifact found for this system. Re-run ingest-repo (cloning is on by default; use --no-clone only if skipping is intentional)."
                 }))
                 sys.exit(1)
 
@@ -1429,7 +1431,7 @@ def cmd_explore_repo(args):
         if not os.path.isdir(clone_path):
             print(json.dumps({
                 "success": False,
-                "error": f"Clone path does not exist: {clone_path}. Run: ingest-repo --clone first."
+                "error": f"Clone path does not exist: {clone_path}. Re-run ingest-repo to clone."
             }))
             sys.exit(1)
 
@@ -2334,7 +2336,9 @@ def cmd_show_analysis(args):
                     "type": $a.analysis-type,
                     "plot_code": $a.plot-code,
                     "query": $a.tql-query,
-                    "description": $a.content
+                    "description": $a.content,
+                    "pipeline_script": $a.pipeline-script,
+                    "pipeline_config": $a.pipeline-config
                 }};
             ''').resolve())
 
@@ -2343,6 +2347,7 @@ def cmd_show_analysis(args):
             sys.exit(1)
 
         a = results[0]
+        pipeline_script = a.get("pipeline_script")
         print(json.dumps({
             "success": True,
             "analysis": {
@@ -2352,6 +2357,10 @@ def cmd_show_analysis(args):
                 "plot_code": a.get("plot_code"),
                 "query": a.get("query"),
                 "description": a.get("description"),
+                "pipeline_script": pipeline_script,
+                "pipeline_script_preview": (pipeline_script[:500] + "...") if pipeline_script and len(pipeline_script) > 500 else pipeline_script,
+                "pipeline_script_chars": len(pipeline_script) if pipeline_script else 0,
+                "pipeline_config": a.get("pipeline_config"),
             },
         }))
 
@@ -2404,6 +2413,231 @@ def cmd_run_analysis(args):
         raise
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+    finally:
+        driver.close()
+
+
+def load_pipeline_module(source_code: str, module_name: str = "techrecon_pipeline"):
+    """Dynamically load a Hamilton pipeline module from source code string.
+
+    Uses importlib.util.spec_from_file_location via a named temp file because
+    Hamilton's introspection calls inspect.getsource() which requires a real file path.
+    """
+    import importlib.util
+    import os
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", prefix=f"{module_name}_", delete=False) as f:
+        f.write(source_code)
+        tmp_path = f.name
+    spec = importlib.util.spec_from_file_location(module_name, tmp_path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = mod
+    spec.loader.exec_module(mod)
+    os.unlink(tmp_path)
+    return mod
+
+
+def cmd_add_pipeline(args):
+    """Add a Hamilton pipeline analysis to an investigation (stores script + config)."""
+    inv_id = escape_string(args.investigation)
+    title = escape_string(args.title)
+    analysis_type = escape_string(args.analysis_type)
+
+    # Load pipeline script source
+    if args.pipeline_script.startswith("@"):
+        script_path = args.pipeline_script[1:]
+        with open(script_path) as f:
+            pipeline_script = f.read()
+    else:
+        pipeline_script = args.pipeline_script
+
+    # Load pipeline config
+    if args.pipeline_config.startswith("@"):
+        config_path = args.pipeline_config[1:]
+        with open(config_path) as f:
+            pipeline_config = f.read()
+    else:
+        pipeline_config = args.pipeline_config
+
+    # Validate config is valid JSON
+    try:
+        json.loads(pipeline_config)
+    except json.JSONDecodeError as e:
+        print(json.dumps({"success": False, "error": f"pipeline-config is not valid JSON: {e}"}))
+        sys.exit(1)
+
+    ana_id = generate_id("tra")
+    now = get_timestamp()
+
+    driver = get_driver()
+    try:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            # Verify investigation exists
+            inv_check = list(tx.query(f'''
+                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                fetch {{ "id": $inv.id }};
+            ''').resolve())
+            if not inv_check:
+                print(json.dumps({"success": False, "error": f"Investigation {args.investigation} not found"}))
+                sys.exit(1)
+
+            escaped_script = escape_string(pipeline_script)
+            escaped_config = escape_string(pipeline_config)
+            escaped_title = title
+
+            tx.query(f'''
+                insert $a isa tech-recon-analysis,
+                    has id "{ana_id}",
+                    has tech-recon-title "{escaped_title}",
+                    has analysis-type "{analysis_type}",
+                    has pipeline-script "{escaped_script}",
+                    has pipeline-config "{escaped_config}",
+                    has created-at {now};
+            ''').resolve()
+
+            tx.query(f'''
+                match
+                    $a isa tech-recon-analysis, has id "{ana_id}";
+                    $inv isa tech-recon-investigation, has id "{inv_id}";
+                insert (analysis: $a, investigation: $inv) isa analysis-of;
+            ''').resolve()
+
+            tx.commit()
+
+        print(json.dumps({
+            "success": True,
+            "analysis_id": ana_id,
+            "investigation_id": args.investigation,
+            "title": args.title,
+            "analysis_type": args.analysis_type,
+            "pipeline_script_chars": len(pipeline_script),
+        }))
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+    finally:
+        driver.close()
+
+
+# Mapping from Hamilton terminal node name → TypeDB attribute name + update action
+_PIPELINE_OUTPUT_ATTRS = {
+    "plot_code": "plot-code",
+    "table_data": "content",   # serialized as JSON string
+    "prose_text": "content",
+    "artifact_path": "cache-path",
+}
+
+
+def cmd_run_pipeline(args):
+    """Execute a stored Hamilton pipeline and write outputs back to TypeDB."""
+    ana_id = escape_string(args.id)
+    driver = get_driver()
+    try:
+        # Step 1: Fetch pipeline-script + pipeline-config from TypeDB
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            results = list(tx.query(f'''
+                match $a isa tech-recon-analysis, has id "{ana_id}";
+                fetch {{
+                    "pipeline_script": $a.pipeline-script,
+                    "pipeline_config": $a.pipeline-config
+                }};
+            ''').resolve())
+
+        if not results:
+            print(json.dumps({"success": False, "error": f"Analysis {args.id} not found"}))
+            sys.exit(1)
+
+        pipeline_script = results[0].get("pipeline_script")
+        pipeline_config_str = results[0].get("pipeline_config")
+
+        if not pipeline_script:
+            print(json.dumps({"success": False, "error": "Analysis has no pipeline-script stored"}))
+            sys.exit(1)
+        if not pipeline_config_str:
+            print(json.dumps({"success": False, "error": "Analysis has no pipeline-config stored"}))
+            sys.exit(1)
+
+        config = json.loads(pipeline_config_str)
+        outputs = config.get("outputs", [])
+        if not outputs:
+            print(json.dumps({"success": False, "error": "pipeline-config has no 'outputs' list"}))
+            sys.exit(1)
+
+        # Step 2: Resolve inputs — merge explicit inputs with env_inputs
+        inputs = dict(config.get("inputs", {}))
+        for param_name, env_var in config.get("env_inputs", {}).items():
+            val = os.environ.get(env_var)
+            if val is None:
+                print(json.dumps({"success": False, "error": f"Required env var {env_var} (for '{param_name}') is not set"}))
+                sys.exit(1)
+            inputs[param_name] = val
+
+        # Step 3: Dynamically load the Hamilton module
+        print("Loading pipeline module...", file=sys.stderr)
+        try:
+            from hamilton import driver as h_driver  # noqa: PLC0415
+        except ImportError:
+            print(json.dumps({"success": False, "error": "sf-hamilton not installed. Run: uv add sf-hamilton"}))
+            sys.exit(1)
+
+        mod = load_pipeline_module(pipeline_script, module_name=f"pipeline_{ana_id}")
+
+        # Step 4: Build Hamilton driver and execute
+        hamilton_cfg = config.get("hamilton", {})
+        builder = h_driver.Builder().with_modules(mod)
+        if hamilton_cfg.get("with_cache"):
+            builder = builder.with_cache()
+        dr = builder.build()
+
+        print(f"Executing Hamilton pipeline outputs: {outputs}", file=sys.stderr)
+        results_map = dr.execute(outputs, inputs=inputs)
+
+        # Step 5: Write each output back to TypeDB
+        written = {}
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            for output_name, value in results_map.items():
+                attr_name = _PIPELINE_OUTPUT_ATTRS.get(output_name)
+                if not attr_name:
+                    print(f"Warning: unknown terminal node '{output_name}', skipping", file=sys.stderr)
+                    continue
+
+                # Serialize non-string outputs
+                if output_name == "table_data":
+                    value = json.dumps(value)
+                elif not isinstance(value, str):
+                    value = str(value)
+
+                escaped_val = escape_string(value)
+
+                # Delete existing attribute value, then insert new one
+                tx.query(f'''
+                    match $a isa tech-recon-analysis, has id "{ana_id}", has {attr_name} $old;
+                    delete has $old of $a;
+                ''').resolve()
+                tx.query(f'''
+                    match $a isa tech-recon-analysis, has id "{ana_id}";
+                    insert $a has {attr_name} "{escaped_val}";
+                ''').resolve()
+                written[output_name] = len(value)
+
+            tx.commit()
+
+        print(json.dumps({
+            "success": True,
+            "analysis_id": args.id,
+            "outputs_written": written,
+        }))
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        import traceback
+        print(json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}))
         sys.exit(1)
     finally:
         driver.close()
@@ -2950,8 +3184,8 @@ def build_parser():
     )
     p.add_argument("--url", required=True, help="GitHub repo URL (e.g. https://github.com/org/repo)")
     p.add_argument("--system", required=True, help="System ID to link artifacts to")
-    p.add_argument("--clone", action="store_true", default=False,
-                   help="Git clone the repo into ~/.alhazen/cache/repos/{owner}/{repo}")
+    p.add_argument("--clone", action=argparse.BooleanOptionalAction, default=True,
+                   help="Git clone the repo into ~/.alhazen/cache/repos/{owner}/{repo} (default: on). Use --no-clone to skip.")
     p.set_defaults(func=cmd_ingest_repo)
 
     # -- ingest-pdf --
@@ -3047,6 +3281,39 @@ def build_parser():
     )
     p.add_argument("--id", required=True, help="Analysis ID")
     p.set_defaults(func=cmd_run_analysis)
+
+    # -- add-pipeline --
+    p = subparsers.add_parser(
+        "add-pipeline",
+        help="Add a Hamilton pipeline analysis to an investigation (stores script + config)",
+    )
+    p.add_argument("--investigation", required=True, help="Investigation ID")
+    p.add_argument("--title", required=True, help="Analysis title")
+    p.add_argument(
+        "--pipeline-script",
+        required=True,
+        help="Hamilton module source code, or @path/to/file.py to read from file",
+    )
+    p.add_argument(
+        "--pipeline-config",
+        required=True,
+        help='Pipeline config JSON (outputs/inputs/env_inputs), or @path/to/config.json',
+    )
+    p.add_argument(
+        "--analysis-type",
+        default="pipeline-plot",
+        choices=["pipeline-plot", "pipeline-table", "pipeline-prose", "pipeline-artifact"],
+        help="Analysis type (default: pipeline-plot)",
+    )
+    p.set_defaults(func=cmd_add_pipeline)
+
+    # -- run-pipeline --
+    p = subparsers.add_parser(
+        "run-pipeline",
+        help="Execute a stored Hamilton pipeline and write outputs back to TypeDB",
+    )
+    p.add_argument("--id", required=True, help="Analysis ID")
+    p.set_defaults(func=cmd_run_pipeline)
 
     # -- plan-analyses --
     p = subparsers.add_parser(

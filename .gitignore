@@ -177,3 +177,4 @@ deploy/ssh-keys/*.crt
 
 # Local skills registry (private/proprietary skills)
 skills-registry-local.yaml.worktrees/
+skills-registry-local.yaml

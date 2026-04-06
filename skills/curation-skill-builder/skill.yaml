@@ -57,6 +57,7 @@ operations:
     - list-phase-gaps
     - show-phase-item
     - export-design-phases
+    - generate-evals
 
 # TypeDB entity types defined in schema.tql
 entity_types:
