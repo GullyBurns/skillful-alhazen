@@ -1,0 +1,75 @@
+name: Weekly Gap Review
+on:
+  schedule:
+    - cron: '0 9 * * MON'
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'gap:open',
+              state: 'open',
+              per_page: 100
+            });
+
+            if (issues.length === 0) {
+              core.info('No open gaps found.');
+              return;
+            }
+
+            const now = new Date();
+            const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+            const dateStr = now.toISOString().slice(0, 10);
+
+            const critical = issues.filter(i => i.labels.some(l => l.name === 'severity:critical'));
+            const moderate = issues.filter(i => i.labels.some(l => l.name === 'severity:moderate'));
+            const minor = issues.filter(i => i.labels.some(l => l.name === 'severity:minor'));
+
+            const makeTable = (items) => {
+              if (!items.length) return '_None_\n';
+              const rows = items.map(i => {
+                const age = Math.floor((now - new Date(i.created_at)) / (1000 * 60 * 60 * 24));
+                return '| [#' + i.number + '](' + i.html_url + ') | ' + i.title + ' | ' + age + 'd |';
+              });
+              return '| # | Title | Age |\n|---|---|---|\n' + rows.join('\n') + '\n';
+            };
+
+            const body = [
+              '## Weekly Gap Review -- ' + dateStr,
+              '',
+              'Total open gaps: **' + issues.length + '**',
+              '',
+              '### Critical',
+              makeTable(critical),
+              '### Moderate',
+              makeTable(moderate),
+              '### Minor',
+              makeTable(minor),
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Weekly Gap Review -- ' + dateStr,
+              body: body
+            });
+
+            for (const issue of critical) {
+              if (new Date(issue.created_at) < sevenDaysAgo) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: '**Reminder:** This critical gap has been open for more than 7 days. Please prioritize a fix or downgrade the severity if this is no longer urgent.'
+                });
+              }
+            }
