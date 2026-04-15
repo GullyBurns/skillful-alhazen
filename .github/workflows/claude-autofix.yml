@@ -1,0 +1,42 @@
+name: Claude Auto-Fix Gap
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  auto-fix:
+    if: github.event.label.name == 'gap:open' && contains(github.event.issue.body, '## What was missing')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen 2>/dev/null || true
+
+      - name: Build prompt
+        id: prompt
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const n = context.issue.number;
+            const repo = context.repo.owner + '/' + context.repo.repo;
+            const title = context.payload.issue.title;
+            const body = context.payload.issue.body || '';
+            return 'A skill design gap (issue #' + n + ') has been filed in ' + repo + '. Please implement a fix.\n\nIssue title: ' + title + '\n\nIssue body:\n' + body + '\n\nInstructions:\n1. Read the **Skill:** field in the issue body to identify which skill needs fixing.\n2. Find all relevant files for that skill in this repository.\n3. Create a new git branch named fix/gap-' + n + '-<short-slug> (slug = 2-4 word kebab-case summary of the fix).\n4. Implement the fix described in ## Suggested fix. If that section is vague, implement a sensible minimal fix for what is described in ## What was missing.\n5. Keep the change minimal and targeted -- do not refactor unrelated code.\n6. Commit with message: fix(<skill-name>): <short description> (closes #' + n + ')\n7. Push the branch and open a PR with Closes #' + n + ' in the body.\n8. Finally run: gh issue edit ' + n + ' --repo ' + repo + ' --add-label gap:in-progress --remove-label gap:open';
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_tools: "Bash(*),Edit,MultiEdit,WebFetch"
+          prompt: ${{ steps.prompt.outputs.result }}
