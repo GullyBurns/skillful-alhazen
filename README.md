@@ -60,6 +60,7 @@ Built into this repository (`skills/` directory). Always available.
 | `typedb-notebook` | Core knowledge operations — remember facts, recall notes, create collections, tag entities, track schema gaps |
 | `web-search` | Web search via SearXNG (self-hosted metasearch, no API key needed) |
 | `curation-skill-builder` | Design and build new TypeDB-backed curation skills; 6-phase system design framework with TypeDB tracking |
+| `tech-recon` | Systematic investigation of software systems against user-defined success criteria |
 
 ### External Skills
 
@@ -72,7 +73,6 @@ Resolved from [`sciknow-io/alhazen-skill-examples`](https://github.com/sciknow-i
 | `literature-trends` | Research analysis | Trace how explanatory hypotheses evolve over time in a tagged literature corpus | — |
 | `they-said-whaaa` | Journalism | Track consistency of public figures — ingest transcripts and articles, extract claims, detect contradictions | ✓ |
 | `jobhunt` | Career | Track job applications — ingest postings, fit analysis, skill gap identification | ✓ |
-| `tech-recon` | Technology | Systematic investigation of software systems against user-defined success criteria | ✓ |
 | `dismech` | Disease mechanisms | Browse the DisMech knowledge graph (750+ curated disease mechanism entries) | — |
 
 ---
