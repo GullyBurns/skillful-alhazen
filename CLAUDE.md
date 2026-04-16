@@ -543,42 +543,44 @@ cd deploy
 
 When Claude makes a mistake, add it to this section so it doesn't happen again.
 
-### Domain-Modeling: Record Design Gaps After Every Plan
+### Schema Gap Reporting
 
-**Whenever a Claude plan creates, updates, or changes the design of a skill, record any design gaps discovered during implementation in the curation-skill-builder knowledge graph.**
+A **schema gap** is when Claude tries to represent a concept, relationship, or entity type that has no place in the current TypeDB schema. Schema gaps are the primary signal for knowledge graph evolution — they reveal what the schema needs to grow to support.
 
-This includes:
-- Plans that add new entity types, relations, or attributes to a skill schema
-- Plans that fix bugs caused by missing constraints, null values, or incorrect data types
-- Plans that change dashboard components in ways that reveal schema/UI mismatches
-- Plans that discover that a skill's data model is incomplete or ambiguous
+**Two detection paths:**
+1. **TypeDB error code in output** — the PostToolUse hook prints a `[SCHEMA-GAP-HINT]` when it detects `[SYR1]`, `[TYR01]`, `[FEX1]`, etc. in a skill's output. Follow the hint.
+2. **Claude recognizes it** — during sensemaking, you realize a concept can't be stored. File immediately (don't wait until after the session).
 
-**After completing a plan**, run:
+**File a schema gap:**
 ```bash
-# 1. Find or create the domain for the affected skill
-uv run python .claude/skills/curation-skill-builder/skill_builder.py list-domains 2>/dev/null \
-    | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin),indent=2))"
-
-# 2. Find the relevant phase item (entity schema, source schema, etc.)
-uv run python .claude/skills/curation-skill-builder/skill_builder.py show-domain \
-    --id <domain_id> 2>/dev/null \
-    | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin),indent=2))"
-
-# 3. Record the gap
-uv run python .claude/skills/curation-skill-builder/skill_builder.py add-phase-gap \
-    --phase-id <phase_id> \
-    --domain-id <domain_id> \
-    --description "What was missing, what broke, what the fix was, and the general pattern to avoid." \
-    --severity minor|moderate|critical
+uv run python local_resources/skilllog/skill_logger.py file-schema-gap \
+  --skill <skill-name> \
+  --concept "<concept Claude tried to represent>" \
+  --missing "<which TypeDB entity/relation/attribute is absent>" \
+  --suggested "<proposed TypeQL snippet, or 'unknown'>" \
+  [--dry-run]
 ```
 
-**What makes a good gap description:**
-- What was absent from the schema or code (e.g., "status attribute has no default or required constraint")
-- What broke as a result (e.g., "badge component called .toLowerCase() on null, crashing the page")
-- What fix was applied (e.g., "added null guard to getBadgeColor")
-- The generalizable pattern (e.g., "any optional string rendered in a badge must guard against null")
+Repo routing is automatic: core skills (`typedb-notebook`, `web-search`, `curation-skill-builder`, `tech-recon`) → `GullyBurns/skillful-alhazen`; external skills (`jobhunt`, `scientific-literature`, `alg-precision-therapeutics`, `literature-trends`, `they-said-whaaa`) → `sciknow-io/alhazen-skill-examples`.
 
-**Severity guide:** `minor` = cosmetic/annoyance, `moderate` = feature broken but workaround exists, `critical` = data loss or complete page crash.
+**Also file issues for design gaps discovered during planning** (missing constraints, schema mismatches, dashboard/schema mismatches):
+```bash
+gh issue create \
+  --repo <repo> \
+  --title "Gap [moderate][entity-schema]: <one-sentence summary>" \
+  --body $'## What was missing\n<...>\n\n## What broke\n<...>\n\n## Suggested fix\n<...>\n\n## Generalizable pattern\n<...>\n\n---\n**Skill:** <skill>\n**Phase:** entity-schema\n**Severity:** moderate' \
+  --label "gap:open"
+```
+
+**Severity:** `minor` = cosmetic, `moderate` = feature broken but workaround exists, `critical` = data loss or crash.
+
+**List open gaps:** `gh issue list --repo <repo> --label "gap:open" --json number,title,url,labels`
+
+**One-time setup** (if repo lacks labels/workflows):
+```bash
+uv run python .claude/skills/curation-skill-builder/skill_builder.py \
+  scaffold-improvement-loop --repo <owner/name> [--skill <name>]
+```
 
 ### TypeDB 3.x Query Notes
 - **Fetch syntax** - Use `fetch { "key": $var.attr };` JSON-style (NOT `fetch $var: attr1, attr2;` — that is 2.x syntax)

@@ -358,25 +358,9 @@ uv run python .claude/skills/curation-skill-builder/skill_builder.py \
 
 ### Design Gaps
 
-Track mismatches and gaps for sources and scripts that are currently missing in the design. 
+Design gaps discovered during implementation are filed as **GitHub Issues** in the skill's repo — not in TypeDB. This keeps the improvement loop where the fixes happen (GitHub branches, PRs, code review).
 
-```bash
-# Flag something missing or unclear
-GAP=$(uv run python .claude/skills/curation-skill-builder/skill_builder.py \
-  add-phase-gap \
-  --phase-id $SCHEMA --domain-id $DOMAIN \
-  --description "No representation for 510k substantial equivalence decision text" \
-  --severity moderate \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
-
-# List open gaps
-uv run python .claude/skills/curation-skill-builder/skill_builder.py \
-  list-phase-gaps --domain-id $DOMAIN --status open
-
-# Resolve a gap
-uv run python .claude/skills/curation-skill-builder/skill_builder.py \
-  resolve-phase-gap --gap-id $GAP
-```
+See the "Improvement Loop" section below for the full workflow.
 
 ### Export
 
@@ -439,6 +423,98 @@ uv run python .claude/skills/curation-skill-builder/skill_builder.py \
 Once `evals/evals.json` exists in your skill directory, run it with the skill-creator plugin: invoke the `skill-creator` skill and say "run evals on \<your-skill-name\>".
 
 **When to regenerate:** After adding or updating `dm-goal-eval` entries, or after defining new derivation or analysis skills — re-run `generate-evals` to keep the test cases in sync with the design.
+
+---
+
+## Improvement Loop
+
+Each skill's repo owns its improvement loop natively — GitHub Issues track gaps, GitHub Actions automate triage and weekly review, and PRs close issues. The `curation-skill-builder` bootstraps this infrastructure once at skill creation time, then steps away.
+
+### One-Time Setup: `scaffold-improvement-loop`
+
+Run once when creating a new skill repo (or adding the loop to an existing one):
+
+```bash
+# For a skill in its own dedicated repo
+uv run python .claude/skills/curation-skill-builder/skill_builder.py \
+  scaffold-improvement-loop \
+  --repo owner/my-skill-repo
+
+# For a skill in a monorepo (creates an extra skill:<name> label)
+uv run python .claude/skills/curation-skill-builder/skill_builder.py \
+  scaffold-improvement-loop \
+  --repo sciknow-io/alhazen-skill-examples \
+  --skill jobhunt
+```
+
+This creates (via GitHub API — no local clone needed):
+- **15 standard labels**: `severity:*`, `phase:*`, `gap:*` (+ `skill:<name>` if `--skill` given)
+- **`.github/ISSUE_TEMPLATE/skill-gap.md`**: structured gap template
+- **`.github/workflows/gap-triage.yml`**: auto-labels new issues that match the template
+- **`.github/workflows/weekly-gap-review.yml`**: Monday digest of all open gaps
+- **`.github/workflows/claude-autofix.yml`**: when `gap:open` label is applied, Claude Code
+  automatically creates a fix branch, implements the fix, and opens a PR.
+  Requires `CLAUDE_CODE_OAUTH_TOKEN` secret (Settings → Secrets → Actions → New repository secret).
+  If the secret is absent the workflow is skipped silently — other workflows are unaffected.
+
+### Filing a Gap
+
+After completing a plan that modifies a skill's schema, scripts, dashboard, or prompts:
+
+```bash
+# Skill in alhazen-skill-examples (jobhunt, scientific-literature, etc.)
+gh issue create \
+  --repo sciknow-io/alhazen-skill-examples \
+  --title "Gap [moderate][entity-schema]: status attribute has no null guard" \
+  --body $'## What was missing\nThe status attribute had no required constraint.\n\n## What broke\nBadge called .toLowerCase() on null, crashing the page.\n\n## Suggested fix\nAdded null guard to getBadgeColor().\n\n## Generalizable pattern\nAny optional string rendered in a badge must guard against null.\n\n---\n**Skill:** jobhunt\n**Phase:** entity-schema\n**Severity:** moderate' \
+  --label "severity:moderate,phase:entity-schema,gap:open,skill:jobhunt"
+
+# Skill in GullyBurns/skillful-alhazen (typedb-notebook, web-search, tech-recon, etc.)
+gh issue create \
+  --repo GullyBurns/skillful-alhazen \
+  --title "Gap [minor][derivation]: ..." \
+  --label "severity:minor,phase:derivation,gap:open,skill:typedb-notebook"
+```
+
+The `gap-triage.yml` workflow fires automatically on `issues: [opened]`, parses `**Phase:**`, `**Severity:**`, and `**Skill:**` from the body, and applies the correct labels even if the reporter omitted them.
+
+### Fixing a Gap
+
+```bash
+# 1. Create a fix branch in the skill's local clone
+git checkout -b fix/gap-<N>-<short-description>
+
+# 2. Mark the issue as in-progress
+gh issue edit <N> --repo <repo> --add-label gap:in-progress --remove-label gap:open
+
+# 3. Make edits, commit, push
+git push -u origin fix/gap-<N>-<short-description>
+
+# 4. Create a PR that closes the issue
+gh pr create --repo <repo> \
+  --base main \
+  --head fix/gap-<N>-<short-description> \
+  --title "fix: <short description> (closes #<N>)" \
+  --body "Closes #<N>"
+```
+
+Merging the PR closes the issue. The weekly digest skips closed issues automatically.
+
+### List Open Gaps
+
+```bash
+# All open gaps in a repo
+gh issue list --repo sciknow-io/alhazen-skill-examples \
+  --label "gap:open" --json number,title,url,labels
+
+# Critical gaps only
+gh issue list --repo sciknow-io/alhazen-skill-examples \
+  --label "gap:open" --label "severity:critical" --json number,title,url
+
+# Gaps for a specific skill in a monorepo
+gh issue list --repo sciknow-io/alhazen-skill-examples \
+  --label "gap:open" --label "skill:jobhunt" --json number,title,url,labels
+```
 
 ---
 
@@ -761,21 +837,19 @@ snapshot-skill (captures current skill files)
     |       +-- record-result (metric + value)
     |       +-- complete-experiment
     |
-    +-- add-phase-gap (structural gap in a phase spec)  <-- design-time observation
-    |       |
-    |       +-- resolve-phase-gap (once addressed)
+    +-- (gaps filed as GitHub Issues -- see "Improvement Loop" section)
     |
     v
 export-design / export-design-phases (Markdown changelog)
 ```
 
-### Two Gap Mechanisms — One Improvement Loop
+### Gap Mechanisms
 
-| Mechanism | Command | When to Use |
-|-----------|---------|-------------|
-| **Observed gap** | `typedb-notebook record-gap` | Claude had to ask for something that should be stored, or made a wrong inference — logged during live skill use |
-| **Phase gap** | `skill-builder add-phase-gap` | A structural gap discovered while speccing a phase — logged during design review |
-| **Link them** | `skill-builder link-gap` | Connect an observed gap (skilllog) to the design decision that fixes it |
+| Mechanism | Where | When to Use |
+|-----------|-------|-------------|
+| **Observed gap** | `typedb-notebook record-gap` (TypeDB) | Claude had to ask for something that should be stored, or made a wrong inference — logged during live skill use |
+| **Design gap** | `gh issue create` (GitHub Issues) | A structural gap discovered during implementation — logged as a GitHub Issue in the skill's repo |
+| **Link them** | `skill-builder link-gap` | Connect an observed gap (skilllog ID) to the design decision that fixes it |
 
 ### Skill Snapshots
 

@@ -70,7 +70,7 @@ Use the structured phase workflow to build a TypeDB record of the full design pr
 | 4 -- Derivation Skills | Ingestion functions (artifact -> entity) | `add-derivation-skill` |
 | 5 -- Analysis Skills | Query functions (entity -> insight) | `add-analysis-skill` |
 
-Spec notes and design gaps attach to any phase entity via `add-phase-spec` / `add-phase-gap`.
+Spec notes attach to phase entities via `add-phase-spec`. Design gaps discovered during implementation are filed as GitHub Issues with `gh issue create` (see USAGE.md "Improvement Loop").
 Export the full structured report with `export-design-phases`.
 
 **Read USAGE.md section "5-Phase System Design Workflow" before using these commands.**

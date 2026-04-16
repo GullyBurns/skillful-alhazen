@@ -43,6 +43,10 @@ Commands:
         show-source-doc     Show content/cache-path of a source document
         generate-template   Print the blank domain spec template to stdout
 
+    GitHub improvement loop (no TypeDB needed):
+        scaffold-improvement-loop
+                            Scaffold labels, issue template, and GitHub Actions into a skill repo
+
     Export:
         export-design       Export annotated Markdown design changelog
         generate-evals      Generate evals/evals.json for the skill being designed
@@ -206,6 +210,232 @@ def run_git(cmd: list, cwd: str = ".") -> str | None:
         return None
     except Exception:
         return None
+
+
+def run_gh(cmd: list) -> tuple[int, str, str]:
+    """Run a gh CLI command and return (returncode, stdout, stderr)."""
+    try:
+        result = subprocess.run(
+            ["gh"] + cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return result.returncode, result.stdout.strip(), result.stderr.strip()
+    except FileNotFoundError:
+        return 1, "", "gh CLI not found. Install from https://cli.github.com/ and run: gh auth login"
+    except Exception as e:
+        return 1, "", str(e)
+
+
+# ---------------------------------------------------------------------------
+# Scaffold templates for GitHub-native improvement loops
+# ---------------------------------------------------------------------------
+
+_SKILL_GAP_ISSUE_TEMPLATE = """\
+---
+name: Skill Design Gap
+about: Report a gap in a skill's schema, script, dashboard, prompt, or tests
+title: "Gap [moderate][entity-schema]: "
+labels: severity:moderate, gap:open
+---
+
+## What was missing
+<!-- What was absent: which type, attribute, constraint, null guard, etc.? -->
+
+## What broke
+<!-- Error message or symptom -->
+
+## Suggested fix
+<!-- TypeQL / Python / React snippet -->
+
+## Generalizable pattern
+<!-- e.g. "Any optional string rendered in a badge must guard against null" -->
+
+---
+**Skill:**
+**Phase:** <!-- goal | entity-schema | source-schema | derivation | analysis -->
+**Severity:** <!-- minor | moderate | critical -->
+"""
+
+_GAP_TRIAGE_WORKFLOW = """\
+name: Gap Triage
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            if (!body.includes('## What was missing')) return;
+
+            const labels = [];
+
+            const sevMatch = body.match(/\\*\\*Severity:\\*\\*\\s*(minor|moderate|critical)/i);
+            if (sevMatch) labels.push('severity:' + sevMatch[1].toLowerCase());
+
+            const phaseMatch = body.match(/\\*\\*Phase:\\*\\*\\s*(goal|entity-schema|source-schema|derivation|analysis)/i);
+            if (phaseMatch) labels.push('phase:' + phaseMatch[1].toLowerCase());
+
+            const skillMatch = body.match(/\\*\\*Skill:\\*\\*\\s*([a-z0-9][a-z0-9-]*)/i);
+            if (skillMatch) labels.push('skill:' + skillMatch[1].toLowerCase());
+
+            labels.push('gap:open');
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [...new Set(labels)]
+            });
+
+            const n = context.issue.number;
+            const repo = context.repo.owner + '/' + context.repo.repo;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: n,
+              body: 'Gap filed. To fix locally:\\n```bash\\n# Start the fix (creates branch, updates labels)\\nuv run python local_resources/skilllog/skill_logger.py fix-gap --issue ' + n + ' --repo ' + repo + '\\n\\n# After implementing and validating against TypeDB, open a draft PR\\nuv run python local_resources/skilllog/skill_logger.py submit-gap-pr --issue ' + n + ' --repo ' + repo + '\\n```'
+            });
+"""
+
+_WEEKLY_GAP_REVIEW_WORKFLOW = """\
+name: Weekly Gap Review
+on:
+  schedule:
+    - cron: '0 9 * * MON'
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'gap:open',
+              state: 'open',
+              per_page: 100
+            });
+
+            if (issues.length === 0) {
+              core.info('No open gaps found.');
+              return;
+            }
+
+            const now = new Date();
+            const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+            const dateStr = now.toISOString().slice(0, 10);
+
+            const critical = issues.filter(i => i.labels.some(l => l.name === 'severity:critical'));
+            const moderate = issues.filter(i => i.labels.some(l => l.name === 'severity:moderate'));
+            const minor = issues.filter(i => i.labels.some(l => l.name === 'severity:minor'));
+
+            const makeTable = (items) => {
+              if (!items.length) return '_None_\\n';
+              const rows = items.map(i => {
+                const age = Math.floor((now - new Date(i.created_at)) / (1000 * 60 * 60 * 24));
+                return '| [#' + i.number + '](' + i.html_url + ') | ' + i.title + ' | ' + age + 'd |';
+              });
+              return '| # | Title | Age |\\n|---|---|---|\\n' + rows.join('\\n') + '\\n';
+            };
+
+            const body = [
+              '## Weekly Gap Review -- ' + dateStr,
+              '',
+              'Total open gaps: **' + issues.length + '**',
+              '',
+              '### Critical',
+              makeTable(critical),
+              '### Moderate',
+              makeTable(moderate),
+              '### Minor',
+              makeTable(minor),
+            ].join('\\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Weekly Gap Review -- ' + dateStr,
+              body: body
+            });
+
+            for (const issue of critical) {
+              if (new Date(issue.created_at) < sevenDaysAgo) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: '**Reminder:** This critical gap has been open for more than 7 days. Please prioritize a fix or downgrade the severity if this is no longer urgent.'
+                });
+              }
+            }
+"""
+
+_CLAUDE_GUIDANCE_WORKFLOW = """\
+name: Gap Fix Guidance
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  guidance:
+    if: github.event.label.name == 'gap:open' && contains(github.event.issue.body, '## What was missing')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const n = context.issue.number;
+            const repo = context.repo.owner + '/' + context.repo.repo;
+            const title = context.payload.issue.title;
+            const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+            const branch = 'fix/gap-' + n + '-' + slug;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: n,
+              body: [
+                '## Local Fix Instructions',
+                '',
+                'This gap requires a local fix (schema changes need a running TypeDB instance for validation).',
+                '',
+                '```bash',
+                '# 1. Start the fix (creates branch, updates labels, posts comment)',
+                'uv run python local_resources/skilllog/skill_logger.py fix-gap --issue ' + n + ' --repo ' + repo,
+                '',
+                '# 2. Implement the fix, validate against TypeDB, then open a draft PR',
+                'uv run python local_resources/skilllog/skill_logger.py submit-gap-pr --issue ' + n + ' --repo ' + repo + ' --decisions "describe your key decisions here"',
+                '```',
+                '',
+                'Or manually:',
+                '```bash',
+                'git checkout -b ' + branch,
+                '# ... implement fix, validate against TypeDB ...',
+                'git commit -m "fix: <description> (closes #' + n + ')"',
+                'git push -u origin ' + branch,
+                'gh pr create --draft --title "fix: <description>" --body "Closes #' + n + '"',
+                'gh issue edit ' + n + ' --repo ' + repo + ' --add-label gap:in-progress --remove-label gap:open',
+                '```',
+                '',
+                '_Merge is a human step — review the draft PR and merge when satisfied._',
+              ].join('\\n')
+            });
+"""
 
 
 def get_git_metadata(repo_dir: str = ".") -> dict:
@@ -1692,104 +1922,6 @@ def cmd_add_phase_spec(args):
     out({"success": True, "id": spec_id, "phase_id": phase_id})
 
 
-def cmd_add_phase_gap(args):
-    """Insert dm-design-gap + dm-phase-artifact(phase-subject, phase-gap) + dm-in-domain."""
-    if not TYPEDB_AVAILABLE:
-        out({"success": False, "error": "typedb-driver not installed"})
-        return
-
-    gap_id = generate_id("dm-design-gap")
-    ts = get_timestamp()
-
-    clauses = [
-        s("id", gap_id),
-        s("name", args.description[:80]),
-        s("description", args.description),
-        dt("created-at", ts),
-        s("dm-error-severity", args.severity or "moderate"),
-        s("dm-error-status", "open"),
-    ]
-
-    phase_id = args.phase_id
-
-    with get_driver() as driver:
-        phase_type = _resolve_phase_entity_type(driver, phase_id)
-        if not phase_type:
-            out({"success": False, "error": f"Phase entity not found: {phase_id}"})
-            return
-
-        # Get phase number from the phase entity
-        pn_q = f"""
-            match $p isa {phase_type}, has id "{escape_string(phase_id)}",
-                  has dm-phase-number $pn;
-            fetch {{ "phase_number": $pn }};
-        """
-        pn_res = fetch_query(driver, pn_q)
-        if pn_res:
-            pn = pn_res[0].get("phase_number")
-            if pn is not None:
-                clauses.append(num("dm-phase-number", pn))
-
-        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-            insert_entity(tx, "dm-design-gap", clauses)
-            match_q = f'$ps isa {phase_type}, has id "{escape_string(phase_id)}";'
-            gap_q = f'$gp isa dm-design-gap, has id "{escape_string(gap_id)}";'
-            rel_q = "(phase-subject: $ps, phase-gap: $gp) isa dm-phase-artifact;"
-            tx.query(f"match {match_q} {gap_q} insert {rel_q}").resolve()
-            # Link to domain
-            insert_relation(tx, "dm-in-domain", {
-                "subject": ("dm-design-gap", gap_id),
-                "domain": ("dm-domain", args.domain_id),
-            })
-            tx.commit()
-
-    out({"success": True, "id": gap_id, "phase_id": phase_id, "domain_id": args.domain_id})
-
-
-def cmd_resolve_phase_gap(args):
-    """Update dm-error-status to 'resolved'; optionally link to dm-design-decision."""
-    if not TYPEDB_AVAILABLE:
-        out({"success": False, "error": "typedb-driver not installed"})
-        return
-
-    with get_driver() as driver:
-        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-            update_attr(tx, "dm-design-gap", args.gap_id, "dm-error-status", "resolved")
-            if args.decision_id:
-                insert_relation(tx, "dm-resolved-by", {
-                    "error": ("dm-design-gap", args.gap_id),
-                    "resolution": ("dm-design-decision", args.decision_id),
-                })
-            tx.commit()
-
-    out({"success": True, "id": args.gap_id, "status": "resolved"})
-
-
-def cmd_list_phase_gaps(args):
-    """List dm-design-gap entities for a domain."""
-    if not TYPEDB_AVAILABLE:
-        out({"success": False, "error": "typedb-driver not installed"})
-        return
-
-    eid = escape_string(args.domain_id)
-    status = args.status or "open"
-    status_filter = f', has dm-error-status "{escape_string(status)}"'
-
-    q = f"""
-        match $g isa dm-design-gap{status_filter};
-              $d isa dm-domain, has id "{eid}";
-              (subject: $g, domain: $d) isa dm-in-domain;
-        fetch {{ "id": $g.id, "name": $g.name, "description": $g.description,
-                "severity": $g.dm-error-severity, "status": $g.dm-error-status,
-                "phase": $g.dm-phase-number, "created": $g.created-at }};
-    """
-    with get_driver() as driver:
-        results = fetch_query(driver, q)
-
-    out({"success": True, "domain_id": args.domain_id, "status": status,
-         "count": len(results), "gaps": results})
-
-
 def cmd_show_phase_item(args):
     """Fetch one phase entity with its specs and gaps."""
     if not TYPEDB_AVAILABLE:
@@ -2622,6 +2754,106 @@ def cmd_import_skill_data(args):
     })
 
 
+def cmd_scaffold_improvement_loop(args):
+    """Scaffold GitHub improvement loop infrastructure into a target skill repo.
+
+    Creates labels, an issue template, a gap-triage workflow, and a weekly gap
+    review workflow in the target repo via the GitHub API (no local clone needed).
+    """
+    import base64
+
+    repo = args.repo
+
+    # Label definitions: (name, hex-color-without-hash, description)
+    labels = [
+        ("severity:minor",    "e4e669", "Cosmetic or annoyance -- low urgency"),
+        ("severity:moderate", "f9a03f", "Feature broken but workaround exists"),
+        ("severity:critical", "d73a4a", "Data loss or complete crash"),
+        ("phase:goal",           "bfd4f2", "Phase 1: System goal definition"),
+        ("phase:entity-schema",  "bfd4f2", "Phase 2: TypeDB entity/relation/attribute types"),
+        ("phase:source-schema",  "bfd4f2", "Phase 3: External data sources"),
+        ("phase:derivation",     "bfd4f2", "Phase 4: Ingestion functions"),
+        ("phase:analysis",       "bfd4f2", "Phase 5: Analysis/query functions"),
+        ("gap:open",        "008672", "Gap is open and needs a fix"),
+        ("gap:in-progress", "0075ca", "Fix branch created, work underway"),
+        ("gap:schema",    "c5def5", "Schema design gap"),
+        ("gap:script",    "c5def5", "Script/CLI gap"),
+        ("gap:dashboard", "c5def5", "Dashboard UI gap"),
+        ("gap:prompt",    "c5def5", "Prompt/sensemaking gap"),
+        ("gap:test",      "c5def5", "Test/eval gap"),
+    ]
+    if args.skill:
+        labels.append((f"skill:{args.skill}", "0052cc", f"Gaps for the {args.skill} skill"))
+
+    labels_created = 0
+    for name, color, desc in labels:
+        rc, _, stderr = run_gh([
+            "label", "create", name,
+            "--color", f"#{color}",
+            "--description", desc,
+            "--repo", repo,
+            "--force",
+        ])
+        if rc == 0:
+            labels_created += 1
+        else:
+            print(f"Warning: could not create label '{name}': {stderr}", file=sys.stderr)
+
+    def create_gh_file(path, content_str, message):
+        content_b64 = base64.b64encode(content_str.encode()).decode()
+        # Check if file already exists (need its SHA to update)
+        rc_check, sha_out, _ = run_gh(["api", f"repos/{repo}/contents/{path}", "--jq", ".sha"])
+        cmd = [
+            "api", f"repos/{repo}/contents/{path}",
+            "-X", "PUT",
+            "-f", f"message={message}",
+            "-f", f"content={content_b64}",
+        ]
+        if rc_check == 0 and sha_out.strip():
+            cmd += ["-f", f"sha={sha_out.strip()}"]
+        rc, _, stderr = run_gh(cmd)
+        if rc != 0:
+            print(f"Warning: could not create {path}: {stderr}", file=sys.stderr)
+            return False
+        return True
+
+    files_created = []
+    if create_gh_file(
+        ".github/ISSUE_TEMPLATE/skill-gap.md",
+        _SKILL_GAP_ISSUE_TEMPLATE,
+        "scaffold: add skill gap issue template",
+    ):
+        files_created.append(".github/ISSUE_TEMPLATE/skill-gap.md")
+
+    if create_gh_file(
+        ".github/workflows/gap-triage.yml",
+        _GAP_TRIAGE_WORKFLOW,
+        "scaffold: add gap triage GitHub Actions workflow",
+    ):
+        files_created.append(".github/workflows/gap-triage.yml")
+
+    if create_gh_file(
+        ".github/workflows/weekly-gap-review.yml",
+        _WEEKLY_GAP_REVIEW_WORKFLOW,
+        "scaffold: add weekly gap review GitHub Actions workflow",
+    ):
+        files_created.append(".github/workflows/weekly-gap-review.yml")
+
+    if create_gh_file(
+        ".github/workflows/claude-guidance.yml",
+        _CLAUDE_GUIDANCE_WORKFLOW,
+        "scaffold: add gap fix guidance GitHub Actions workflow",
+    ):
+        files_created.append(".github/workflows/claude-guidance.yml")
+
+    out({
+        "success": True,
+        "repo": repo,
+        "labels_created": labels_created,
+        "files_created": files_created,
+    })
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Domain Modeling Skill - Track knowledge domain design processes",
@@ -2832,21 +3064,13 @@ def main():
     p.add_argument("--feasibility", choices=["yes", "partial", "no", "unknown"],
                    help="Feasibility of this spec")
 
-    p = subparsers.add_parser("add-phase-gap", help="Add a design gap to any phase entity")
-    p.add_argument("--phase-id", required=True, help="Phase entity ID")
-    p.add_argument("--domain-id", required=True, help="Domain ID")
-    p.add_argument("--description", required=True, help="Description of the gap")
-    p.add_argument("--severity", choices=["minor", "moderate", "critical"],
-                   default="moderate", help="Gap severity")
-
-    p = subparsers.add_parser("resolve-phase-gap", help="Mark a design gap as resolved")
-    p.add_argument("--gap-id", required=True, help="Gap ID")
-    p.add_argument("--decision-id", help="Decision that resolved this gap")
-
-    p = subparsers.add_parser("list-phase-gaps", help="List design gaps for a domain")
-    p.add_argument("--domain-id", required=True, help="Domain ID")
-    p.add_argument("--status", choices=["open", "resolved", "accepted"],
-                   default="open", help="Filter by status")
+    p = subparsers.add_parser(
+        "scaffold-improvement-loop",
+        help="Scaffold GitHub improvement loop (labels, issue template, Actions) into a skill repo",
+    )
+    p.add_argument("--repo", required=True,
+                   help="Target GitHub repo slug (e.g. 'GullyBurns/skillful-alhazen')")
+    p.add_argument("--skill", help="Skill name -- creates an additional 'skill:<name>' label")
 
     p = subparsers.add_parser("show-phase-item", help="Show a phase entity with its specs and gaps")
     p.add_argument("--phase-id", required=True, help="Phase entity ID")
@@ -2929,9 +3153,7 @@ def main():
         "add-derivation-skill": cmd_add_derivation_skill,
         "add-analysis-skill": cmd_add_analysis_skill,
         "add-phase-spec": cmd_add_phase_spec,
-        "add-phase-gap": cmd_add_phase_gap,
-        "resolve-phase-gap": cmd_resolve_phase_gap,
-        "list-phase-gaps": cmd_list_phase_gaps,
+        "scaffold-improvement-loop": cmd_scaffold_improvement_loop,
         "show-phase-item": cmd_show_phase_item,
         "export-design-phases": cmd_export_design_phases,
         "generate-evals": cmd_generate_evals,
