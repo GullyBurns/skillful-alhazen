@@ -1,0 +1,160 @@
+# =============================================================================
+# BIOSKILLS-INDEX NAMESPACE - TypeDB 3.x Schema Extension
+# =============================================================================
+# Permanent, updatable index of all bioskills available online, organized
+# using the EDAM ontology as a semantic backbone.
+#
+# EDAM terms and custom extension terms share the same entity types
+# (bio-operation, bio-topic) so TypeDB inference rules propagate
+# annotations transitively regardless of whether a term is from EDAM
+# or from our own extension namespace.
+#
+# Namespace prefix: bsi-*
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - EDAM Ontology Terms
+# -----------------------------------------------------------------------------
+
+attribute edam-id, value string;           # e.g. "operation_2403"
+attribute edam-uri, value string;          # e.g. "http://edamontology.org/operation_2403"
+attribute edam-definition, value string;
+attribute edam-exact-synonym, value string;
+attribute edam-source, value string;       # edam, bioskills-index, or user
+attribute edam-namespace, value string;    # operation, topic, data, or format
+attribute edam-deprecated, value boolean;
+attribute bsi-term-id, value string;       # local ID for custom extension terms
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Bioskill Index
+# -----------------------------------------------------------------------------
+
+attribute bsi-type, value string;          # skill, mcp-server, workflow, or python-api
+attribute bsi-tool-access, value string;   # underlying library (e.g. "biopython")
+attribute bsi-source-repo, value string;   # GitHub URL of source repo
+attribute bsi-source-file, value string;   # path within repo (e.g. "skills/esm/SKILL.md")
+attribute bsi-status, value string;        # active, deprecated, or candidate
+attribute bsi-umap-x, value double;
+attribute bsi-umap-y, value double;
+attribute bsi-cluster-id, value integer;   # HDBSCAN cluster (-1 = noise)
+attribute bsi-cluster-label, value string; # dominant EDAM topic label for cluster
+attribute bsi-embedding-hash, value string; # SHA256[:16] for change detection
+attribute bsi-snippet-type, value string;  # function, prompt, example, or config
+attribute bsi-snippet-language, value string; # python, bash, yaml, or markdown
+attribute bsi-index-version, value integer;
+attribute bsi-embedding-model, value string;
+attribute bsi-skill-count, value integer;
+attribute bsi-github-url, value string;
+attribute bsi-stars, value integer;
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES
+# (defined before entities so role names resolve in plays clauses)
+# -----------------------------------------------------------------------------
+
+# BIO-SUBTYPE: unified hierarchy for EDAM + custom extension terms.
+# Used by bio-operation AND bio-topic -- both participate in the same relation.
+relation bio-subtype,
+    relates bio-child,
+    relates bio-parent;
+
+# BSI-INDEXED-IN: a bioskill belongs to a bioskill-index collection
+relation bsi-indexed-in,
+    relates bsi-skill,
+    relates bsi-index;
+
+# BSI-SNIPPET-OF: a code snippet is part of a bioskill
+relation bsi-snippet-of,
+    relates bsi-snippet,
+    relates bsi-parent-skill;
+
+# BSI-IMPLEMENTS: a bioskill implements a bio-operation term
+# (explicit annotation; inference rules propagate to parent operations)
+relation bsi-implements,
+    relates bsi-skill,
+    relates bsi-bio-op;
+
+# BSI-COVERS-TOPIC: a bioskill covers a bio-topic term
+# (explicit annotation; inference rules propagate to parent topics)
+relation bsi-covers-topic,
+    relates bsi-skill,
+    relates bsi-bio-topic;
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Ontology Terms
+# -----------------------------------------------------------------------------
+
+# Unified Operation concept: imported EDAM operations + custom extensions.
+# Both live in this entity type and participate in the same bio-subtype
+# hierarchy and bsi-implements relation.
+entity bio-operation sub domain-thing,
+    owns edam-id,
+    owns edam-uri,
+    owns edam-definition,
+    owns edam-exact-synonym,
+    owns edam-source,
+    owns edam-namespace,
+    owns edam-deprecated,
+    owns bsi-term-id,
+    plays bio-subtype:bio-child,
+    plays bio-subtype:bio-parent,
+    plays bsi-implements:bsi-bio-op;
+
+# Unified Topic concept: imported EDAM topics + custom extensions.
+entity bio-topic sub domain-thing,
+    owns edam-id,
+    owns edam-uri,
+    owns edam-definition,
+    owns edam-exact-synonym,
+    owns edam-source,
+    owns edam-namespace,
+    owns bsi-term-id,
+    plays bio-subtype:bio-child,
+    plays bio-subtype:bio-parent,
+    plays bsi-covers-topic:bsi-bio-topic;
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Bioskill Index
+# -----------------------------------------------------------------------------
+
+entity bioskill-index sub collection,
+    owns bsi-index-version,
+    owns bsi-embedding-model,
+    owns bsi-skill-count,
+    owns bsi-status,
+    plays bsi-indexed-in:bsi-index;
+
+entity bioskill sub domain-thing,
+    owns bsi-type,
+    owns bsi-tool-access,
+    owns bsi-source-repo,
+    owns bsi-source-file,
+    owns bsi-status,
+    owns bsi-umap-x,
+    owns bsi-umap-y,
+    owns bsi-cluster-id,
+    owns bsi-cluster-label,
+    owns bsi-embedding-hash,
+    owns bsi-github-url,
+    owns bsi-stars,
+    plays bsi-indexed-in:bsi-skill,
+    plays bsi-snippet-of:bsi-parent-skill,
+    plays bsi-implements:bsi-skill,
+    plays bsi-covers-topic:bsi-skill;
+
+entity bioskill-snippet sub fragment,
+    owns bsi-snippet-type,
+    owns bsi-snippet-language,
+    plays bsi-snippet-of:bsi-snippet;
+
+# =============================================================================
+# NOTE: Transitive EDAM traversal is implemented in Python (bioskills_index.py)
+# via BFS over bio-subtype relations, since TypeDB 3.x replaced inference rules
+# with functions. See: _get_operation_subtypes() and _get_topic_subtypes().
+# =============================================================================
+
+# =============================================================================
+# END BIOSKILLS-INDEX NAMESPACE
+# =============================================================================

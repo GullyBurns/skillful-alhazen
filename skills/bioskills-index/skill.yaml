@@ -1,0 +1,26 @@
+name: bioskills-index
+version: 0.1.0
+description: >
+  Permanent, updatable EDAM-annotated index of bioskills available online.
+  Bioskill = any implementation layer giving AI agents access to biological tools:
+  SKILL.md-pattern skills, MCP servers, Nextflow workflows, Python API wrappers.
+  Grounded in the EDAM ontology with TypeDB inference rules for semantic propagation.
+author: sciknow-io
+license: MIT
+schema: schema.tql
+entry_point: bioskills_index.py
+dashboard:
+  enabled: true
+  name: "Bioskills Index"
+  url_path: "/bioskills-index"
+  icon: Network
+  color: emerald
+dependencies:
+  python:
+    - typedb-driver>=3.8.0
+    - voyageai
+    - umap-learn
+    - hdbscan
+    - numpy
+    - scikit-learn
+    - pyyaml

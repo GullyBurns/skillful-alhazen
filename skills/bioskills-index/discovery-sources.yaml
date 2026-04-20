@@ -1,0 +1,48 @@
+# Bioskills Index — Discovery Sources
+# Used by: bioskills_index.py update --index <id>
+#
+# Each source type has a handler in bioskills_index.py:
+#   typedb-investigation  -> _discover_typedb_investigation()
+#   github-search         -> _discover_github_search()
+#   github-repo           -> _discover_github_repo()
+#   bio-tools             -> _discover_bio_tools()
+#   nf-core               -> _discover_nf_core()
+#   awesome-list          -> _discover_awesome_list()
+
+sources:
+  # --- Seed: prior bioskills investigation ---
+  - type: typedb-investigation
+    id: tri-f6b3c79c27ab
+    description: "Prior investigation covering ~618 skills from 4 repos (voyage-3 + HDBSCAN)"
+
+  # --- GitHub search for SKILL.md-pattern skills ---
+  - type: github-search
+    query: '"SKILL.md" topic:biology'
+  - type: github-search
+    query: '"SKILL.md" topic:bioinformatics'
+  - type: github-search
+    query: '"SKILL.md" topic:genomics'
+  - type: github-search
+    query: 'bioinformatics MCP server'
+  - type: github-search
+    query: 'biology MCP server site:github.com'
+
+  # --- Known biology skill repos ---
+  - type: github-repo
+    url: https://github.com/sciknow-io/alhazen-skill-examples
+
+  # --- bio.tools registry (EDAM-annotated) ---
+  - type: bio-tools
+    base_url: https://bio.tools/api/tool
+    filter: "toolType=CommandLineTool&topic=Bioinformatics"
+    description: "EDAM-annotated bioinformatics tools from bio.tools"
+
+  # --- nf-core Nextflow workflows ---
+  - type: nf-core
+    base_url: https://nf-co.re/pipelines.json
+    description: "Community Nextflow bioinformatics pipelines"
+
+  # --- Awesome MCP servers (biology section) ---
+  - type: awesome-list
+    url: https://github.com/punkpeye/awesome-mcp-servers
+    section: Biology

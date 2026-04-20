@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, Database, Dna, LayoutDashboard, Layers, Megaphone, Search } from 'lucide-react';
+import { Briefcase, Database, Dna, LayoutDashboard, Layers, Megaphone, Network, Search } from 'lucide-react';
 
 type ServiceStatus = 'checking' | 'online' | 'offline';
 
@@ -30,6 +30,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Dna,
   Layers,
   Megaphone,
+  Network,
   LayoutDashboard,
 };
 
@@ -38,7 +39,8 @@ const COLOR_MAP: Record<string, { border: string; text: string; icon: string }> 
   cyan:   { border: 'hover:border-cyan-500/50',   text: 'text-cyan-400',   icon: 'text-cyan-400' },
   teal:   { border: 'hover:border-teal-500/50',   text: 'text-teal-400',   icon: 'text-teal-400' },
   violet: { border: 'hover:border-violet-500/50', text: 'text-violet-400', icon: 'text-violet-400' },
-  amber:  { border: 'hover:border-amber-500/50',  text: 'text-amber-400',  icon: 'text-amber-400' },
+  amber:   { border: 'hover:border-amber-500/50',   text: 'text-amber-400',   icon: 'text-amber-400' },
+  emerald: { border: 'hover:border-emerald-500/50', text: 'text-emerald-400', icon: 'text-emerald-400' },
 };
 
 export default function HubPage() {

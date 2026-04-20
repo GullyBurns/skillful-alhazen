@@ -1,23 +1,12 @@
 {
-  "pluginDirs": ["."],
   "hooks": {
-    "PostSessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "REPO=$(git rev-parse --show-toplevel 2>/dev/null) && [ -f \"$REPO/Makefile\" ] && cd \"$REPO\" && make db-start --no-print-directory -s 2>/dev/null || true"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "REPO=$(git rev-parse --show-toplevel 2>/dev/null) && [ -f \"$REPO/local_resources/skilllog/skill_logger.py\" ] && cd \"$REPO\" && uv run python \"$REPO/local_resources/skilllog/skill_logger.py\" || true"
+            "command": "REPO=$(git rev-parse --show-toplevel 2>/dev/null) && [ -f \"$REPO/local_resources/skilllog/skill_logger.py\" ] && cd \"$REPO\" && uv run python \"$REPO/local_resources/skilllog/skill_logger.py\""
           }
         ]
       }
