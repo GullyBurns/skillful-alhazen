@@ -1,0 +1,73 @@
+define
+
+# =============================================================================
+# agentic-memory namespace schema
+# Extends alhazen_notebook.tql with person specializations,
+# memory-claim-notes, and personal context relations
+# =============================================================================
+
+# Relations FIRST so role names resolve when entities use plays clauses
+
+relation project-involvement,
+    relates participant,
+    relates project;
+
+relation tool-familiarity,
+    relates practitioner,
+    relates tool;
+
+relation relationship-context,
+    owns description,
+    relates from-person,
+    relates to-person;
+
+relation fact-evidence,
+    relates derived,
+    relates source;
+
+# Attributes (only NEW ones -- do NOT redefine core attributes)
+# Already in core schema -- DO NOT redefine:
+# content, confidence, valid-from, valid-until, created-at, name, description
+
+attribute identity-summary, value string;
+attribute role-description, value string;
+attribute communication-style, value string;
+attribute goals-summary, value string;
+attribute preferences-summary, value string;
+attribute domain-expertise, value string;
+
+# Entities
+
+# Person specializations (agent -> person -> operator-user / application-user)
+
+entity operator-user sub person,
+    owns identity-summary,
+    owns role-description,
+    owns communication-style,
+    owns goals-summary,
+    owns preferences-summary,
+    owns domain-expertise,
+    plays project-involvement:participant,
+    plays tool-familiarity:practitioner,
+    plays relationship-context:from-person,
+    plays relationship-context:to-person;
+
+entity application-user sub person,
+    plays project-involvement:participant;
+
+# collection plays project role in project-involvement
+# domain-thing plays tool role in tool-familiarity
+# (both are declared via identifiable-entity plays collection-membership:member pattern --
+#  we use existing types; no redefine needed since collection and domain-thing
+#  already play many roles and TypeDB lets any entity play roles at insert time
+#  as long as the relation is compatible)
+
+# memory-claim-note sub note (ICE, product of system operations, NOT domain-thing)
+# Inherits from note: content, confidence, all ICE infrastructure
+# Inherits from identifiable-entity: valid-from, valid-until, created-at
+# Subject link:  (note: $n, subject: $e)  isa aboutness    -- existing core relation
+# Provenance:    (derived: $n, source: $src) isa fact-evidence -- new relation above
+entity memory-claim-note sub note,
+    owns fact-type,
+    plays fact-evidence:derived,
+    plays fact-evidence:source;

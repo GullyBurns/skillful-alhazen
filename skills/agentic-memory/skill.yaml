@@ -1,0 +1,15 @@
+name: agentic-memory
+version: 0.1.0
+description: TypeDB-backed two-tier memory architecture — short-term files to long-term ontological storage. Models persons with 10-domain personal context, memory-claim-notes, and session episodes.
+author: skillful-alhazen
+license: MIT
+typedb_schema: schema.tql
+cli: agentic_memory.py
+dependencies:
+  - typedb-notebook
+tags:
+  - memory
+  - agents
+  - personal-context
+  - knowledge-graph
+  - episodic-memory

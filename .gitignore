@@ -1,5 +1,6 @@
 _proc/
 .worktrees/
+.superpowers/
 
 *.bak
 .gitattributes

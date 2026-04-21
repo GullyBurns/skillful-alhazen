@@ -551,6 +551,18 @@ def cmd_label(args):
         driver.close()
         print(json.dumps({"success": True, "id": args.id, "label": label}))
 
+        if label == "golden":
+            print(
+                "\n[CONSOLIDATION-HINT] This invocation was marked golden. "
+                "Consider crystallizing key outputs into long-term memory:\n"
+                "  uv run python .claude/skills/agentic-memory/agentic_memory.py consolidate \\\n"
+                "    --content \"<key finding or decision>\" \\\n"
+                "    --subject <relevant-entity-id> \\\n"
+                "    --fact-type knowledge|decision|goal \\\n"
+                "    --source-episode <episode-id>",
+                file=sys.stderr,
+            )
+
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

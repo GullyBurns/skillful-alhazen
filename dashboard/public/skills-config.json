@@ -1,5 +1,14 @@
 [
   {
+    "slug": "agentic-memory",
+    "enabled": true,
+    "name": "Agentic Memory",
+    "description": "TypeDB-backed two-tier memory \u2014 persons, memory claims, and session episodes.",
+    "url_path": "/agentic-memory",
+    "icon": "Brain",
+    "color": "teal"
+  },
+  {
     "slug": "curation-skill-builder",
     "enabled": true,
     "name": "Domain Modeling",

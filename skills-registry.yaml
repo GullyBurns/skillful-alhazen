@@ -44,6 +44,16 @@ defaults:
 
 skills:
   # -- Core skills (path-based: symlinked from skills/ in this repo) ----------
+  - name: agentic-memory
+    path: skills/agentic-memory
+    dashboard:
+      enabled: true
+      name: "Agentic Memory"
+      description: "TypeDB-backed two-tier memory — persons, memory claims, and session episodes."
+      url_path: "/agentic-memory"
+      icon: Brain
+      color: teal
+
   - name: typedb-notebook
     path: skills/typedb-notebook
 

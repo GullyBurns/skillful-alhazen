@@ -67,6 +67,18 @@ attribute operation-parameters, value string;
 attribute value-string, value string;
 attribute evidence-type-attr, value string;
 
+# Person identity
+attribute given-name, value string;
+attribute family-name, value string;
+attribute email-address, value string;
+
+# Episode / session tracking
+attribute session-id, value string;
+attribute source-skill, value string;
+
+# Memory claim notes
+attribute fact-type, value string;
+
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Core Ontology (Alhazen's Notebook Model)
@@ -84,6 +96,8 @@ entity identifiable-entity @abstract,
     owns provenance,
     owns source-uri,
     owns license,
+    owns valid-from,
+    owns valid-until,
     plays classification:classified-entity,
     plays tagging:tagged-entity,
     plays aboutness:subject,
@@ -92,7 +106,8 @@ entity identifiable-entity @abstract,
     plays provenance-record:source-entity,
     plays property-assertion:subject-entity,
     plays semantic-triple:triple-subject,
-    plays semantic-triple:triple-object;
+    plays semantic-triple:triple-object,
+    plays episode-mention:subject;
 
 
 # THING - Domain objects (papers, genes, diseases, jobs, agents, etc.)
@@ -153,6 +168,15 @@ entity note sub information-content-entity,
     plays evidence-chain:evidence;
 
 
+# EPISODE - Process account of a work session (4th ICE sibling)
+# Distinct from note (semantic interpretation): records WHAT HAPPENED and WHICH ENTITIES were touched.
+# Linked to entities via episode-mention; linked to skilllog-session by shared session-id.
+entity episode sub information-content-entity,
+    owns session-id,
+    owns source-skill,
+    plays episode-mention:session;
+
+
 # USER-QUESTION - Questions/instructions from users
 entity user-question sub identifiable-entity;
 
@@ -165,7 +189,7 @@ entity information-resource sub identifiable-entity;
 # ENTITY TYPES - Agents and Actors
 # -----------------------------------------------------------------------------
 
-# AGENT - Creator of notes and other content (now a domain-thing: real-world actor)
+# AGENT - Operational actor base (human or AI); creator of notes and content
 entity agent sub domain-thing,
     owns agent-type,
     owns model-name,
@@ -173,19 +197,26 @@ entity agent sub domain-thing,
     plays provenance-record:performing-agent;
 
 
-# AUTHOR - Specifically an author of a publication
-entity author sub agent,
+# AI-AGENT - AI model instances (Claude, GPT-4, etc.)
+entity ai-agent sub agent;
+
+
+# PERSON - Real-world human actor (sub agent: can create notes, perform operations)
+entity person sub agent,
+    owns given-name,
+    owns family-name,
+    owns email-address;
+
+
+# AUTHOR - Human who authors publications (sub person, not bare agent)
+entity author sub person,
     plays authorship:publication-author,
     plays affiliation:affiliated-agent;
 
 
-# ORGANIZATION - Groups of agents/authors (root entity, not yet in domain-thing hierarchy)
-entity organization,
-    owns id @key,
-    owns name,
-    owns iri,
-    plays affiliation:organization,
-    plays classification:classified-entity;
+# ORGANIZATION - Groups of persons/agents (sub domain-thing for full identifiable-entity hierarchy)
+entity organization sub domain-thing,
+    plays affiliation:organization;
 
 
 # -----------------------------------------------------------------------------
@@ -314,6 +345,12 @@ relation derivation,
 relation note-threading,
     relates parent-note,
     relates child-note;
+
+
+# EPISODE-MENTION - Links an episode to graph entities touched during the session
+relation episode-mention,
+    relates session,
+    relates subject;
 
 
 # PROVENANCE-RECORD - Detailed tracking of who/what created entities
