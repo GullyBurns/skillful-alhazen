@@ -20,13 +20,14 @@ Commands (ontology):
     list-operations  Browse the bio-operation hierarchy
 
 Commands (index):
-    create-index     Create a new bioskill-index collection
-    list-indices     List all bioskill-index collections
-    add-skill        Add a bioskill entry with optional EDAM annotations
-    annotate-skill   Add EDAM operation/topic annotations to an existing skill
-    show-skill       Show skill details (annotations, snippets, notes)
-    list-skills      List skills with optional filters (op, topic, cluster, type)
-    add-snippet      Add a code snippet to a bioskill
+    create-index        Create a new bioskill-index collection
+    list-indices        List all bioskill-index collections
+    add-skill           Add a bioskill entry with optional EDAM annotations
+    annotate-skill      Add EDAM op/topic/data I/O and computational profile to a skill
+    show-skill          Show skill details (annotations, snippets, notes)
+    list-skills         List skills with optional filters (op, topic, cluster, type)
+    add-snippet         Add a code snippet to a bioskill
+    generate-pseudocode Generate plain-English pseudocode for a skill via Claude
 
 Commands (embedding + search):
     embed-and-project  Batch embed skills, project to UMAP, run HDBSCAN
@@ -253,8 +254,14 @@ def cmd_import_edam(args):
         print(json.dumps({"success": False, "error": "typedb-driver not available"}))
         return
 
-    namespace = args.namespace  # "operation" or "topic"
-    entity_type = "bio-operation" if namespace == "operation" else "bio-topic"
+    namespace = args.namespace  # "operation", "topic", "data", or "format"
+    entity_type_map = {
+        "operation": "bio-operation",
+        "topic": "bio-topic",
+        "data": "bio-data",
+        "format": "bio-data",  # EDAM format shares bio-data entity for now
+    }
+    entity_type = entity_type_map.get(namespace, "bio-operation")
 
     # Download TSV
     if args.tsv:
@@ -312,7 +319,8 @@ def cmd_import_edam(args):
                     skipped += 1
                     continue
 
-                term_id = generate_id("bop" if namespace == "operation" else "btp")
+                prefix_map = {"operation": "bop", "topic": "btp", "data": "bdt", "format": "bdt"}
+                term_id = generate_id(prefix_map.get(namespace, "bop"))
                 ts = get_timestamp()
                 esc_name = escape_string(name)
                 esc_edam_id = escape_string(edam_id)
@@ -715,14 +723,14 @@ def cmd_add_skill(args):
     print(json.dumps({"success": True, "id": skill_id, "name": args.name}))
 
 
-def _annotate_skill(skill_id: str, ops: list, topics: list):
-    """Add EDAM operation and topic annotations to a bioskill."""
+def _annotate_skill(skill_id: str, ops: list, topics: list,
+                    inputs: list = None, outputs: list = None):
+    """Add EDAM operation, topic, and data I/O annotations to a bioskill."""
     driver = get_driver()
     sid = escape_string(skill_id)
     with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
         for op in ops:
             op_esc = escape_string(op)
-            # Try edam-id first, then id
             for match_field in ["edam-id", "id", "bsi-term-id"]:
                 q = f'''
                     match
@@ -753,19 +761,107 @@ def _annotate_skill(skill_id: str, ops: list, topics: list):
                 except Exception:
                     continue
 
+        for data_id in (inputs or []):
+            d_esc = escape_string(data_id)
+            for match_field in ["edam-id", "id", "bsi-data-id"]:
+                q = f'''
+                    match
+                        $s isa bioskill, has id "{sid}";
+                        $d isa bio-data, has {match_field} "{d_esc}";
+                    insert
+                        (bsi-skill: $s, bsi-bio-data: $d) isa bsi-accepts-input;
+                '''
+                try:
+                    tx.query(q).resolve()
+                    break
+                except Exception:
+                    continue
+
+        for data_id in (outputs or []):
+            d_esc = escape_string(data_id)
+            for match_field in ["edam-id", "id", "bsi-data-id"]:
+                q = f'''
+                    match
+                        $s isa bioskill, has id "{sid}";
+                        $d isa bio-data, has {match_field} "{d_esc}";
+                    insert
+                        (bsi-skill: $s, bsi-bio-data: $d) isa bsi-produces-output;
+                '''
+                try:
+                    tx.query(q).resolve()
+                    break
+                except Exception:
+                    continue
+
+        tx.commit()
+
+
+def _set_skill_profile(skill_id: str, requires_gpu: bool | None,
+                       runtime_class: str | None, memory_class: str | None,
+                       language: str | None):
+    """Set computational profile attributes on a bioskill."""
+    driver = get_driver()
+    sid = escape_string(skill_id)
+    attrs = {}
+    if requires_gpu is not None:
+        attrs["bsi-requires-gpu"] = "true" if requires_gpu else "false"
+    if runtime_class:
+        attrs["bsi-runtime-class"] = f'"{escape_string(runtime_class)}"'
+    if memory_class:
+        attrs["bsi-memory-class"] = f'"{escape_string(memory_class)}"'
+    if language:
+        attrs["bsi-language"] = f'"{escape_string(language)}"'
+
+    if not attrs:
+        return
+
+    with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+        for attr, val in attrs.items():
+            # Delete old value if present
+            del_q = f'match $s isa bioskill, has id "{sid}", has {attr} $v; delete has $v of $s;'
+            try:
+                tx.query(del_q).resolve()
+            except Exception:
+                pass
+            ins_q = f'match $s isa bioskill, has id "{sid}"; insert $s has {attr} {val};'
+            tx.query(ins_q).resolve()
         tx.commit()
 
 
 def cmd_annotate_skill(args):
-    """Add EDAM operation/topic annotations to an existing skill."""
+    """Add EDAM operation/topic/data I/O annotations and computational profile to a skill."""
     if not TYPEDB_AVAILABLE:
         print(json.dumps({"success": False, "error": "typedb-driver not available"}))
         return
 
     ops = [o.strip() for o in (args.op or "").split(",") if o.strip()]
     topics = [t.strip() for t in (args.topic or "").split(",") if t.strip()]
-    _annotate_skill(args.skill, ops, topics)
-    print(json.dumps({"success": True, "skill_id": args.skill, "ops_added": len(ops), "topics_added": len(topics)}))
+    inputs = [i.strip() for i in (args.input or "").split(",") if i.strip()]
+    outputs = [o.strip() for o in (args.output or "").split(",") if o.strip()]
+    _annotate_skill(args.skill, ops, topics, inputs, outputs)
+
+    # Handle computational profile
+    requires_gpu = None
+    if args.gpu:
+        requires_gpu = True
+    elif args.no_gpu:
+        requires_gpu = False
+    _set_skill_profile(
+        args.skill,
+        requires_gpu=requires_gpu,
+        runtime_class=getattr(args, "runtime_class", None),
+        memory_class=getattr(args, "memory_class", None),
+        language=getattr(args, "language", None),
+    )
+
+    print(json.dumps({
+        "success": True,
+        "skill_id": args.skill,
+        "ops_added": len(ops),
+        "topics_added": len(topics),
+        "inputs_added": len(inputs),
+        "outputs_added": len(outputs),
+    }))
 
 
 def cmd_show_skill(args):
@@ -792,7 +888,11 @@ def cmd_show_skill(args):
                 "umap_x": $s.bsi-umap-x,
                 "umap_y": $s.bsi-umap-y,
                 "cluster_id": $s.bsi-cluster-id,
-                "cluster_label": $s.bsi-cluster-label
+                "cluster_label": $s.bsi-cluster-label,
+                "requires_gpu": $s.bsi-requires-gpu,
+                "runtime_class": $s.bsi-runtime-class,
+                "memory_class": $s.bsi-memory-class,
+                "language": $s.bsi-language
             }};
         '''
         skills = list(tx.query(q).resolve())
@@ -821,13 +921,33 @@ def cmd_show_skill(args):
         '''
         topics = list(tx.query(topics_q).resolve())
 
-        # Fetch snippets
+        # Fetch input data types
+        inputs_q = f'''
+            match
+                $s isa bioskill, has id "{sid}";
+                $d isa bio-data;
+                (bsi-skill: $s, bsi-bio-data: $d) isa bsi-accepts-input;
+            fetch {{ "data_name": $d.name, "data_edam_id": $d.edam-id }};
+        '''
+        inputs = list(tx.query(inputs_q).resolve())
+
+        # Fetch output data types
+        outputs_q = f'''
+            match
+                $s isa bioskill, has id "{sid}";
+                $d isa bio-data;
+                (bsi-skill: $s, bsi-bio-data: $d) isa bsi-produces-output;
+            fetch {{ "data_name": $d.name, "data_edam_id": $d.edam-id }};
+        '''
+        outputs = list(tx.query(outputs_q).resolve())
+
+        # Fetch snippets (content included for dashboard rendering)
         snip_q = f'''
             match
                 $s isa bioskill, has id "{sid}";
                 $snip isa bioskill-snippet;
                 (bsi-parent-skill: $s, bsi-snippet: $snip) isa bsi-snippet-of;
-            fetch {{ "snippet_id": $snip.id, "snippet_name": $snip.name, "snippet_type": $snip.bsi-snippet-type, "snippet_lang": $snip.bsi-snippet-language }};
+            fetch {{ "snippet_id": $snip.id, "snippet_name": $snip.name, "snippet_content": $snip.content, "snippet_type": $snip.bsi-snippet-type, "snippet_lang": $snip.bsi-snippet-language }};
         '''
         snippets = list(tx.query(snip_q).resolve())
 
@@ -836,6 +956,8 @@ def cmd_show_skill(args):
         "skill": skill,
         "operations": ops,
         "topics": topics,
+        "inputs": inputs,
+        "outputs": outputs,
         "snippets": snippets,
     }))
 
@@ -1666,6 +1788,132 @@ def _discover_awesome_list(source: dict, index_id: str, dry_run: bool) -> int:
 
 
 # ---------------------------------------------------------------------------
+# GENERATE PSEUDOCODE
+# ---------------------------------------------------------------------------
+
+def cmd_generate_pseudocode(args):
+    """Generate a plain-English algorithmic pseudocode snippet for a bioskill via Claude."""
+    if not TYPEDB_AVAILABLE:
+        print(json.dumps({"success": False, "error": "typedb-driver not available"}))
+        return
+
+    try:
+        import anthropic
+    except ImportError:
+        print(json.dumps({"success": False, "error": "anthropic package not installed. pip install anthropic"}))
+        return
+
+    sid = escape_string(args.skill)
+    driver = get_driver()
+
+    # Fetch skill details
+    with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+        q = f'''
+            match $s isa bioskill, has id "{sid}";
+            fetch {{
+                "id": $s.id,
+                "name": $s.name,
+                "description": $s.description,
+                "type": $s.bsi-type,
+                "source_repo": $s.bsi-source-repo,
+                "source_file": $s.bsi-source-file,
+                "tool_access": $s.bsi-tool-access
+            }};
+        '''
+        results = list(tx.query(q).resolve())
+        if not results:
+            print(json.dumps({"success": False, "error": "skill not found"}))
+            return
+        skill = results[0]
+
+    name = skill.get("name", "")
+    description = skill.get("description", "") or ""
+    bsi_type = skill.get("type", "skill") or "skill"
+    source_repo = skill.get("source_repo", "") or ""
+    source_file = skill.get("source_file", "") or ""
+    tool_access = skill.get("tool_access", "") or ""
+
+    # Try to fetch source content from GitHub
+    source_content = ""
+    if source_repo and source_file:
+        # Convert GitHub URL to raw content URL
+        raw_url = ""
+        if "github.com" in source_repo:
+            repo_path = source_repo.rstrip("/").replace("https://github.com/", "")
+            raw_url = f"https://raw.githubusercontent.com/{repo_path}/main/{source_file.lstrip('/')}"
+        if raw_url:
+            try:
+                req = urllib.request.Request(raw_url, headers={"User-Agent": "bioskills-index/1.0"})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    source_content = resp.read().decode("utf-8", errors="replace")[:8000]
+                print(f"Fetched source: {source_file} ({len(source_content)} chars)", file=sys.stderr)
+            except Exception as e:
+                print(f"Could not fetch source: {e}", file=sys.stderr)
+
+    # Build prompt
+    context_parts = [f"Name: {name}", f"Type: {bsi_type}"]
+    if description:
+        context_parts.append(f"Description: {description}")
+    if tool_access:
+        context_parts.append(f"Underlying library/tool: {tool_access}")
+    if source_repo:
+        context_parts.append(f"Source repo: {source_repo}")
+    if source_file:
+        context_parts.append(f"Source file: {source_file}")
+
+    prompt = "Write a 5-10 line plain-English pseudocode summary of the following bioskill's core algorithm or workflow. Focus on WHAT it does and HOW, not on implementation details. Use numbered steps. Be concrete and specific.\n\n"
+    prompt += "\n".join(context_parts)
+    if source_content:
+        prompt += f"\n\nSource file content:\n```\n{source_content}\n```"
+    prompt += "\n\nReturn ONLY the pseudocode steps, no preamble or explanation."
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+
+    print("Calling Claude to generate pseudocode...", file=sys.stderr)
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=512,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    pseudocode = message.content[0].text.strip()
+
+    # Insert as a snippet
+    snip_id = generate_id("bsn")
+    ts = get_timestamp()
+    snip_name = escape_string(f"Pseudocode: {name}")
+    snip_content = escape_string(pseudocode)
+
+    with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+        q = f'''
+            insert $snip isa bioskill-snippet,
+                has id "{snip_id}",
+                has name "{snip_name}",
+                has content "{snip_content}",
+                has bsi-snippet-type "pseudocode",
+                has bsi-snippet-language "text",
+                has created-at {ts};
+        '''
+        tx.query(q).resolve()
+        lq = f'''
+            match
+                $s isa bioskill, has id "{sid}";
+                $snip isa bioskill-snippet, has id "{snip_id}";
+            insert
+                (bsi-parent-skill: $s, bsi-snippet: $snip) isa bsi-snippet-of;
+        '''
+        tx.query(lq).resolve()
+        tx.commit()
+
+    print(json.dumps({
+        "success": True,
+        "snippet_id": snip_id,
+        "skill_id": args.skill,
+        "pseudocode": pseudocode,
+    }))
+
+
+# ---------------------------------------------------------------------------
 # ARGUMENT PARSER
 # ---------------------------------------------------------------------------
 
@@ -1737,10 +1985,19 @@ def build_parser():
     p.add_argument("--topics", help="Comma-separated EDAM topic IDs to annotate")
     p.set_defaults(func=cmd_add_skill)
 
-    p = sub.add_parser("annotate-skill", help="Add EDAM annotations to an existing skill")
+    p = sub.add_parser("annotate-skill", help="Add EDAM annotations and computational profile to a skill")
     p.add_argument("--skill", required=True, help="Skill ID")
     p.add_argument("--op", help="Comma-separated EDAM operation IDs")
     p.add_argument("--topic", help="Comma-separated EDAM topic IDs")
+    p.add_argument("--input", help="Comma-separated EDAM data IDs for accepted inputs")
+    p.add_argument("--output", help="Comma-separated EDAM data IDs for produced outputs")
+    p.add_argument("--gpu", dest="gpu", action="store_true", default=False, help="Requires GPU")
+    p.add_argument("--no-gpu", dest="no_gpu", action="store_true", default=False, help="Does not require GPU")
+    p.add_argument("--runtime-class", choices=["instant", "seconds", "minutes", "hours", "days"],
+                   help="Runtime class")
+    p.add_argument("--memory-class", choices=["lightweight", "moderate", "heavy"],
+                   help="Memory class")
+    p.add_argument("--language", help="Primary implementation language (Python, R, Nextflow, etc.)")
     p.set_defaults(func=cmd_annotate_skill)
 
     p = sub.add_parser("show-skill", help="Show skill details")
@@ -1760,9 +2017,15 @@ def build_parser():
     p.add_argument("--skill", required=True, help="Skill ID")
     p.add_argument("--name", help="Snippet name")
     p.add_argument("--content", required=True, help="Snippet code/text")
-    p.add_argument("--type", default="example", choices=["function", "prompt", "example", "config"])
-    p.add_argument("--language", default="python", choices=["python", "bash", "yaml", "markdown", "typescript"])
+    p.add_argument("--type", default="example",
+                   choices=["function", "prompt", "example", "config", "pseudocode"])
+    p.add_argument("--language", default="python",
+                   choices=["python", "bash", "yaml", "markdown", "typescript", "text"])
     p.set_defaults(func=cmd_add_snippet)
+
+    p = sub.add_parser("generate-pseudocode", help="Generate plain-English pseudocode for a skill via Claude")
+    p.add_argument("--skill", required=True, help="Skill ID")
+    p.set_defaults(func=cmd_generate_pseudocode)
 
     # --- Embedding + search ---
     p = sub.add_parser("embed-and-project", help="Batch embed -> UMAP -> HDBSCAN")

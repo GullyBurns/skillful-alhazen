@@ -6,6 +6,9 @@ import { Network, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+const linkClass =
+  'text-cyan-400 font-semibold underline underline-offset-2 hover:text-blue-400 transition-colors';
+
 type EDAMOperation = {
   id: string;
   edam_id: string;
@@ -34,13 +37,11 @@ export default function EDAMTermPage({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch EDAM operation details
     fetch(`/api/bioskills-index/edam/${eid}`)
       .then(r => r.json())
       .then(d => setOperation(d.operation || null))
       .catch(() => {});
 
-    // Fetch skills implementing this operation (via BFS)
     fetch(`/api/bioskills-index/${id}/skills-by-edam?op=${eid}`)
       .then(r => r.json())
       .then(d => { setSkills(d.skills || []); setLoading(false); })
@@ -51,12 +52,14 @@ export default function EDAMTermPage({
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-4xl mx-auto">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 mb-6 text-sm">
-          <Link href="/bioskills-index" className="text-emerald-400 hover:text-emerald-300">Bioskills Index</Link>
+        <div className="flex items-center gap-2 mb-6 text-sm flex-wrap">
+          <Link href="/" className={linkClass}>Hub</Link>
           <span className="text-muted-foreground">/</span>
-          <Link href={`/bioskills-index/${id}`} className="text-emerald-400 hover:text-emerald-300 font-mono">{id.slice(0, 12)}...</Link>
+          <Link href="/bioskills-index" className={linkClass}>Bioskills Index</Link>
           <span className="text-muted-foreground">/</span>
-          <span className="text-muted-foreground">edam</span>
+          <Link href={`/bioskills-index/${id}`} className={linkClass + ' font-mono'}>{id.slice(0, 14)}…</Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="text-muted-foreground">EDAM</span>
           <span className="text-muted-foreground">/</span>
           <span className="font-mono text-muted-foreground">{eid}</span>
         </div>
@@ -89,7 +92,7 @@ export default function EDAMTermPage({
             <CardTitle className="text-base">
               Implementing Skills
               <span className="text-muted-foreground font-normal ml-2 text-sm">
-                ({loading ? '...' : skills.length} skills via transitive EDAM hierarchy)
+                ({loading ? '…' : skills.length} via transitive EDAM hierarchy)
               </span>
             </CardTitle>
           </CardHeader>

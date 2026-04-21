@@ -41,9 +41,14 @@ attribute bsi-umap-y, value double;
 attribute bsi-cluster-id, value integer;   # HDBSCAN cluster (-1 = noise)
 attribute bsi-cluster-label, value string; # dominant EDAM topic label for cluster
 attribute bsi-embedding-hash, value string; # SHA256[:16] for change detection
-attribute bsi-snippet-type, value string;  # function, prompt, example, or config
-attribute bsi-snippet-language, value string; # python, bash, yaml, or markdown
+attribute bsi-snippet-type, value string;  # function, prompt, example, config, or pseudocode
+attribute bsi-snippet-language, value string; # python, bash, yaml, markdown, text, or typescript
 attribute bsi-index-version, value integer;
+attribute bsi-data-id, value string;       # local ID for custom data terms
+attribute bsi-requires-gpu, value boolean;
+attribute bsi-runtime-class, value string; # instant | seconds | minutes | hours | days
+attribute bsi-memory-class, value string;  # lightweight | moderate | heavy
+attribute bsi-language, value string;      # Python | R | Nextflow | Julia | etc.
 attribute bsi-embedding-model, value string;
 attribute bsi-skill-count, value integer;
 attribute bsi-github-url, value string;
@@ -82,6 +87,16 @@ relation bsi-covers-topic,
     relates bsi-skill,
     relates bsi-bio-topic;
 
+# BSI-ACCEPTS-INPUT: a bioskill accepts a bio-data type as input
+relation bsi-accepts-input,
+    relates bsi-skill,
+    relates bsi-bio-data;
+
+# BSI-PRODUCES-OUTPUT: a bioskill produces a bio-data type as output
+relation bsi-produces-output,
+    relates bsi-skill,
+    relates bsi-bio-data;
+
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Ontology Terms
 # -----------------------------------------------------------------------------
@@ -101,6 +116,22 @@ entity bio-operation sub domain-thing,
     plays bio-subtype:bio-child,
     plays bio-subtype:bio-parent,
     plays bsi-implements:bsi-bio-op;
+
+# Unified Data concept: imported EDAM data types + custom extensions.
+# Covers input/output biomedical data types (DNA sequence, Protein structure, VCF, etc.)
+entity bio-data sub domain-thing,
+    owns edam-id,
+    owns edam-uri,
+    owns edam-definition,
+    owns edam-exact-synonym,
+    owns edam-source,
+    owns edam-namespace,
+    owns edam-deprecated,
+    owns bsi-data-id,
+    plays bio-subtype:bio-child,
+    plays bio-subtype:bio-parent,
+    plays bsi-accepts-input:bsi-bio-data,
+    plays bsi-produces-output:bsi-bio-data;
 
 # Unified Topic concept: imported EDAM topics + custom extensions.
 entity bio-topic sub domain-thing,
@@ -139,10 +170,16 @@ entity bioskill sub domain-thing,
     owns bsi-embedding-hash,
     owns bsi-github-url,
     owns bsi-stars,
+    owns bsi-requires-gpu,
+    owns bsi-runtime-class,
+    owns bsi-memory-class,
+    owns bsi-language,
     plays bsi-indexed-in:bsi-skill,
     plays bsi-snippet-of:bsi-parent-skill,
     plays bsi-implements:bsi-skill,
-    plays bsi-covers-topic:bsi-skill;
+    plays bsi-covers-topic:bsi-skill,
+    plays bsi-accepts-input:bsi-skill,
+    plays bsi-produces-output:bsi-skill;
 
 entity bioskill-snippet sub fragment,
     owns bsi-snippet-type,

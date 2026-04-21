@@ -21,6 +21,12 @@ export async function listIndices() {
   return runBsi(['list-indices']);
 }
 
+export async function showIndex(indexId: string) {
+  const data = await listIndices() as { success: boolean; indices: Array<{ id: string; [key: string]: unknown }> };
+  const index = (data.indices ?? []).find((idx) => idx.id === indexId) ?? null;
+  return { success: !!index, index };
+}
+
 export async function listSkills(indexId: string, opts: {
   op?: string; topic?: string; cluster?: number; limit?: number
 } = {}) {
