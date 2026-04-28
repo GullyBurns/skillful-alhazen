@@ -1,0 +1,28 @@
+# Alhazen Agents Registry
+# ========================
+# Single source of truth for all named sub-agents.
+# Parallel to skills-registry.yaml — agents bind to skills and are dispatched
+# by the coordinator (CLAUDE.md) via Claude Code's Agent() tool.
+#
+# Build all agents locally:
+#   make build-agents
+#
+# Entry formats:
+#
+#   Core agents (from this repo, symlinked into .claude/agents/):
+#     - name: my-agent
+#       path: agents/my-agent       # path relative to repo root
+#
+#   External agents from a git repository:
+#     - name: my-agent
+#       git: https://...
+#       ref: main
+#       subdir: agents/my-agent
+#
+# Each agent directory must contain:
+#   - AGENT.md     (required: agent identity, skills, dispatch instructions)
+#   - agent.yaml   (recommended: structured metadata)
+
+agents:
+  - name: jobhunt
+    path: agents/jobhunt

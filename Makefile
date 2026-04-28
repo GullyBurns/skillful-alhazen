@@ -18,6 +18,8 @@ TYPEDB_SCHEMAS_DIR := $(PROJECT_ROOT)/local_resources/typedb
 LOCAL_SKILLS_DIR := $(PROJECT_ROOT)/local_skills
 SKILLS_REGISTRY := $(PROJECT_ROOT)/skills-registry.yaml
 SKILL_LIBRARY ?=  # override: make build-skills SKILL_LIBRARY=https://github.com/MyOrg/fork
+CLAUDE_AGENTS_DIR := $(PROJECT_ROOT)/.claude/agents
+AGENTS_REGISTRY := $(PROJECT_ROOT)/agents-registry.yaml
 
 # OS detection
 UNAME_S := $(shell uname -s)
@@ -76,8 +78,8 @@ help: ## Show this help message
 
 # Phase 1: Build — local dev (Claude Code)
 .PHONY: build
-build: build-env build-skills build-dashboard build-db ## Phase 1: Install deps + resolve skills + start TypeDB
-	@echo "$(GREEN)✓ Build complete! Use Claude Code with skills in .claude/skills/$(NC)"
+build: build-env build-skills build-agents build-dashboard build-db ## Phase 1: Install deps + resolve skills + agents + start TypeDB
+	@echo "$(GREEN)✓ Build complete! Use Claude Code with skills in .claude/skills/ and agents in .claude/agents/$(NC)"
 
 .PHONY: build-env
 build-env: ## Install Python dependencies
@@ -88,6 +90,22 @@ build-env: ## Install Python dependencies
 .PHONY: build-skills
 build-skills: skills-install deploy-claude ## Resolve skills-registry.yaml → local_skills/ + wire .claude/skills/
 	@echo "$(GREEN)✓ Skills built$(NC)"
+
+.PHONY: build-agents
+build-agents: ## Resolve agents-registry.yaml → .claude/agents/ symlinks
+	@echo "$(BLUE)Resolving agents from registry...$(NC)"
+	@mkdir -p $(CLAUDE_AGENTS_DIR)
+	@if [ ! -f "$(AGENTS_REGISTRY)" ]; then \
+		echo "$(YELLOW)→ No agents-registry.yaml — skipping$(NC)"; \
+	else \
+		uv run python -c "$$AGENTS_INSTALL_PY"; \
+		for target in $(CLAUDE_AGENTS_DIR)/*/; do \
+			link=$${target%/}; \
+			[ -L "$$link" ] || continue; \
+			[ -e "$$link" ] || { echo "$(YELLOW)  → Removing stale symlink: $$(basename $$link)$(NC)"; rm "$$link"; }; \
+		done; \
+	fi
+	@echo "$(GREEN)✓ Agents deployed to .claude/agents/$(NC)"
 
 .PHONY: build-db
 build-db: db-start db-init ## Start TypeDB and load all schemas (run after build-skills)
@@ -652,6 +670,56 @@ for skill in skills:
         if tmp.exists(): shutil.rmtree(tmp, ignore_errors=True)
 endef
 export SKILLS_UPDATE_PY
+
+define AGENTS_INSTALL_PY
+import os, subprocess, sys, shutil
+from pathlib import Path
+import yaml
+registry = Path('agents-registry.yaml')
+if not registry.exists():
+    print('No agents-registry.yaml found'); sys.exit(0)
+cfg = yaml.safe_load(registry.read_text()) or {}
+agents = list(cfg.get('agents') or [])
+if not agents:
+    print('No agents registered'); sys.exit(0)
+agents_dir = Path('.claude/agents')
+agents_dir.mkdir(parents=True, exist_ok=True)
+for agent in agents:
+    name = agent['name']
+    target = agents_dir / name
+    if 'path' in agent:
+        src = Path(agent['path'])
+        if target.is_symlink():
+            target.unlink()
+        elif target.exists():
+            print(f'  Skipping {name} (real directory exists)'); continue
+        # Compute relative path from .claude/agents/ to agents/<name>
+        link_target = os.path.relpath(str(src), str(agents_dir))
+        target.symlink_to(link_target)
+        print(f'  ✓ Linked: {name}')
+        continue
+    # External agent: clone from git
+    git_url = agent.get('git', '')
+    ref = agent.get('ref', 'main')
+    subdir = agent.get('subdir', '.')
+    if not git_url:
+        print(f'  ✗ No git URL for {name}', file=sys.stderr); continue
+    if target.exists() and not target.is_symlink():
+        print(f'  Skipping {name} (already installed)'); continue
+    if target.is_symlink():
+        target.unlink()
+    print(f'  Installing {name} from {git_url}@{ref}...')
+    tmp = agents_dir / f'_tmp_{name}'
+    try:
+        subprocess.run(['git', 'clone', '--depth=1', '--branch', ref, git_url, str(tmp)], check=True, capture_output=True)
+        src = tmp / subdir if subdir != '.' else tmp; src.rename(target)
+        print(f'  ✓ Installed {name}')
+    except subprocess.CalledProcessError as e:
+        print(f'  ✗ Failed to install {name}: {e}', file=sys.stderr)
+    finally:
+        if tmp.exists(): shutil.rmtree(tmp, ignore_errors=True)
+endef
+export AGENTS_INSTALL_PY
 
 .PHONY: skills-install
 skills-install: ## Resolve skills-registry.yaml into local_skills/ (path: symlinks, git: clones)

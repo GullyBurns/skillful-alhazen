@@ -43,9 +43,11 @@ defaults:
   ref: main
 
 skills:
-  # -- Core skills (path-based: symlinked from skills/ in this repo) ----------
+  # -- Core OS components (promoted from skills — managed by CLAUDE.md coordinator) --
+  # Code stays in skills/ but these are OS-level, not domain skills.
   - name: agentic-memory
     path: skills/agentic-memory
+    core_os: true
     dashboard:
       enabled: true
       name: "Agentic Memory"
@@ -56,7 +58,9 @@ skills:
 
   - name: typedb-notebook
     path: skills/typedb-notebook
+    core_os: true
 
+  # -- Domain skills (path-based: symlinked from skills/ in this repo) --------
   - name: web-search
     path: skills/web-search
 

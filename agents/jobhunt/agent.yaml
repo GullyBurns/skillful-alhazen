@@ -1,0 +1,22 @@
+name: jobhunt
+description: "Job search campaign manager — pipeline, networking, interview prep/debrief, market monitoring"
+
+skills:
+  - jobhunt
+  - web-search
+  - agentic-memory
+  - typedb-notebook
+
+connections:
+  - searxng
+
+memory_scope:
+  - job-applications
+  - networking
+  - interviews
+  - jsc-process
+  - market-intelligence
+
+dispatch:
+  model: opus
+  isolation: none
