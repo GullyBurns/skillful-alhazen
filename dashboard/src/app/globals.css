@@ -1,12 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Tailwind v4 scans the module graph automatically — skill components are detected
-   when their routes are compiled. Only @source "../components/ui" is needed here
-   to override gitignore for shadcn (which IS within the project root). Any @source
-   pointing outside dashboard/ (incl. via symlinks to local_skills/) causes a
-   Turbopack panic (FileSystemPath("") bug). Do NOT add such paths here. */
+/* Tailwind v4: @source "../components/ui" overrides gitignore for shadcn.
+   @source inline() explicitly safelists classes used only in non-gitignored components
+   that Tailwind's automatic scanner misses (e.g. InspectorPanel, new top-level components). */
 @source "../components/ui";
+@source inline("fixed bottom-6 right-6 z-50 w-10 rounded-full bg-card border-border text-card-foreground hover:border-cyan-500/60 hover:text-cyan-400 shadow-lg inset-0 bg-black/20 top-0 right-0 w-[580px] max-w-[95vw] border-l border-border/60 shadow-2xl translate-x-0 translate-x-full duration-300 ease-in-out shrink-0 w-fit overflow-y-auto overflow-x-auto max-h-[35vh] whitespace-pre-wrap animate-pulse italic tracking-widest");
 
 @custom-variant dark (&:is(.dark *));
 

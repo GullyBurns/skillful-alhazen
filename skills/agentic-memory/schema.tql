@@ -16,6 +16,11 @@ relation tool-familiarity,
     relates practitioner,
     relates tool;
 
+# Role bindings: declare which core entity types play these roles
+# (operator-user and application-user inherit participant/practitioner via person)
+entity collection plays project-involvement:project;
+entity domain-thing plays tool-familiarity:tool;
+
 relation relationship-context,
     owns description,
     relates from-person,

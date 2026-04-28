@@ -1,0 +1,34 @@
+{
+  "skill": "curation-skill-builder",
+  "schemaSkill": "curation-skill-builder",
+  "patterns": [
+    {
+      "urlPattern": "/skill-builder/domain/:id",
+      "endpoints": [
+        {
+          "label": "Domain Detail",
+          "url": "/api/curation-skill-builder/domain/:id",
+          "query": "skill_builder.py show-domain --id :id",
+          "typeql": "# Domain details\nmatch $d isa dm-domain, has id \":id\";\nfetch {\n    \"id\": $d.id,\n    \"name\": $d.name,\n    \"description\": $d.description,\n    \"skill\": $d.dm-skill-name,\n    \"task\": $d.dm-skill-task,\n    \"created\": $d.created-at\n};\n\n# Design decisions\nmatch\n    $dec isa dm-design-decision;\n    $d isa dm-domain, has id \":id\";\n    (subject: $dec, domain: $d) isa dm-in-domain;\nfetch {\n    \"id\": $dec.id,\n    \"name\": $dec.name,\n    \"type\": $dec.dm-decision-type,\n    \"summary\": $dec.dm-decision-summary\n};\n\n# Experiments\nmatch\n    $exp isa dm-experiment;\n    $d isa dm-domain, has id \":id\";\n    (subject: $exp, domain: $d) isa dm-in-domain;\nfetch {\n    \"id\": $exp.id,\n    \"name\": $exp.name,\n    \"hypothesis\": $exp.dm-hypothesis,\n    \"status\": $exp.dm-experiment-status\n};"
+        },
+        {
+          "label": "Domain Gaps",
+          "url": "/api/curation-skill-builder/domain/:id/gaps",
+          "query": "skill_builder.py list-phase-gaps --domain-id :id",
+          "typeql": "match\n    $err isa dm-representation-error;\n    $d isa dm-domain, has id \":id\";\n    (subject: $err, domain: $d) isa dm-in-domain;\nfetch {\n    \"id\": $err.id,\n    \"name\": $err.name,\n    \"type\": $err.dm-error-type,\n    \"severity\": $err.dm-error-severity,\n    \"status\": $err.dm-error-status,\n    \"description\": $err.description\n};"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/skill-builder",
+      "endpoints": [
+        {
+          "label": "All Domains",
+          "url": "/api/curation-skill-builder/domains",
+          "query": "skill_builder.py list-domains",
+          "typeql": "match $d isa dm-domain;\nfetch {\n    \"id\": $d.id,\n    \"name\": $d.name,\n    \"description\": $d.description,\n    \"skill\": $d.dm-skill-name,\n    \"created\": $d.created-at\n};"
+        }
+      ]
+    }
+  ]
+}

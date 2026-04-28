@@ -1,0 +1,280 @@
+{
+  "$defs": {
+    "DatasetCharacteristics": {
+      "description": "Properties of the evaluation dataset used by this benchmark or system.",
+      "properties": {
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
+        "synthetic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Synthetic"
+        },
+        "session_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Count"
+        },
+        "question_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question Count"
+        },
+        "languages": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Languages",
+          "type": "array"
+        },
+        "has_ground_truth": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Has Ground Truth"
+        }
+      },
+      "title": "DatasetCharacteristics",
+      "type": "object"
+    },
+    "DimensionScoreSet": {
+      "description": "Scores on the six schema-first curation assessment dimensions.",
+      "properties": {
+        "episodic": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Episodic",
+          "type": "integer"
+        },
+        "relational": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Relational",
+          "type": "integer"
+        },
+        "schema_conformance": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Schema Conformance",
+          "type": "integer"
+        },
+        "provenance": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Provenance",
+          "type": "integer"
+        },
+        "contradiction": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Contradiction",
+          "type": "integer"
+        },
+        "longitudinal": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Longitudinal",
+          "type": "integer"
+        },
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "episodic",
+        "relational",
+        "schema_conformance",
+        "provenance",
+        "contradiction",
+        "longitudinal"
+      ],
+      "title": "DimensionScoreSet",
+      "type": "object"
+    },
+    "EvaluationTask": {
+      "enum": [
+        "qa",
+        "generation",
+        "retrieval",
+        "multi_hop",
+        "abstention",
+        "temporal_reasoning",
+        "update_detection",
+        "contradiction_detection",
+        "schema_validation"
+      ],
+      "title": "EvaluationTask",
+      "type": "string"
+    },
+    "MemoryType": {
+      "enum": [
+        "episodic",
+        "semantic",
+        "procedural",
+        "temporal",
+        "multi_session",
+        "preference",
+        "relational",
+        "working"
+      ],
+      "title": "MemoryType",
+      "type": "string"
+    },
+    "SystemType": {
+      "enum": [
+        "system",
+        "benchmark"
+      ],
+      "title": "SystemType",
+      "type": "string"
+    }
+  },
+  "description": "Complete assessment record for one memory system or benchmark.\n\nOne record per system in the tech-recon investigation. Acts as the top-level\nunit of analysis \u2014 a row in the heatmap visualization.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "system_type": {
+      "$ref": "#/$defs/SystemType"
+    },
+    "arxiv_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Arxiv Id"
+    },
+    "source_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Url"
+    },
+    "github_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Github Url"
+    },
+    "scores": {
+      "$ref": "#/$defs/DimensionScoreSet"
+    },
+    "memory_types_tested": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/MemoryType"
+      },
+      "title": "Memory Types Tested",
+      "type": "array"
+    },
+    "evaluation_tasks": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EvaluationTask"
+      },
+      "title": "Evaluation Tasks",
+      "type": "array"
+    },
+    "dataset": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DatasetCharacteristics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "assessment_summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Assessment Summary"
+    },
+    "parse_warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Parse Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "system_type",
+    "scores"
+  ],
+  "title": "MemorySystemAssessment",
+  "type": "object"
+}

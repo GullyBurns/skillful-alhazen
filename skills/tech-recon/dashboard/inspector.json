@@ -1,0 +1,61 @@
+{
+  "skill": "tech-recon",
+  "schemaSkill": "tech-recon",
+  "patterns": [
+    {
+      "urlPattern": "/tech-recon/investigation/:id/analysis/:aid",
+      "endpoints": [
+        {
+          "label": "Analysis Detail",
+          "url": "/api/tech-recon/analysis/:aid",
+          "query": "tech_recon.py show-analysis --id :aid",
+          "typeql": "match $a isa tech-recon-analysis, has id \":aid\";\nfetch {\n    \"id\": $a.id,\n    \"title\": $a.tech-recon-title,\n    \"type\": $a.analysis-type,\n    \"plot_code\": $a.plot-code,\n    \"query\": $a.tql-query,\n    \"description\": $a.content\n};"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/tech-recon/investigation/:id",
+      "endpoints": [
+        {
+          "label": "Investigation + Systems + Notes + Analyses",
+          "url": "/api/tech-recon/investigation/:id",
+          "query": "tech_recon.py show-investigation --id :id\ntech_recon.py list-systems --investigation :id\ntech_recon.py list-notes --subject-id :id\ntech_recon.py list-analyses --investigation :id",
+          "typeql": "# Investigation details\nmatch $inv isa tech-recon-investigation, has id \":id\";\nfetch {\n    \"id\": $inv.id,\n    \"name\": $inv.name,\n    \"status\": $inv.tech-recon-status,\n    \"goal\": $inv.goal-description,\n    \"criteria\": $inv.success-criteria,\n    \"iteration\": $inv.iteration-number\n};\n\n# Systems in investigation\nmatch\n    $inv isa tech-recon-investigation, has id \":id\";\n    $sys isa tech-recon-system;\n    (system: $sys, investigation: $inv) isa investigated-in;\nfetch {\n    \"id\": $sys.id,\n    \"name\": $sys.name,\n    \"url\": $sys.tech-recon-url,\n    \"status\": $sys.tech-recon-status,\n    \"language\": $sys.tech-recon-language,\n    \"license\": $sys.license,\n    \"star_count\": $sys.star-count\n};\n\n# Notes attached to investigation\nmatch\n    $e isa identifiable-entity, has id \":id\";\n    $n isa tech-recon-note;\n    (note: $n, subject: $e) isa aboutness;\nfetch {\n    \"id\": $n.id,\n    \"topic\": $n.topic,\n    \"format\": $n.format,\n    \"content\": $n.content,\n    \"created_at\": $n.created-at\n};\n\n# Analyses linked to investigation\nmatch\n    $inv isa tech-recon-investigation, has id \":id\";\n    $a isa tech-recon-analysis;\n    (analysis: $a, investigation: $inv) isa analysis-of;\nfetch {\n    \"id\": $a.id,\n    \"title\": $a.tech-recon-title,\n    \"type\": $a.analysis-type\n};"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/tech-recon/system/:id",
+      "endpoints": [
+        {
+          "label": "System + Artifacts + Notes",
+          "url": "/api/tech-recon/system/:id",
+          "query": "tech_recon.py show-system --id :id\ntech_recon.py list-artifacts --system :id\ntech_recon.py list-notes --subject-id :id",
+          "typeql": "# System details\nmatch $sys isa tech-recon-system, has id \":id\";\nfetch {\n    \"id\": $sys.id,\n    \"name\": $sys.name,\n    \"url\": $sys.tech-recon-url,\n    \"status\": $sys.tech-recon-status,\n    \"github_url\": $sys.github-url,\n    \"language\": $sys.tech-recon-language,\n    \"license\": $sys.license,\n    \"star_count\": $sys.star-count\n};\n\n# Artifacts sourced from system\nmatch\n    $sys isa tech-recon-system, has id \":id\";\n    $art isa tech-recon-artifact;\n    (artifact: $art, source: $sys) isa sourced-from;\nfetch {\n    \"id\": $art.id,\n    \"type\": $art.artifact-type,\n    \"url\": $art.tech-recon-url,\n    \"format\": $art.format,\n    \"cache_path\": $art.cache-path\n};\n\n# Notes about system\nmatch\n    $e isa identifiable-entity, has id \":id\";\n    $n isa tech-recon-note;\n    (note: $n, subject: $e) isa aboutness;\nfetch {\n    \"id\": $n.id,\n    \"topic\": $n.topic,\n    \"format\": $n.format,\n    \"content\": $n.content,\n    \"created_at\": $n.created-at\n};"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/tech-recon/artifact/:id",
+      "endpoints": [
+        {
+          "label": "Artifact",
+          "url": "/api/tech-recon/artifact/:id",
+          "query": "tech_recon.py show-artifact --id :id",
+          "typeql": "match $art isa tech-recon-artifact, has id \":id\";\nfetch {\n    \"id\": $art.id,\n    \"type\": $art.artifact-type,\n    \"url\": $art.tech-recon-url,\n    \"format\": $art.format,\n    \"cache_path\": $art.cache-path\n};"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/tech-recon",
+      "endpoints": [
+        {
+          "label": "All Investigations",
+          "url": "/api/tech-recon/investigations",
+          "query": "tech_recon.py list-investigations",
+          "typeql": "match $inv isa tech-recon-investigation;\nfetch {\n    \"id\": $inv.id,\n    \"name\": $inv.name,\n    \"status\": $inv.tech-recon-status,\n    \"goal\": $inv.goal-description\n};"
+        }
+      ]
+    }
+  ]
+}

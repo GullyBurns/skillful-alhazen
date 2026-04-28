@@ -44,6 +44,7 @@ export function ScopeSection({ investigation }: ScopeSectionProps) {
           )}
         </CardContent>
       </Card>
+
     </div>
   );
 }

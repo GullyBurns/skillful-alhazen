@@ -155,11 +155,11 @@ def update_context_domain(args):
     ts = get_timestamp()
 
     # Delete old value then insert new one
+    # Use operator-user as the match type so TypeDB inference resolves operator-user-specific attrs
     with get_driver() as driver:
-        # First check the old value exists and delete it
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             check_q = f'''
-            match $p isa identifiable-entity, has id "{pid}", has {attr} $v;
+            match $p isa operator-user, has id "{pid}", has {attr} $v;
             delete has $v of $p;
             '''
             try:
@@ -168,9 +168,20 @@ def update_context_domain(args):
             except Exception:
                 pass  # No existing value -- that is fine
 
+        # Remove old updated-at before inserting new one (cardinality 0..1)
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            try:
+                tx.query(f'''
+                match $p isa operator-user, has id "{pid}", has updated-at $v;
+                delete has $v of $p;
+                ''').resolve()
+                tx.commit()
+            except Exception:
+                pass
+
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
-            match $p isa identifiable-entity, has id "{pid}";
+            match $p isa operator-user, has id "{pid}";
             insert $p has {attr} "{content_esc}", has updated-at {ts};
             ''').resolve()
             tx.commit()
@@ -195,7 +206,7 @@ def get_context(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             # Get basic person info
             person_q = f'''
-            match $p isa identifiable-entity, has id "{pid}";
+            match $p isa operator-user, has id "{pid}";
             fetch {{
                 "id": $p.id,
                 "name": $p.name,
@@ -266,7 +277,7 @@ def link_project(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
             match
-                $p isa identifiable-entity, has id "{pid}";
+                $p isa operator-user, has id "{pid}";
                 $c isa collection, has id "{cid}";
             insert (participant: $p, project: $c) isa project-involvement;
             ''').resolve()
@@ -284,7 +295,7 @@ def link_tool(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
             match
-                $p isa identifiable-entity, has id "{pid}";
+                $p isa operator-user, has id "{pid}";
                 $t isa domain-thing, has id "{tid}";
             insert (practitioner: $p, tool: $t) isa tool-familiarity;
             ''').resolve()

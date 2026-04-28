@@ -111,6 +111,7 @@ COPY src/skillful_alhazen/__init__.py ./src/skillful_alhazen/
 # correctly once both trees are present in the container)
 COPY skills/ ./skills/
 COPY local_skills/ ./local_skills/
+COPY local_resources/ ./local_resources/
 # Auto-discover all skill Python scripts and wire them into .claude/skills/<skill>/
 # This replaces hard-coded COPY lines — new skills are picked up automatically.
 RUN for skill_dir in local_skills/*/; do \

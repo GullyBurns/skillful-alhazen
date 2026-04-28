@@ -1,19 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, ClipboardCheck, ChevronDown } from 'lucide-react';
+import { FileText, ClipboardCheck, StickyNote } from 'lucide-react';
 import { ReportContent } from './report-content';
+import { NotesList } from './notes-list';
 import type { TechReconNote } from '@/lib/tech-recon';
+
+const SPECIAL_TOPICS = new Set(['viz-plan', 'synthesis-report', 'completion-assessment']);
 
 interface OutputsSectionProps {
   synthesisNote: TechReconNote | null;
   completionNote: TechReconNote | null;
   investigationId: string;
+  notes?: TechReconNote[];
 }
 
 type OutputCard = 'synthesis' | 'completion' | null;
 
-export function OutputsSection({ synthesisNote, completionNote, investigationId }: OutputsSectionProps) {
+export function OutputsSection({ synthesisNote, completionNote, investigationId, notes = [] }: OutputsSectionProps) {
+  const investigationNotes = notes.filter(n => !SPECIAL_TOPICS.has(n.topic ?? ''));
   const [activeCard, setActiveCard] = useState<OutputCard>(
     synthesisNote ? 'synthesis' : completionNote ? 'completion' : null
   );
@@ -77,6 +82,16 @@ export function OutputsSection({ synthesisNote, completionNote, investigationId 
         <div className="rounded-lg border border-green-500/30 bg-card/30 p-5">
           <h3 className="text-sm font-semibold text-green-400 mb-4">Completion Assessment</h3>
           <ReportContent noteId={completionNote.id} preview={completionNote.content_preview} />
+        </div>
+      )}
+
+      {investigationNotes.length > 0 && (
+        <div className="mt-2 pt-4 border-t border-border/40">
+          <div className="flex items-center gap-2 mb-3">
+            <StickyNote className="w-4 h-4 text-violet-400 shrink-0" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-violet-400">Investigation Notes</span>
+          </div>
+          <NotesList notes={investigationNotes} />
         </div>
       )}
     </div>

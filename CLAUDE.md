@@ -195,6 +195,56 @@ make db-export        # Export database to timestamped zip
 make db-import ZIP=/path/to/export.zip  # Import database
 ```
 
+**Backups — TypeDB (`alhazen_notebook` and `dismech`):**
+
+Exports are written to `~/.alhazen/cache/typedb/<database>_export_<timestamp>.zip`.
+
+```bash
+# Export (works while TypeDB is running)
+make db-export                                   # exports alhazen_notebook (default)
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py export-db --database dismech
+
+# Restore (drops and recreates the database)
+uv run python .claude/skills/typedb-notebook/typedb_notebook.py import-db \
+  --zip ~/.alhazen/cache/typedb/alhazen_notebook_export_<timestamp>.zip \
+  --database alhazen_notebook
+# NOTE: database must not already exist — delete it first if needed:
+# uv run python -c "
+#   from typedb.driver import TypeDB, Credentials, DriverOptions
+#   d = TypeDB.driver('localhost:1729', Credentials('admin','password'), DriverOptions(is_tls_enabled=False))
+#   d.databases.get('alhazen_notebook').delete(); d.close()
+# "
+```
+
+**Backups — Qdrant vector store (`dismech_benchmark`, `apt-notes`, `alhazen_papers`):**
+
+Snapshots are created online (no downtime) and stored inside the container at `/qdrant/snapshots/<collection>/`.
+Copy them out immediately — they do not persist across container recreation.
+
+```bash
+# Create snapshots (run for each collection)
+curl -X POST http://localhost:6333/collections/dismech_benchmark/snapshots
+curl -X POST http://localhost:6333/collections/apt-notes/snapshots
+curl -X POST http://localhost:6333/collections/alhazen_papers/snapshots
+
+# Copy out of container
+mkdir -p ~/.alhazen/cache/qdrant-snapshots
+docker cp alhazen-qdrant:/qdrant/snapshots/dismech_benchmark/. ~/.alhazen/cache/qdrant-snapshots/
+docker cp alhazen-qdrant:/qdrant/snapshots/apt-notes/. ~/.alhazen/cache/qdrant-snapshots/
+docker cp alhazen-qdrant:/qdrant/snapshots/alhazen_papers/. ~/.alhazen/cache/qdrant-snapshots/
+
+# Restore a collection from snapshot
+curl -X POST "http://localhost:6333/collections/dismech_benchmark/snapshots/recover" \
+  -H "Content-Type: application/json" \
+  -d '{"location": "file:///path/to/dismech_benchmark-<id>.snapshot"}'
+```
+
+**What to back up and when:**
+- `alhazen_notebook` — contains all tech-recon, jobhunt, APT, and notebook data. Back up after significant work sessions. Most recent backup: `alhazen_notebook_export_20260425_*.zip`.
+- `dismech` — the DisMech 797-disorder knowledge graph. Can be fully rebuilt from `git pull` + `make ingest` in the `alhazen-skill-dismech` repo, but a backup saves ~1 hour of ingest time. Most recent backup: `dismech_export_20260425_*.zip`.
+- Qdrant `dismech_benchmark` — 25K embedded points (Voyage AI). Expensive to rebuild (API cost + time). Back up after any corpus update. Most recent snapshot: `dismech_benchmark-*-2026-04-26-*.snapshot`.
+- Qdrant `alhazen_papers` / `apt-notes` — lower priority; rebuildable from source.
+
 **Development:**
 ```bash
 make help             # Show all available targets

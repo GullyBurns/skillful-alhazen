@@ -75,4 +75,8 @@ Export the full structured report with `export-design-phases`.
 
 **Read USAGE.md section "5-Phase System Design Workflow" before using these commands.**
 
+## Command Output Pattern
+
+`uv run` emits a `VIRTUAL_ENV` warning to stderr. Always use `2>/dev/null` when piping output to a JSON parser — never `2>&1`, which merges the warning into stdout and breaks JSON parsing.
+
 **Before executing commands, read `USAGE.md` in this directory for the complete phase breakdown, design tracking workflow, schema templates, and documentation checklist.**

@@ -1,0 +1,46 @@
+{
+  "skill": "agentic-memory",
+  "schemaSkill": "agentic-memory",
+  "patterns": [
+    {
+      "urlPattern": "/agentic-memory/person/:id",
+      "endpoints": [
+        {
+          "label": "Person Context",
+          "url": "/api/agentic-memory/context?person=:id",
+          "query": "agentic_memory.py get-context --person :id",
+          "typeql": "# Memory-claim-notes about a person\nmatch\n    $n isa memory-claim-note;\n    $e isa identifiable-entity, has id \":id\";\n    (note: $n, subject: $e) isa aboutness;\nfetch {\n    \"id\": $n.id,\n    \"content\": $n.content,\n    \"fact-type\": $n.fact-type,\n    \"confidence\": $n.confidence,\n    \"created-at\": $n.created-at,\n    \"valid-until\": $n.valid-until\n};"
+        },
+        {
+          "label": "Person Facts",
+          "url": "/api/agentic-memory/facts?person=:id&limit=100",
+          "query": "agentic_memory.py recall-person --person :id",
+          "typeql": "match\n    $n isa memory-claim-note;\n    $e isa identifiable-entity, has id \":id\";\n    (note: $n, subject: $e) isa aboutness;\nfetch {\n    \"id\": $n.id,\n    \"content\": $n.content,\n    \"fact-type\": $n.fact-type,\n    \"confidence\": $n.confidence,\n    \"created-at\": $n.created-at\n};"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/agentic-memory",
+      "endpoints": [
+        {
+          "label": "Persons",
+          "url": "/api/agentic-memory/persons",
+          "query": "agentic_memory.py list-persons",
+          "typeql": "match $p isa person;\nfetch {\n    \"id\": $p.id,\n    \"name\": $p.name,\n    \"given-name\": $p.given-name,\n    \"family-name\": $p.family-name\n};"
+        },
+        {
+          "label": "Episodes",
+          "url": "/api/agentic-memory/episodes?limit=20",
+          "query": "agentic_memory.py list-episodes --limit 20",
+          "typeql": "match\n    $ep isa episode;\nfetch {\n    \"id\": $ep.id,\n    \"content\": $ep.content,\n    \"source-skill\": $ep.source-skill,\n    \"session-id\": $ep.session-id,\n    \"created-at\": $ep.created-at\n};"
+        },
+        {
+          "label": "Facts",
+          "url": "/api/agentic-memory/facts?limit=50",
+          "query": "agentic_memory.py list-claims --limit 50",
+          "typeql": "match\n    $n isa memory-claim-note;\nfetch {\n    \"id\": $n.id,\n    \"content\": $n.content,\n    \"fact-type\": $n.fact-type,\n    \"confidence\": $n.confidence,\n    \"created-at\": $n.created-at\n};"
+        }
+      ]
+    }
+  ]
+}

@@ -78,6 +78,17 @@ function CellValue({ value }: { value: unknown }) {
   }
 
   if (typeof value === 'number') return <span>{value.toFixed(4).replace(/\.?0+$/, '')}</span>;
+
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return (
+      <span className="text-xs font-mono text-muted-foreground">
+        {Object.entries(value as Record<string, unknown>)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(' ')}
+      </span>
+    );
+  }
+
   return <span>{String(value)}</span>;
 }
 
@@ -119,7 +130,8 @@ export interface AnalysisRunnerProps {
   analysisId: string;
   title: string;
   description?: string;
-  analysisType: string; // 'plot' | 'table' | 'prose'
+  plotCode?: string;
+  analysisType: string; // 'plot' | 'table' | 'prose' | 'pipeline-plot'
 }
 
 // PlotContainer mounts an Observable Plot element into the DOM
@@ -177,6 +189,7 @@ export function AnalysisRunner({
   analysisId,
   title,
   description,
+  plotCode: initialPlotCode,
   analysisType,
 }: AnalysisRunnerProps) {
   const typeNorm = analysisType?.toLowerCase() || 'plot';
@@ -187,7 +200,8 @@ export function AnalysisRunner({
 
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
-  const [plotCode, setPlotCode] = useState<string | null>(null);
+  // Auto-populate plot code from stored analysis if available
+  const [plotCode, setPlotCode] = useState<string | null>(initialPlotCode ?? null);
   const [data, setData] = useState<unknown[] | null>(() =>
     typeNorm !== 'prose' && descriptionData ? descriptionData : null
   );

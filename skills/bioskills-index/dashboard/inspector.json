@@ -1,0 +1,50 @@
+{
+  "skill": "bioskills-index",
+  "schemaSkill": "bioskills-index",
+  "patterns": [
+    {
+      "urlPattern": "/bioskills-index/:id/skill/:sid",
+      "endpoints": [
+        {
+          "label": "Skill Detail",
+          "url": "/api/bioskills-index/skill/:sid",
+          "query": "bioskills_index.py show-skill --id :sid",
+          "typeql": "# Skill details\nmatch $s isa bioskill, has id \":sid\";\nfetch {\n    \"id\": $s.id,\n    \"name\": $s.name,\n    \"description\": $s.description,\n    \"type\": $s.bsi-type,\n    \"status\": $s.bsi-status,\n    \"source_repo\": $s.bsi-source-repo,\n    \"github_url\": $s.bsi-github-url,\n    \"tool_access\": $s.bsi-tool-access\n};\n\n# EDAM operation annotations\nmatch\n    $s isa bioskill, has id \":sid\";\n    $op isa bio-operation;\n    (bsi-skill: $s, bsi-bio-op: $op) isa bsi-implements;\nfetch { \"op_name\": $op.name, \"op_edam_id\": $op.edam-id };\n\n# EDAM topic annotations\nmatch\n    $s isa bioskill, has id \":sid\";\n    $t isa bio-topic;\n    (bsi-skill: $s, bsi-bio-topic: $t) isa bsi-covers-topic;\nfetch { \"topic_name\": $t.name, \"topic_edam_id\": $t.edam-id };"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/bioskills-index/:id/edam/:eid",
+      "endpoints": [
+        {
+          "label": "EDAM Operation",
+          "url": "/api/bioskills-index/edam/:eid",
+          "query": "bioskills_index.py show-operation --edam-id :eid",
+          "typeql": "match $op isa bio-operation, has edam-id \":eid\";\nfetch {\n    \"id\": $op.id,\n    \"name\": $op.name,\n    \"edam_id\": $op.edam-id,\n    \"description\": $op.description,\n    \"edam_source\": $op.edam-source\n};"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/bioskills-index/:id",
+      "endpoints": [
+        {
+          "label": "Index Skills",
+          "url": "/api/bioskills-index/:id",
+          "query": "bioskills_index.py list-skills --index :id",
+          "typeql": "match\n    $s isa bioskill;\n    $idx isa bioskill-index, has id \":id\";\n    (bsi-skill: $s, bsi-index: $idx) isa bsi-indexed-in;\nfetch {\n    \"id\": $s.id,\n    \"name\": $s.name,\n    \"type\": $s.bsi-type,\n    \"status\": $s.bsi-status,\n    \"github_url\": $s.bsi-github-url\n};"
+        }
+      ]
+    },
+    {
+      "urlPattern": "/bioskills-index",
+      "endpoints": [
+        {
+          "label": "All Indices",
+          "url": "/api/bioskills-index",
+          "query": "bioskills_index.py list-indices",
+          "typeql": "match $idx isa bioskill-index;\nfetch {\n    \"id\": $idx.id,\n    \"name\": $idx.name,\n    \"version\": $idx.bsi-index-version,\n    \"skill_count\": $idx.bsi-skill-count,\n    \"status\": $idx.bsi-status,\n    \"created_at\": $idx.created-at\n};"
+        }
+      ]
+    }
+  ]
+}

@@ -32,4 +32,8 @@ uv run python .claude/skills/typedb-notebook/typedb_notebook.py insert-note \
 uv run python .claude/skills/typedb-notebook/typedb_notebook.py query-notes --subject "paper-xyz789"
 ```
 
+## Command Output Pattern
+
+`uv run` emits a `VIRTUAL_ENV` warning to stderr. Always use `2>/dev/null` when piping output to a JSON parser — never `2>&1`, which merges the warning into stdout and breaks JSON parsing.
+
 **Before executing any commands, read `USAGE.md` in this directory for the complete command reference, workflows, and data model.**

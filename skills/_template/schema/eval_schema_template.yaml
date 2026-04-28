@@ -1,0 +1,100 @@
+id: https://sciknow.io/<your-skill>-eval-schema
+name: <your-skill>-eval-schema
+description: >
+  Schema for evaluating <domain entities> on curation dimensions.
+  Extend by adding optional fields -- existing records stay valid (additive evolution).
+  Rename this file and update the id/name prefixes for your skill.
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  meval: https://sciknow.io/<your-skill>-eval/
+
+default_prefix: meval
+default_range: string
+imports:
+  - linkml:types
+
+# ── TYPES ─────────────────────────────────────────────────────────
+# Score is the canonical dimension score type used across curation skills.
+# All six standard dimensions use 0-3 integer scores.
+types:
+  Score:
+    uri: xsd:integer
+    base: int
+    description: Integer 0-3 (0=none, 1=partial, 2=substantial, 3=full)
+    minimum_value: 0
+    maximum_value: 3
+
+# ── ENUMERATIONS ──────────────────────────────────────────────────
+# Add domain-specific enumerations here. Example:
+enums:
+  EntityCategory:
+    description: High-level category for the thing being assessed
+    permissible_values:
+      tool:
+        description: A deployed software tool
+      benchmark:
+        description: An evaluation benchmark
+      paper:
+        description: A research paper without a deployed artifact
+
+# ── CLASSES ───────────────────────────────────────────────────────
+classes:
+
+  DimensionScores:
+    description: >
+      Scores on the curation assessment dimensions.
+      Replace dimension_a / dimension_b with your actual dimensions.
+      Add a model_validator in the Pydantic implementation to compute `total`.
+    attributes:
+      dimension_a:
+        range: Score
+        required: true
+        description: First dimension -- replace with your dimension name and description
+      dimension_b:
+        range: Score
+        required: true
+        description: Second dimension -- replace with your dimension name and description
+      total:
+        range: integer
+        description: Sum of all dimension scores (derived -- computed in Pydantic model_validator)
+        ifabsent: int(0)
+
+  EntityAssessment:
+    description: >
+      Complete assessment record for one entity.
+      One record per entity in the skill's knowledge base.
+      This is the top-level unit of analysis -- a row in the visualization.
+    tree_root: true
+    attributes:
+      id:
+        identifier: true
+        range: string
+        description: Stable TypeDB entity id (e.g. trs-xxxxx or your-entity-xxxxx)
+      name:
+        required: true
+        range: string
+        description: Display name
+      category:
+        required: true
+        range: EntityCategory
+        description: High-level category (replace EntityCategory with your enum)
+      scores:
+        required: true
+        range: DimensionScores
+        inlined: true
+        description: Scores on the curation assessment dimensions
+      tags:
+        multivalued: true
+        range: string
+        description: Free-form classification tags
+      assessment_summary:
+        range: string
+        description: Free-text synthesis drawn from sensemaking notes
+      parse_warnings:
+        multivalued: true
+        range: string
+        description: >
+          Warnings emitted during score parsing.
+          Populated when notes are missing or score tables are not found.
+          Use for data quality tracking.

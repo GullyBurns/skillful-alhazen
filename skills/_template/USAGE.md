@@ -204,6 +204,100 @@ uv run python .claude/skills/<your-domain>/<your-domain>.py tag \
 
 ---
 
+## Analysis Workflow
+
+The Analysis phase turns accumulated sensemaking notes into structured, versioned, re-runnable insights. All curation skills use the **LinkML -> Pydantic -> Hamilton** pattern:
+
+### 1. Define your schema (LinkML)
+
+Copy `schema/eval_schema_template.yaml` and rename it for your domain. Fill in:
+- Your **dimension names** in `DimensionScores` (rename `dimension_a`, `dimension_b`, etc.)
+- Your **entity categories** in the `EntityCategory` enum
+- Add optional fields freely — they default to `None`, keeping old records valid
+
+### 2. Implement Pydantic models
+
+Create `eval_models.py` next to your skill script. Mirror the LinkML schema as Pydantic v2:
+
+```python
+from pydantic import BaseModel, Field, model_validator
+from typing import Annotated, Optional
+from enum import Enum
+
+Score = Annotated[int, Field(ge=0, le=3)]
+
+class DimensionScores(BaseModel):
+    dimension_a: Score
+    dimension_b: Score
+    total: int = 0
+
+    @model_validator(mode="after")
+    def compute_total(self) -> "DimensionScores":
+        self.total = self.dimension_a + self.dimension_b
+        return self
+
+class EntityAssessment(BaseModel):
+    id: str
+    name: str
+    scores: DimensionScores
+    assessment_summary: Optional[str] = None
+    parse_warnings: list[str] = []
+```
+
+Generate JSON Schema for documentation:
+```bash
+uv run python eval_models.py > schema/<skill>_schema.json
+```
+
+### 3. Write a Hamilton pipeline
+
+Copy `pipelines/pipeline_template.py` and adapt:
+- `fetch_records(investigation_id)` — TypeQL query for your entities + assessment notes
+- `parse_records(fetch_records)` — keyword matching on your dimension labels
+- `table_data()` — serialises to JSON (no changes needed)
+- `plot_code()` — replace the placeholder with your Observable Plot expression
+
+**The sensemaking agent must write structured score tables** in assessment notes using this format so the parser can extract scores:
+
+```markdown
+| Criterion | Score (0-3) | Notes |
+|---|---|---|
+| Dimension A label | 2 | explanation |
+| Dimension B label | 1 | explanation |
+```
+
+### 4. Register the pipeline in TypeDB
+
+```bash
+uv run python .claude/skills/<skill>/<skill>.py add-pipeline \
+  --investigation <ID> \
+  --title "My Analysis" \
+  --analysis-type pipeline-plot \
+  --pipeline-script "@skills/<skill>/pipelines/pipeline_name.py" \
+  --pipeline-config '{"outputs":["plot_code","table_data"],"inputs":{"investigation_id":"<ID>"},"env_inputs":{}}'
+```
+
+### 5. Run the pipeline
+
+```bash
+uv run python .claude/skills/<skill>/<skill>.py run-pipeline --id <analysis-id>
+```
+
+Re-run any time new sensemaking notes are added — the pipeline reads from TypeDB and re-generates outputs.
+
+### 6. View in dashboard
+
+Navigate to the Analysis tab of your investigation page. The heatmap renders immediately using the pre-computed `table_data` stored in TypeDB.
+
+### Schema Evolution
+
+Adding new analysis dimensions later:
+1. Add `Optional` field to LinkML YAML and Pydantic model (new field = no migration)
+2. Re-run the pipeline — existing records get `None`/0 for the new field
+3. Update the sensemaking prompt to score the new dimension in future notes
+
+---
+
 ## TypeDB Reference
 
 When writing custom queries, consult:

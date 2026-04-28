@@ -1,0 +1,198 @@
+id: https://sciknow.io/memory-eval-schema
+name: memory-eval-schema
+description: >
+  Schema for evaluating agentic memory systems and benchmarks on schema-first
+  curation dimensions. Designed for incremental extension as new analysis
+  challenges are identified.
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  meval: https://sciknow.io/memory-eval/
+  schema: http://schema.org/
+
+default_prefix: meval
+default_range: string
+
+imports:
+  - linkml:types
+
+# ─────────────────────────────────────────
+# ENUMERATIONS
+# ─────────────────────────────────────────
+
+enums:
+
+  SystemType:
+    description: Whether this entry is a deployed memory product or an evaluation benchmark
+    permissible_values:
+      system:
+        description: A deployed memory system or product (Mem0, Zep, Letta, etc.)
+      benchmark:
+        description: An evaluation benchmark defined in a research paper
+
+  MemoryType:
+    description: Cognitive memory category tested or supported
+    permissible_values:
+      episodic:
+        description: Memories of specific events with temporal/spatial context
+      semantic:
+        description: General factual world knowledge
+      procedural:
+        description: How-to knowledge and task action sequences
+      temporal:
+        description: Time-ordered facts and event sequences
+      multi_session:
+        description: Facts that span multiple conversation sessions
+      preference:
+        description: User preferences, habits, and behavioural patterns
+      relational:
+        description: Typed relationships between named entities
+      working:
+        description: Short-term in-context task state
+
+  EvaluationTask:
+    description: Task type used to probe memory
+    permissible_values:
+      qa:
+        description: Question answering over stored memory
+      generation:
+        description: Content generation using stored memory
+      retrieval:
+        description: Direct retrieval of stored facts
+      multi_hop:
+        description: Multi-step relational reasoning over memory
+      abstention:
+        description: Refusing to answer when fact is absent
+      temporal_reasoning:
+        description: Reasoning about event order and timing
+      update_detection:
+        description: Detecting superseded or revised facts
+      contradiction_detection:
+        description: Identifying conflicting stored claims
+      schema_validation:
+        description: Checking fact conformance to a type schema
+
+# ─────────────────────────────────────────
+# TYPES
+# ─────────────────────────────────────────
+
+types:
+  Score:
+    uri: xsd:integer
+    base: int
+    description: Integer 0-3 (0=none, 1=partial, 2=substantial, 3=full)
+    minimum_value: 0
+    maximum_value: 3
+
+# ─────────────────────────────────────────
+# CLASSES
+# ─────────────────────────────────────────
+
+classes:
+
+  DimensionScoreSet:
+    description: Scores on the six schema-first curation assessment dimensions
+    attributes:
+      episodic:
+        range: Score
+        required: true
+        description: Episodic/conversational memory coverage
+      relational:
+        range: Score
+        required: true
+        description: Structured/relational typed-entity memory coverage
+      schema_conformance:
+        range: Score
+        required: true
+        description: Testing that stored facts conform to a declared schema
+      provenance:
+        range: Score
+        required: true
+        description: Source attribution and provenance tracking per stored fact
+      contradiction:
+        range: Score
+        required: true
+        description: Detection and resolution of contradictory stored claims
+      longitudinal:
+        range: Score
+        required: true
+        description: Consistency and stability under incremental/ongoing ingestion
+      total:
+        range: integer
+        description: Sum of all six scores (derived, 0-18)
+        ifabsent: int(0)
+
+  DatasetCharacteristics:
+    description: Properties of the evaluation dataset used by this benchmark or system
+    attributes:
+      domain:
+        range: string
+        description: Subject domain (e.g. biomedical, conversational, office, GUI)
+      synthetic:
+        range: boolean
+        description: Whether evaluation data is synthetic or drawn from real interactions
+      session_count:
+        range: integer
+        description: Number of distinct sessions or episodes
+      question_count:
+        range: integer
+        description: Number of evaluation questions or tasks
+      languages:
+        multivalued: true
+        range: string
+        description: Natural languages present in the dataset
+      has_ground_truth:
+        range: boolean
+        description: Whether ground-truth answers are manually annotated
+
+  MemorySystemAssessment:
+    description: >
+      Complete assessment record for one memory system or benchmark.
+      This is the top-level unit of analysis - one record per system in the
+      tech-recon investigation.
+    tree_root: true
+    attributes:
+      id:
+        identifier: true
+        range: string
+        description: Stable identifier (tech-recon-system TypeDB id, e.g. trs-xxxxx)
+      name:
+        required: true
+        range: string
+        description: Display name of the system or benchmark
+      system_type:
+        required: true
+        range: SystemType
+      arxiv_id:
+        range: string
+        description: arXiv identifier if this is a paper (e.g. 2402.17753)
+      source_url:
+        range: uri
+        description: Primary URL (product page or arXiv abstract)
+      github_url:
+        range: uri
+        description: GitHub repository URL if publicly available
+      scores:
+        required: true
+        range: DimensionScoreSet
+        inlined: true
+        description: Scores on the six assessment dimensions
+      memory_types_tested:
+        multivalued: true
+        range: MemoryType
+        description: Memory types this system/benchmark explicitly tests or supports
+      evaluation_tasks:
+        multivalued: true
+        range: EvaluationTask
+        description: Task types used for evaluation
+      dataset:
+        range: DatasetCharacteristics
+        inlined: true
+        description: Dataset characteristics (benchmarks only)
+      assessment_summary:
+        range: string
+        description: Free-text synthesis drawn from the assessment note
+      parse_warnings:
+        multivalued: true
+        range: string
+        description: Warnings emitted during score parsing (for data quality tracking)

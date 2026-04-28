@@ -266,7 +266,7 @@ export default function InvestigationPage({ params }: InvestigationPageProps) {
             <AnalysisSection analyses={analyses} vizPlanNotes={vizPlanNotes} investigationId={id} />
           )}
           {activeSection === 'outputs' && (
-            <OutputsSection synthesisNote={synthesisNote} completionNote={completionNote} investigationId={id} />
+            <OutputsSection synthesisNote={synthesisNote} completionNote={completionNote} investigationId={id} notes={iterNotes} />
           )}
         </main>
       </div>

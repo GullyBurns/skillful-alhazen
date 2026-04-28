@@ -94,13 +94,15 @@ skills:
       icon: Search
       color: cyan
 
-  - name: alg-precision-therapeutics
-    subdir: skills/biomed/alg-precision-therapeutics
+  - name: dismech-notebook
+    git: https://github.com/GullyBurns/alhazen-skill-dismech
+    ref: main
+    subdir: plugins/dismech/skills/dismech-notebook
     dashboard:
       enabled: true
-      name: "Disease Mechanism Dashboard"
-      description: "Investigate rare disease mechanisms and therapeutic strategies from MONDO diagnoses."
-      url_path: "/apt"
+      name: "DisMech Notebook"
+      description: "Rare disease mechanism knowledge mapped into Alhazen notebook memory."
+      url_path: "/dismech"
       icon: Dna
       color: teal
 

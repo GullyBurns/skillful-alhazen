@@ -108,6 +108,7 @@ export default function AnalysisPage({ params }: AnalysisPageProps) {
           analysisId={aid}
           title={analysis.title}
           description={analysis.description}
+          plotCode={analysis.plot_code}
           analysisType={analysis.type || 'plot'}
         />
 

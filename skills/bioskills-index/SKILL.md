@@ -46,4 +46,8 @@ uv run python .claude/skills/bioskills-index/bioskills_index.py compose \
     --index <id> --task "analyze single-cell RNA from IPF lung samples"
 ```
 
+## Command Output Pattern
+
+`uv run` emits a `VIRTUAL_ENV` warning to stderr. Always use `2>/dev/null` when piping output to a JSON parser — never `2>&1`, which merges the warning into stdout and breaks JSON parsing.
+
 **Read USAGE.md before executing commands.**

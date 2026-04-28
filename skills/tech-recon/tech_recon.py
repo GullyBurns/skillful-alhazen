@@ -796,6 +796,103 @@ def cmd_approve_system(args):
         sys.exit(1)
 
 
+def cmd_link_paper(args):
+    """Link a scilit-paper to a tech-recon system via system-paper-reference."""
+    sys_id = escape_string(args.system)
+
+    if not args.arxiv_id and not args.paper_id:
+        print(json.dumps({"success": False, "error": "Provide --arxiv-id or --paper-id"}))
+        sys.exit(1)
+
+    try:
+        driver = get_driver()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
+            # Verify system exists
+            sys_check = list(tx.query(f'''
+                match $sys isa tech-recon-system, has id "{sys_id}";
+                fetch {{ "id": $sys.id, "name": $sys.name }};
+            ''').resolve())
+            if not sys_check:
+                print(json.dumps({"success": False, "error": f"System {args.system} not found"}))
+                sys.exit(1)
+
+            # Resolve paper
+            if args.arxiv_id:
+                arxiv_id = escape_string(args.arxiv_id)
+                # Try arxiv-id attribute first (may be null if ingest used DOI path)
+                paper_rows = list(tx.query(f'''
+                    match $p isa scilit-paper, has arxiv-id "{arxiv_id}";
+                    fetch {{ "id": $p.id, "name": $p.name }};
+                ''').resolve())
+                # Fall back to DOI lookup (10.48550/arXiv.<id> — case variants)
+                if not paper_rows:
+                    for doi_variant in [f"10.48550/arXiv.{arxiv_id}", f"10.48550/arxiv.{arxiv_id}"]:
+                        paper_rows = list(tx.query(f'''
+                            match $p isa scilit-paper, has doi "{escape_string(doi_variant)}";
+                            fetch {{ "id": $p.id, "name": $p.name }};
+                        ''').resolve())
+                        if paper_rows:
+                            break
+            else:
+                pid = escape_string(args.paper_id)
+                paper_rows = list(tx.query(f'''
+                    match $p isa scilit-paper, has id "{pid}";
+                    fetch {{ "id": $p.id, "name": $p.name }};
+                ''').resolve())
+
+            if not paper_rows:
+                lookup = args.arxiv_id or args.paper_id
+                print(json.dumps({"success": False,
+                                  "error": f"scilit-paper not found: {lookup}. Run scientific_literature.py ingest first."}))
+                sys.exit(1)
+
+            paper_id = paper_rows[0]["id"]
+            paper_name = paper_rows[0].get("name", "")
+
+            # Check for existing link
+            existing = list(tx.query(f'''
+                match
+                    $sys isa tech-recon-system, has id "{sys_id}";
+                    $p isa scilit-paper, has id "{escape_string(paper_id)}";
+                    (referencing-system: $sys, referenced-paper: $p) isa system-paper-reference;
+                fetch {{ "id": $sys.id }};
+            ''').resolve())
+
+        if existing:
+            print(json.dumps({
+                "success": True,
+                "status": "already_linked",
+                "system_id": args.system,
+                "paper_id": paper_id,
+                "paper_name": paper_name,
+            }))
+            driver.close()
+            return
+
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(f'''
+                match
+                    $sys isa tech-recon-system, has id "{sys_id}";
+                    $p isa scilit-paper, has id "{escape_string(paper_id)}";
+                insert
+                    (referencing-system: $sys, referenced-paper: $p) isa system-paper-reference;
+            ''').resolve()
+            tx.commit()
+
+        driver.close()
+        print(json.dumps({
+            "success": True,
+            "status": "linked",
+            "system_id": args.system,
+            "paper_id": paper_id,
+            "paper_name": paper_name,
+        }))
+
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+        sys.exit(1)
+
+
 def cmd_list_systems(args):
     """List systems for an investigation, optionally filtered by status."""
     inv_id = escape_string(args.investigation)
@@ -3166,6 +3263,13 @@ def build_parser():
     p = subparsers.add_parser("approve-system", help="Approve a candidate system")
     p.add_argument("--id", required=True, help="System ID")
     p.set_defaults(func=cmd_approve_system)
+
+    # -- link-paper --
+    p = subparsers.add_parser("link-paper", help="Link a scilit-paper to a tech-recon system")
+    p.add_argument("--system", required=True, help="Tech-recon system ID (trs-...)")
+    p.add_argument("--arxiv-id", help="arXiv ID of the paper (e.g. 2410.10813)")
+    p.add_argument("--paper-id", help="TypeDB scilit-paper ID")
+    p.set_defaults(func=cmd_link_paper)
 
     # -- list-systems --
     p = subparsers.add_parser("list-systems", help="List systems for an investigation")

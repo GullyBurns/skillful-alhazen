@@ -63,6 +63,11 @@ relation analysis-of,
     relates analysis,
     relates investigation;
 
+# SYSTEM-PAPER-REFERENCE - Links a tech-recon system to a scilit-paper that describes or evaluates it
+relation system-paper-reference,
+    relates referencing-system,
+    relates referenced-paper;
+
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Tech-Recon Collection
@@ -90,7 +95,8 @@ entity tech-recon-system sub domain-thing,
     owns star-count,
     owns tech-recon-status,
     plays investigated-in:system,
-    plays sourced-from:source;
+    plays sourced-from:source,
+    plays system-paper-reference:referencing-system;
     # inherits plays aboutness:subject from identifiable-entity
 
 
@@ -122,6 +128,15 @@ entity tech-recon-note sub note,
     owns tech-recon-tag,
     owns iteration-number;
     # inherits plays aboutness:note from note base type
+
+
+# =============================================================================
+# CROSS-NAMESPACE EXTENSION
+# scilit-paper (defined in scientific-literature/schema.tql, loads before this)
+# participates in system-paper-reference as the referenced paper.
+# =============================================================================
+
+entity scilit-paper plays system-paper-reference:referenced-paper;
 
 
 # =============================================================================
