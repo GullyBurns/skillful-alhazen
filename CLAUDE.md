@@ -701,6 +701,84 @@ cd deploy
 - **LiteLLM memory:** Needs at least 1GB (`mem_limit: 1g`). The 512MB default causes OOM on startup.
 - **Model IDs:** Use exact Anthropic model IDs (`claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5-20251001`). Incorrect IDs return HTTP 404.
 
+## Schema Evolution
+
+When a schema gap requires changing existing entity types (hierarchy changes, attribute renames, type consolidation), use the declarative migration workflow instead of manual TypeQL `redefine`:
+
+### Workflow
+
+1. **Detect** — Schema gap found (by agent, skilllog hook, or manual review)
+2. **Save old schema** — Copy the current `.tql` file before editing:
+   ```bash
+   cp local_resources/typedb/alhazen_notebook.tql \
+      local_resources/typedb/migration-rules/<migration-name>/old_schema.tql
+   ```
+3. **Fix the schema** — Edit the `.tql` file with the desired changes
+4. **Write intent file** — Describe what changed and why:
+   ```yaml
+   # local_resources/typedb/migration-rules/<migration-name>/intent.yaml
+   renames:
+     - old: contact-email
+       new: email-address
+       reason: "Standardized on core person attribute"
+   hierarchy_changes:
+     - type: jobhunt-contact
+       old_parent: agent
+       new_parent: person
+       reason: "Contacts are people, should inherit person attributes"
+   ```
+5. **Generate rules** — Produce migration mapping rules:
+   ```bash
+   uv run python src/skillful_alhazen/utils/schema_diff.py diff \
+     --old local_resources/typedb/migration-rules/<migration-name>/old_schema.tql \
+     --new local_resources/typedb/alhazen_notebook.tql \
+     --generate-rules \
+     --rules-dir local_resources/typedb/migration-rules/<migration-name>/ \
+     --intent local_resources/typedb/migration-rules/<migration-name>/intent.yaml
+   ```
+6. **Test** — Run against temporary databases (iterative):
+   ```bash
+   make db-migrate-test RULES=local_resources/typedb/migration-rules/<migration-name>/
+   # Read errors, fix rules, re-run until clean
+   make db-migrate-test-clean   # when done testing
+   ```
+7. **Migrate** — Run against production:
+   ```bash
+   make db-migrate RULES=local_resources/typedb/migration-rules/<migration-name>/
+   ```
+8. **Verify** — Check reconciliation output, query migrated data
+
+### Key Commands
+
+```bash
+# Parse and inspect a schema file
+uv run python src/skillful_alhazen/utils/schema_diff.py parse --schema FILE.tql
+
+# Diff two schemas (JSON output)
+uv run python src/skillful_alhazen/utils/schema_diff.py diff --old OLD.tql --new NEW.tql
+
+# Diff with human-readable summary
+uv run python src/skillful_alhazen/utils/schema_diff.py diff --old OLD.tql --new NEW.tql --summary
+
+# Generate migration rules
+uv run python src/skillful_alhazen/utils/schema_diff.py diff \
+  --old OLD.tql --new NEW.tql \
+  --generate-rules --rules-dir RULES_DIR/ [--intent INTENT.yaml]
+
+# Test migration (non-destructive, iterative)
+make db-migrate-test RULES=RULES_DIR/
+
+# Run migration (production)
+make db-migrate RULES=RULES_DIR/
+
+# Clean up test databases
+make db-migrate-test-clean
+```
+
+### Why Not redefine?
+
+TypeDB 3.x `redefine` cannot reliably change entity hierarchies when existing data uses inherited `owns` declarations. The declarative migration approach (export → new schema → map data → verify) is safer and produces an auditable trail of rules.
+
 ## Team Conventions
 
 When Claude makes a mistake, add it to this section so it doesn't happen again.
