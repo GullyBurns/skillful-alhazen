@@ -779,6 +779,50 @@ make db-migrate-test-clean
 
 TypeDB 3.x `redefine` cannot reliably change entity hierarchies when existing data uses inherited `owns` declarations. The declarative migration approach (export → new schema → map data → verify) is safer and produces an auditable trail of rules.
 
+### Preferred Migration Method: Binary Backup + Query Transfer
+
+When the GLAV schema_mapper approach is too complex (many entity types, unclear attribute mappings), use the **binary backup + query transfer** method:
+
+1. **Export** current database via `make db-export` (binary backup preserves all data + schema)
+2. **Import** the backup as a temporary source database:
+   ```bash
+   uv run python .claude/skills/typedb-notebook/typedb_notebook.py import-db \
+     --zip ~/.alhazen/cache/typedb/alhazen_notebook_export_LATEST.zip \
+     --database alhazen_backup
+   ```
+3. **Drop and recreate** the main database with the new schema:
+   ```bash
+   # Delete main DB
+   uv run python -c "
+   from typedb.driver import TypeDB, Credentials, DriverOptions
+   d = TypeDB.driver('localhost:1729', Credentials('admin','password'), DriverOptions(is_tls_enabled=False))
+   d.databases.get('alhazen_notebook').delete(); d.close()"
+   # Recreate with new schema
+   make db-init
+   ```
+4. **Query the backup** to re-insert data into the new database. Write targeted TypeQL queries that read from `alhazen_backup` and insert into `alhazen_notebook`:
+   ```python
+   # Read from backup (old schema — data is intact)
+   with driver.transaction("alhazen_backup", TransactionType.READ) as tx:
+       results = list(tx.query('match $p isa jobhunt-position, has id $id, has name $n; fetch { "id": $id, "name": $n };').resolve())
+
+   # Write to new database (new schema)
+   with driver.transaction("alhazen_notebook", TransactionType.WRITE) as tx:
+       for r in results:
+           tx.query(f'insert $p isa jobhunt-position, has id "{r["id"]}", has name "{r["name"]}";').resolve()
+       tx.commit()
+   ```
+5. **Clean up** the backup database when satisfied
+
+**Why this works:** The binary backup preserves data with the old schema intact. Queries against the backup use the old schema's type inference (which works correctly for its own data). The new database has a clean schema loaded from the `.tql` files. You transfer data entity-by-entity using explicit attribute names — no generic `has $a` patterns.
+
+**Why not generic export?** TypeDB's `has $a` (match any attribute) pattern breaks when additive `define` statements have corrupted type inference. Always use explicit attribute names (`has name $n, has id $id`) when querying.
+
+**When to use which approach:**
+- **GLAV schema_mapper** — best for systematic migrations with clear attribute mappings (renames, type consolidation). Produces auditable YAML rules. Use `make db-migrate` / `make db-migrate-test`.
+- **Binary backup + query transfer** — best for quick migrations, exploratory schema changes, or when you have too many entity types for hand-written rules. More manual but avoids the schema_mapper's rule-writing overhead.
+- **Both together** — use binary backup as the source database for schema_mapper rules. This is what `make db-migrate` does internally.
+
 ## Team Conventions
 
 When Claude makes a mistake, add it to this section so it doesn't happen again.
