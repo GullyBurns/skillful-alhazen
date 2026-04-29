@@ -1,5 +1,5 @@
-name: jobhunt
-description: "Job search campaign manager — pipeline, networking, interview prep/debrief, market monitoring"
+name: career-assistant
+description: "Career assistant — pipeline management, networking, interview prep/debrief, market monitoring, JSC tracking"
 
 skills:
   - jobhunt
