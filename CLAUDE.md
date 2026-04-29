@@ -8,6 +8,66 @@ Skillful-Alhazen is a TypeDB-powered scientific knowledge notebook. It helps res
 
 Forked from the CZI [alhazen](https://github.com/chanzuckerberg/alhazen) project.
 
+## Agent OS — Coordinator Role
+
+Claude Code acts as the **coordinator agent** for the Alhazen notebook OS. The OS has 6 layers, all backed by TypeDB as the single source of truth:
+
+| Layer | Purpose | Implementation |
+|-------|---------|----------------|
+| **Identity** | Who the operator is, rules enforced every session | `operator-user` entity (10 context domains) via `agentic_memory.py` |
+| **Context** | Structured knowledge about the operator's situation | TypeDB relations + context files in workspace |
+| **Skills** | Domain-specific reusable instruction sets | `skills/` directories, `skills-registry.yaml` |
+| **Memory** | What the system remembers across sessions | Two-tier: MEMORY.md (short-term) + TypeDB `memory-claim-note` (long-term) |
+| **Connections** | How agents reach external systems | Documented in `connections/README.md` |
+| **Verification** | Ensuring outputs are correct, system improves | `skilllog` + quality labels + schema gap detection |
+
+### Coordinator Responsibilities
+
+1. **Load identity at session start** — Query the operator-user from TypeDB to understand who you're working for:
+   ```bash
+   uv run python skills/agentic-memory/agentic_memory.py get-context --operator-id <id> 2>/dev/null
+   ```
+
+2. **Dispatch sub-agents for domain work** — Read agent definitions from `.claude/agents/` and dispatch using the `Agent()` tool. Each agent has:
+   - `AGENT.md` — identity, capabilities, operating rules, skill bindings
+   - `agent.yaml` — structured metadata (skills, connections, memory scope, dispatch config)
+
+   When dispatching, inject:
+   - The agent's AGENT.md content as the prompt preamble
+   - Relevant operator context from TypeDB
+   - Relevant memory (recall by topics matching the agent's `memory-scope`)
+   - The specific task
+
+3. **Consolidate results into long-term memory** — After sub-agent work completes:
+   ```bash
+   uv run python skills/agentic-memory/agentic_memory.py consolidate \
+     --content "<key finding>" --subject <entity-id> --fact-type knowledge --confidence 0.9
+   ```
+
+4. **Create session episodes** — At session close, capture a process account:
+   ```bash
+   uv run python skills/agentic-memory/agentic_memory.py create-episode \
+     --skill <primary-skill> --summary "<what was accomplished>"
+   ```
+
+### Available Agents
+
+Agents are defined in `agents/` and resolved to `.claude/agents/` via `agents-registry.yaml`:
+
+| Agent | Skills | Purpose |
+|-------|--------|---------|
+| `career-assistant` | jobhunt, web-search, agentic-memory, typedb-notebook | Career assistant: pipeline management, networking, interview prep/debrief, market monitoring, JSC tracking |
+
+Read an agent's `AGENT.md` before dispatching to understand its capabilities and operating rules.
+
+### Core OS Components (not skills)
+
+These are OS-level capabilities available to the coordinator and all agents, not domain skills:
+
+- **Identity + Memory + Context**: `skills/agentic-memory/agentic_memory.py` — operator profiles, memory claims, episodes, context domains
+- **Notebook**: `skills/typedb-notebook/typedb_notebook.py` — collections, notes, tagging, aboutness
+- **Verification**: `local_resources/skilllog/skill_logger.py` — invocation logging, quality labels, schema gap detection
+
 ## First-Run Check
 
 > **For agents (Claude Code, Claude Desktop, worktrees):** Before doing any work, check whether the project has been built. If `local_skills/` does not exist, run `make build` from the project root. This installs Python dependencies, clones external skills, wires `.claude/skills/` symlinks, and starts TypeDB. The build is idempotent — safe to re-run.
@@ -125,9 +185,10 @@ export VOYAGE_API_KEY=<key> # from https://dash.voyageai.com/
 ### Quick Reference
 
 ```bash
-make build            # Full Phase 1 build: deps + skills + TypeDB
+make build            # Full Phase 1 build: deps + skills + agents + TypeDB
 make build-env        # Install Python dependencies (uv sync --all-extras)
 make build-skills     # Resolve skills-registry.yaml → local_skills/ + wire .claude/skills/
+make build-agents     # Resolve agents-registry.yaml → .claude/agents/
 make build-db         # Start TypeDB + load all schemas (run after build-skills)
 make db-start         # Start TypeDB container only
 make db-init          # (Re-)load all schemas into running TypeDB
@@ -311,14 +372,26 @@ The data model uses a three-branch hierarchy rooted at `identifiable-entity`:
 ```
 identifiable-entity (abstract)         — id, name, description, provenance
 ├── domain-thing                       — real-world objects (papers, genes, jobs)
+│   ├── agent                          — operational actors (human or AI)
+│   │   ├── ai-agent                   — Claude, GPT-4, etc.
+│   │   └── person                     — enriched: name, email, linkedin, title, bio, phone
+│   │       ├── operator-user          — 10 context domains (identity, role, goals, etc.)
+│   │       ├── author                 — publication authorship
+│   │       └── jobhunt-contact        — contact-role (recruiter, hiring manager, etc.)
+│   ├── organization                   — enriched: linkedin, website, location, industry
+│   │   └── jobhunt-company            — job search context company
+│   └── interaction                    — type, date, outcome, follow-up tracking
 ├── collection                         — typed sets (corpora, searches, case files)
 └── information-content-entity (abstract) — content, format, cache-path
-    ├── artifact                       — raw captured content (PDF, HTML, API response)
+    ├── artifact                       — raw captured content (PDF, HTML, email, calendar)
     ├── fragment                       — extracted piece of an artifact
     └── note                           — Claude's analysis or annotation
 ```
 
 - **domain-thing** is the base for all domain objects. Namespace subtypes (e.g., `scilit-paper`, `jobhunt-position`, `apm-gene`) inherit from it.
+- **person** (sub agent) is the universal person model. All people — operator, authors, contacts — inherit from it. Enriched with linkedin-url, title, bio, phone-number. Plays works-at:employee and interaction-participation:participant.
+- **organization** (sub domain-thing) is enriched with linkedin-url, company-url, location, industry. Plays works-at:employer. `jobhunt-company` inherits from it.
+- **interaction** (sub domain-thing) tracks meetings, calls, emails, and interviews. Has type, date, outcome, follow-up tracking. Linked to participants via `interaction-participation` relation.
 - **collection** is typed per namespace: `scilit-corpus`, `jobhunt-search`, `apm-case-file`, `apm-disease-family`, `apm-patient-cohort`.
 - **information-content-entity** is only for content-bearing entities that own `content`, `cache-path`, `format`, etc.
 
@@ -375,18 +448,23 @@ local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
 
 **Schema loading:** `make build-db` automatically discovers `local_skills/*/schema.tql` — no manual registration needed.
 
-**Available Skills** (see `make skills-list` for live status):
+**Core OS Components** (managed by coordinator, not domain skills):
 
-- **typedb-notebook** *(core)* — Knowledge operations (remember, recall, organize)
+- **agentic-memory** *(core OS)* — Identity, memory, context (operator profiles, memory claims, episodes)
+  - `skills/agentic-memory/`
+- **typedb-notebook** *(core OS)* — Knowledge operations (collections, notes, tagging, aboutness)
   - `skills/typedb-notebook/`
+
+**Domain Skills** (see `make skills-list` for live status):
+
 - **web-search** *(core)* — Web search via SearXNG
   - `skills/web-search/`
 - **curation-skill-builder** *(core)* — Design guidance for new TypeDB-backed curation skills (use official `skill-creator` plugin for all other skill development)
   - `skills/curation-skill-builder/`
 - **jobhunt** *(external)* — Job hunting notebook
   - registered in `skills-registry.yaml`, resolved to `local_skills/jobhunt/`
-- **techrecon** *(external)* — Systematic investigation of software systems
-  - registered in `skills-registry.yaml`, resolved to `local_skills/techrecon/`
+- **tech-recon** *(core)* — Goal-driven technology investigation
+  - `skills/tech-recon/`
 - **scientific-literature** *(external)* — Multi-source scientific literature search and ingestion
   - Europe PMC, PubMed, OpenAlex, bioRxiv/medRxiv + semantic search (Voyage AI + Qdrant)
   - registered in `skills-registry.yaml`, resolved to `local_skills/scientific-literature/`
@@ -397,6 +475,26 @@ local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
 3. Add to `skills-registry.yaml` with `path: skills/<skill-name>`
 4. Run `make build-skills` to wire it into Claude Code
 5. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide
+
+### Agents
+
+Agents are named sub-agents that bind to specific skills. They follow the **same directory convention as skills**:
+
+```
+agents/<name>/          (agent definitions, committed to this repo)
+  AGENT.md              — Agent identity, capabilities, operating rules, skill bindings
+  agent.yaml            — Structured metadata (skills, connections, memory scope, dispatch config)
+```
+
+**Single source of truth:** `agents-registry.yaml` — lists all agents (core with `path:`, external with `git:`).
+
+**`make build-agents`** resolves the registry and symlinks agents to `.claude/agents/`.
+
+**Adding a new agent:**
+1. Copy template: `cp -r agents/_template agents/<agent-name>`
+2. Define identity, skills, connections, and memory scope in `AGENT.md` and `agent.yaml`
+3. Add to `agents-registry.yaml` with `path: agents/<agent-name>`
+4. Run `make build-agents` to wire it into Claude Code
 
 ### Dashboards
 
@@ -529,24 +627,38 @@ cd dashboard && npm install && npm run dev
 ## Directory Structure
 
 ```
-skills/                 # Core skills (committed — mirrors alhazen-skill-examples layout)
-├── _template/          # Template for new skills (excluded from registry)
-├── typedb-notebook/    # SKILL.md, skill.yaml, typedb_notebook.py
-├── web-search/         # SKILL.md, skill.yaml
-└── curation-skill-builder/    # SKILL.md, skill.yaml
+agents/                 # Named sub-agent definitions (committed)
+├── _template/          # Template for new agents
+└── career-assistant/   # AGENT.md, agent.yaml (jobhunt, web-search, agentic-memory)
 
-skills-registry.yaml    # Single source of truth: path: (core) + git: (external)
+agents-registry.yaml    # Single source of truth for agents: path: (core) + git: (external)
+
+skills/                 # Skills (committed — core OS + domain skills)
+├── _template/          # Template for new skills (excluded from registry)
+├── agentic-memory/     # Core OS: identity + memory + context
+├── typedb-notebook/    # Core OS: notebook operations
+├── web-search/         # Domain skill
+├── curation-skill-builder/  # Domain skill
+└── tech-recon/         # Domain skill
+
+skills-registry.yaml    # Single source of truth for skills: path: (core) + git: (external)
+
+connections/            # Documented connection capabilities
+└── README.md           # Index of MCP servers, CLI tools, APIs with permissions
 
 local_skills/           # Gitignored build artifact — DO NOT EDIT
-├── typedb-notebook  -> ../skills/typedb-notebook   (symlink, core)
-├── web-search       -> ../skills/web-search        (symlink, core)
+├── agentic-memory   -> ../skills/agentic-memory    (symlink, core OS)
+├── typedb-notebook  -> ../skills/typedb-notebook    (symlink, core OS)
+├── web-search       -> ../skills/web-search         (symlink, core)
 ├── jobhunt/            (real clone, external)
 └── ...
 
 .claude/skills/         # Gitignored — symlinks generated by make build-skills
-├── .gitignore          # * / !.gitignore
 ├── typedb-notebook  -> ../../local_skills/typedb-notebook
 └── jobhunt          -> ../../local_skills/jobhunt
+
+.claude/agents/         # Gitignored — symlinks generated by make build-agents
+└── career-assistant -> ../../agents/career-assistant
 
 local_resources/
 └── typedb/
@@ -588,6 +700,146 @@ cd deploy
 - **Anthropic SDK proxy bug:** The `@anthropic-ai/sdk` honors `HTTP_PROXY` but ignores `NO_PROXY`. The agent container must NOT have proxy env vars &mdash; it gets direct internet via `openclaw-external` network.
 - **LiteLLM memory:** Needs at least 1GB (`mem_limit: 1g`). The 512MB default causes OOM on startup.
 - **Model IDs:** Use exact Anthropic model IDs (`claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5-20251001`). Incorrect IDs return HTTP 404.
+
+## Schema Evolution
+
+When a schema gap requires changing existing entity types (hierarchy changes, attribute renames, type consolidation), use the declarative migration workflow instead of manual TypeQL `redefine`:
+
+### Workflow
+
+1. **Detect** — Schema gap found (by agent, skilllog hook, or manual review)
+2. **Save old schema** — Copy the current `.tql` file before editing:
+   ```bash
+   cp local_resources/typedb/alhazen_notebook.tql \
+      local_resources/typedb/migration-rules/<migration-name>/old_schema.tql
+   ```
+3. **Fix the schema** — Edit the `.tql` file with the desired changes
+4. **Write intent file** — Describe what changed and why:
+   ```yaml
+   # local_resources/typedb/migration-rules/<migration-name>/intent.yaml
+   renames:
+     - old: contact-email
+       new: email-address
+       reason: "Standardized on core person attribute"
+   hierarchy_changes:
+     - type: jobhunt-contact
+       old_parent: agent
+       new_parent: person
+       reason: "Contacts are people, should inherit person attributes"
+   ```
+5. **Generate rules** — Produce migration mapping rules:
+   ```bash
+   uv run python src/skillful_alhazen/utils/schema_diff.py diff \
+     --old local_resources/typedb/migration-rules/<migration-name>/old_schema.tql \
+     --new local_resources/typedb/alhazen_notebook.tql \
+     --generate-rules \
+     --rules-dir local_resources/typedb/migration-rules/<migration-name>/ \
+     --intent local_resources/typedb/migration-rules/<migration-name>/intent.yaml
+   ```
+6. **Test** — Run against temporary databases (iterative):
+   ```bash
+   make db-migrate-test RULES=local_resources/typedb/migration-rules/<migration-name>/
+   # Read errors, fix rules, re-run until clean
+   make db-migrate-test-clean   # when done testing
+   ```
+7. **Migrate** — Run against production:
+   ```bash
+   make db-migrate RULES=local_resources/typedb/migration-rules/<migration-name>/
+   ```
+8. **Verify** — Check reconciliation output, query migrated data
+
+### Key Commands
+
+```bash
+# Parse and inspect a schema file
+uv run python src/skillful_alhazen/utils/schema_diff.py parse --schema FILE.tql
+
+# Diff two schemas (JSON output)
+uv run python src/skillful_alhazen/utils/schema_diff.py diff --old OLD.tql --new NEW.tql
+
+# Diff with human-readable summary
+uv run python src/skillful_alhazen/utils/schema_diff.py diff --old OLD.tql --new NEW.tql --summary
+
+# Generate migration rules
+uv run python src/skillful_alhazen/utils/schema_diff.py diff \
+  --old OLD.tql --new NEW.tql \
+  --generate-rules --rules-dir RULES_DIR/ [--intent INTENT.yaml]
+
+# Test migration (non-destructive, iterative)
+make db-migrate-test RULES=RULES_DIR/
+
+# Run migration (production)
+make db-migrate RULES=RULES_DIR/
+
+# Clean up test databases
+make db-migrate-test-clean
+```
+
+### Why Not redefine?
+
+TypeDB 3.x `redefine` cannot reliably change entity hierarchies when existing data uses inherited `owns` declarations. The declarative migration approach (export → new schema → map data → verify) is safer and produces an auditable trail of rules.
+
+### Preferred Migration Method: Binary Backup + Query Transfer
+
+When the GLAV schema_mapper approach is too complex (many entity types, unclear attribute mappings), use the **binary backup + query transfer** method:
+
+1. **Export** current database via `make db-export` (binary backup preserves all data + schema)
+2. **Import** the backup as a temporary source database:
+   ```bash
+   uv run python .claude/skills/typedb-notebook/typedb_notebook.py import-db \
+     --zip ~/.alhazen/cache/typedb/alhazen_notebook_export_LATEST.zip \
+     --database alhazen_backup
+   ```
+3. **Drop and recreate** the main database with the new schema:
+   ```bash
+   # Delete main DB
+   uv run python -c "
+   from typedb.driver import TypeDB, Credentials, DriverOptions
+   d = TypeDB.driver('localhost:1729', Credentials('admin','password'), DriverOptions(is_tls_enabled=False))
+   d.databases.get('alhazen_notebook').delete(); d.close()"
+   # Recreate with new schema
+   make db-init
+   ```
+4. **Query the backup** to re-insert data into the new database. Write targeted TypeQL queries that read from `alhazen_backup` and insert into `alhazen_notebook`:
+   ```python
+   # Read from backup (old schema — data is intact)
+   with driver.transaction("alhazen_backup", TransactionType.READ) as tx:
+       results = list(tx.query('match $p isa jobhunt-position, has id $id, has name $n; fetch { "id": $id, "name": $n };').resolve())
+
+   # Write to new database (new schema)
+   with driver.transaction("alhazen_notebook", TransactionType.WRITE) as tx:
+       for r in results:
+           tx.query(f'insert $p isa jobhunt-position, has id "{r["id"]}", has name "{r["name"]}";').resolve()
+       tx.commit()
+   ```
+5. **Clean up** the backup database when satisfied
+
+**Why this works:** The binary backup preserves data with the old schema intact. Queries against the backup use the old schema's type inference (which works correctly for its own data). The new database has a clean schema loaded from the `.tql` files. You transfer data entity-by-entity using explicit attribute names — no generic `has $a` patterns.
+
+**Why not generic export?** TypeDB's `has $a` (match any attribute) pattern breaks when additive `define` statements have corrupted type inference. Always use explicit attribute names (`has name $n, has id $id`) when querying.
+
+**When to use which approach:**
+- **GLAV schema_mapper** — best for systematic migrations with clear attribute mappings (renames, type consolidation). Produces auditable YAML rules. Use `make db-migrate` / `make db-migrate-test`.
+- **Binary backup + query transfer** — best for quick migrations, exploratory schema changes, or when you have too many entity types for hand-written rules. More manual but avoids the schema_mapper's rule-writing overhead.
+- **Both together** — use binary backup as the source database for schema_mapper rules. This is what `make db-migrate` does internally.
+
+### GLAV for External Data Integration
+
+The GLAV (Global-as-View / Local-as-View) methodology behind `schema_mapper.py` is not limited to schema migration — it is a general-purpose **information integration** approach. Use it whenever external data sources need to be imported or linked into the notebook's TypeDB representation:
+
+1. **Build a temporary TypeDB image** of the external database. Load the external data into a separate TypeDB database using the source's native schema (or a minimal schema that captures its structure).
+2. **Write YAML mapping rules** that define how the external schema maps to the notebook's `alhazen_notebook.tql` entity types. Each rule is a `(source_match, target_insert)` pair with skolemization for deterministic ID generation.
+3. **Run the mapper** from the external database into `alhazen_notebook`:
+   ```bash
+   uv run python src/skillful_alhazen/utils/schema_mapper.py run \
+     --source-db external_source --target-db alhazen_notebook \
+     --rules-dir local_resources/typedb/integration-rules/external-name/
+   ```
+4. **Reconcile** to verify completeness.
+
+This is how the DisMech disease mechanism knowledge graph was originally integrated — an external dataset loaded into a temporary database, then mapped into the notebook's entity hierarchy via declarative rules. The same pattern applies to any external data source: public databases (PubMed, Monarch, ChEMBL), partner data exports, or API-harvested datasets.
+
+**Key principle:** The notebook schema (`alhazen_notebook.tql` + skill schemas) is the **global schema** — the single integrated view. External sources are **local schemas** that get mapped into it. The mapping rules are the explicit, auditable bridge between them.
 
 ## Team Conventions
 

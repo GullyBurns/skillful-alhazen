@@ -72,6 +72,25 @@ attribute given-name, value string;
 attribute family-name, value string;
 attribute email-address, value string;
 
+# Person enrichment
+attribute linkedin-url, value string;
+attribute title, value string;
+attribute phone-number, value string;
+attribute bio, value string;
+
+# Interaction tracking
+attribute interaction-type, value string;
+attribute interaction-date, value datetime;
+attribute outcome, value string;
+attribute follow-up-by, value datetime;
+attribute follow-up-status, value string;
+attribute participant-role, value string;
+
+# Organization enrichment
+attribute company-url, value string;
+attribute location, value string;
+attribute industry, value string;
+
 # Episode / session tracking
 attribute session-id, value string;
 attribute source-skill, value string;
@@ -205,7 +224,13 @@ entity ai-agent sub agent;
 entity person sub agent,
     owns given-name,
     owns family-name,
-    owns email-address;
+    owns email-address,
+    owns linkedin-url,
+    owns title,
+    owns phone-number,
+    owns bio,
+    plays interaction-participation:participant,
+    plays works-at:employee;
 
 
 # AUTHOR - Human who authors publications (sub person, not bare agent)
@@ -216,7 +241,22 @@ entity author sub person,
 
 # ORGANIZATION - Groups of persons/agents (sub domain-thing for full identifiable-entity hierarchy)
 entity organization sub domain-thing,
-    plays affiliation:organization;
+    owns linkedin-url,
+    owns company-url,
+    owns location,
+    owns industry,
+    plays affiliation:organization,
+    plays works-at:employer;
+
+
+# INTERACTION - A tracked interaction between persons (meeting, call, email, interview)
+entity interaction sub domain-thing,
+    owns interaction-type,
+    owns interaction-date,
+    owns outcome,
+    owns follow-up-by,
+    owns follow-up-status,
+    plays interaction-participation:interaction;
 
 
 # -----------------------------------------------------------------------------
@@ -317,6 +357,21 @@ relation affiliation,
     owns valid-until,
     relates affiliated-agent,
     relates organization;
+
+
+# WORKS-AT - Person employed at / associated with an organization
+relation works-at,
+    owns valid-from,
+    owns valid-until,
+    relates employee,
+    relates employer;
+
+
+# INTERACTION-PARTICIPATION - Links persons to interactions with roles
+relation interaction-participation,
+    owns participant-role,
+    relates interaction,
+    relates participant;
 
 
 # CITATION-REFERENCE - References between Things (paper cites paper)

@@ -1,0 +1,22 @@
+name: career-assistant
+description: "Career assistant — pipeline management, networking, interview prep/debrief, market monitoring, JSC tracking"
+
+skills:
+  - jobhunt
+  - web-search
+  - agentic-memory
+  - typedb-notebook
+
+connections:
+  - searxng
+
+memory_scope:
+  - job-applications
+  - networking
+  - interviews
+  - jsc-process
+  - market-intelligence
+
+dispatch:
+  model: opus
+  isolation: none

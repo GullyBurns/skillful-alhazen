@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, DM_Serif_Display, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { InspectorPanel } from "@/components/InspectorPanel";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -35,7 +34,6 @@ export default function RootLayout({
         className={`${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable} antialiased`}
       >
         {children}
-        <InspectorPanel />
       </body>
     </html>
   );

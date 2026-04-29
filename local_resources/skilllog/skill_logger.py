@@ -287,6 +287,14 @@ def run_hook():
             f"    --missing \"<what type/attribute/relation is absent in TypeDB?>\" \\\n"
             f"    --suggested \"<suggested TypeQL snippet>\"\n"
             f"Target repo: {_repo}\n"
+            f"\n"
+            f"If this gap affects EXISTING entity types (hierarchy changes, attribute moves),\n"
+            f"use the schema evolution workflow:\n"
+            f"  1. Save old schema: cp <schema.tql> local_resources/typedb/migration-rules/<name>/old_schema.tql\n"
+            f"  2. Fix the schema\n"
+            f"  3. Generate rules: uv run python src/skillful_alhazen/utils/schema_diff.py diff --old OLD --new NEW --generate-rules --rules-dir RULES/\n"
+            f"  4. Test: make db-migrate-test RULES=RULES/\n"
+            f"  See CLAUDE.md \"Schema Evolution\" section for full workflow.\n"
         )
     elif exit_code != 0:
         # Non-schema execution failure — still worth surfacing

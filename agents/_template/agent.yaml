@@ -1,0 +1,16 @@
+name: your-agent-name
+description: Brief description of what this agent does
+
+skills:
+  - skill-one
+  - skill-two
+
+connections: []
+
+memory_scope:
+  - topic-one
+  - topic-two
+
+dispatch:
+  model: sonnet
+  isolation: none

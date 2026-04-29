@@ -36,11 +36,11 @@
     "color": "cyan"
   },
   {
-    "slug": "alg-precision-therapeutics",
+    "slug": "dismech-notebook",
     "enabled": true,
-    "name": "Disease Mechanism Dashboard",
-    "description": "Investigate rare disease mechanisms and therapeutic strategies from MONDO diagnoses.",
-    "url_path": "/apt",
+    "name": "DisMech Notebook",
+    "description": "Rare disease mechanism knowledge mapped into Alhazen notebook memory.",
+    "url_path": "/dismech",
     "icon": "Dna",
     "color": "teal"
   },
