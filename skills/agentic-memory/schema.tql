@@ -26,6 +26,10 @@ relation relationship-context,
     relates from-person,
     relates to-person;
 
+entity person
+    plays relationship-context:from-person,
+    plays relationship-context:to-person;
+
 relation fact-evidence,
     relates derived,
     relates source;
@@ -53,9 +57,7 @@ entity operator-user sub person,
     owns preferences-summary,
     owns domain-expertise,
     plays project-involvement:participant,
-    plays tool-familiarity:practitioner,
-    plays relationship-context:from-person,
-    plays relationship-context:to-person;
+    plays tool-familiarity:practitioner;
 
 entity application-user sub person,
     plays project-involvement:participant;

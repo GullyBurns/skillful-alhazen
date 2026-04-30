@@ -174,7 +174,14 @@ deploy/ssh-keys/*.crt
 
 # Local Claude Files
 .claude/skills
-.claude/settings.local.json 
+.claude/agents
+.claude/settings.local.json
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Data exports (migration artifacts)
+exports/
 
 # Local skills registry (private/proprietary skills)
 skills-registry-local.yaml.worktrees/
