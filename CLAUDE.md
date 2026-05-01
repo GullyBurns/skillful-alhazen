@@ -28,23 +28,13 @@ Claude Code acts as the **coordinator agent** for the Alhazen notebook OS. The O
    uv run python skills/agentic-memory/agentic_memory.py get-context --operator-id <id> 2>/dev/null
    ```
 
-2. **Dispatch sub-agents for domain work** — Read agent definitions from `.claude/agents/` and dispatch using the `Agent()` tool. Each agent has:
-   - `AGENT.md` — identity, capabilities, operating rules, skill bindings
-   - `agent.yaml` — structured metadata (skills, connections, memory scope, dispatch config)
-
-   When dispatching, inject:
-   - The agent's AGENT.md content as the prompt preamble
-   - Relevant operator context from TypeDB
-   - Relevant memory (recall by topics matching the agent's `memory-scope`)
-   - The specific task
-
-3. **Consolidate results into long-term memory** — After sub-agent work completes:
+2. **Consolidate results into long-term memory** — After significant work:
    ```bash
    uv run python skills/agentic-memory/agentic_memory.py consolidate \
      --content "<key finding>" --subject <entity-id> --fact-type knowledge --confidence 0.9
    ```
 
-4. **Create session episodes** — At session close, capture a process account:
+3. **Create session episodes** — At session close, capture a process account:
    ```bash
    uv run python skills/agentic-memory/agentic_memory.py create-episode \
      --skill <primary-skill> --summary "<what was accomplished>"
@@ -60,9 +50,11 @@ Agents are defined in `agents/` and resolved to `.claude/agents/` via `agents-re
 
 Read an agent's `AGENT.md` before dispatching to understand its capabilities and operating rules.
 
+> **Note:** Sub-agent dispatch via `Agent()` is not currently implemented. Agents are used as persona prompts loaded via Claude Code's `/agents` feature. Sub-agent orchestration may be added in the future.
+
 ### Core OS Components (not skills)
 
-These are OS-level capabilities available to the coordinator and all agents, not domain skills:
+These are OS-level capabilities available to the coordinator, not domain skills:
 
 - **Identity + Memory + Context**: `skills/agentic-memory/agentic_memory.py` — operator profiles, memory claims, episodes, context domains
 - **Notebook**: `skills/typedb-notebook/typedb_notebook.py` — collections, notes, tagging, aboutness
