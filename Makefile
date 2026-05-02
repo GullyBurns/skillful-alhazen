@@ -151,17 +151,17 @@ build-dashboard: build-skills ## Wire skill dashboard pages/routes/components in
 	  rm -rf "dashboard/src/app/api/$${skill_name}" 2>/dev/null || true; \
 	  rm -f "dashboard/src/lib/$${skill_name}.ts" 2>/dev/null || true; \
 	  [ -d "$${skill_dir}dashboard/components" ] && \
-	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/components" \
-	             "dashboard/src/components/$${skill_name}"; \
+	    cp -R "$${skill_dir}dashboard/components" \
+	          "dashboard/src/components/$${skill_name}"; \
 	  [ -f "$${skill_dir}dashboard/lib.ts" ] && \
-	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/lib.ts" \
-	             "dashboard/src/lib/$${skill_name}.ts"; \
+	    cp "$${skill_dir}dashboard/lib.ts" \
+	       "dashboard/src/lib/$${skill_name}.ts"; \
 	  [ -d "$${skill_dir}dashboard/pages" ] && \
-	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/pages" \
-	             "dashboard/src/app/($${skill_name})"; \
+	    cp -R "$${skill_dir}dashboard/pages" \
+	          "dashboard/src/app/($${skill_name})"; \
 	  [ -d "$${skill_dir}dashboard/routes" ] && \
-	    ln -sfn "$$(pwd)/$${skill_dir}dashboard/routes" \
-	             "dashboard/src/app/api/$${skill_name}"; \
+	    cp -R "$${skill_dir}dashboard/routes" \
+	          "dashboard/src/app/api/$${skill_name}"; \
 	done
 	@echo "  Generating dashboard/public/skills-config.json..."
 	@uv run python -c "\

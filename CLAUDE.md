@@ -28,23 +28,13 @@ Claude Code acts as the **coordinator agent** for the Alhazen notebook OS. The O
    uv run python skills/agentic-memory/agentic_memory.py get-context --operator-id <id> 2>/dev/null
    ```
 
-2. **Dispatch sub-agents for domain work** — Read agent definitions from `.claude/agents/` and dispatch using the `Agent()` tool. Each agent has:
-   - `AGENT.md` — identity, capabilities, operating rules, skill bindings
-   - `agent.yaml` — structured metadata (skills, connections, memory scope, dispatch config)
-
-   When dispatching, inject:
-   - The agent's AGENT.md content as the prompt preamble
-   - Relevant operator context from TypeDB
-   - Relevant memory (recall by topics matching the agent's `memory-scope`)
-   - The specific task
-
-3. **Consolidate results into long-term memory** — After sub-agent work completes:
+2. **Consolidate results into long-term memory** — After significant work:
    ```bash
    uv run python skills/agentic-memory/agentic_memory.py consolidate \
      --content "<key finding>" --subject <entity-id> --fact-type knowledge --confidence 0.9
    ```
 
-4. **Create session episodes** — At session close, capture a process account:
+3. **Create session episodes** — At session close, capture a process account:
    ```bash
    uv run python skills/agentic-memory/agentic_memory.py create-episode \
      --skill <primary-skill> --summary "<what was accomplished>"
@@ -60,9 +50,11 @@ Agents are defined in `agents/` and resolved to `.claude/agents/` via `agents-re
 
 Read an agent's `AGENT.md` before dispatching to understand its capabilities and operating rules.
 
+> **Note:** Sub-agent dispatch via `Agent()` is not currently implemented. Agents are used as persona prompts loaded via Claude Code's `/agents` feature. Sub-agent orchestration may be added in the future.
+
 ### Core OS Components (not skills)
 
-These are OS-level capabilities available to the coordinator and all agents, not domain skills:
+These are OS-level capabilities available to the coordinator, not domain skills:
 
 - **Identity + Memory + Context**: `skills/agentic-memory/agentic_memory.py` — operator profiles, memory claims, episodes, context domains
 - **Notebook**: `skills/typedb-notebook/typedb_notebook.py` — collections, notes, tagging, aboutness
@@ -426,21 +418,22 @@ Large artifacts (PDFs, HTML, images) are stored in a file cache organized by con
 Skills follow a **self-contained directory architecture**:
 ```
 skills/<name>/          (core skills, committed to this repo)
-  SKILL.md              — Short selection file (~30 lines): when to use, quick start
-  USAGE.md              — Full reference (on-demand): commands, workflows, data model
+  SKILL.md              — Complete skill reference: triggers, workflows, commands, data model
   skill.yaml            — structured metadata (name, description, license, etc.)
   <name>.py             — CLI entry point
   schema.tql            — TypeDB schema extension (loaded by make build-db)
+  quality-checks.yaml   — data quality audit rules (optional)
+  dashboard/            — Optional Next.js dashboard components
 
 local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
   → core skills: symlinked from ../skills/<name>
   → external skills: cloned from git
 ```
 
-**SKILL.md / USAGE.md convention:**
-- **SKILL.md** (~30 lines) is loaded into context on every conversation. Keep it short: frontmatter, purpose, triggers, prerequisites, one quick-start example, and a line saying "read USAGE.md before executing commands."
-- **USAGE.md** is read on-demand when actively using the skill. Put all command details, sensemaking workflows, data model tables, TypeDB pitfalls, and examples here.
-- This split reduces static context from ~26,600 → ~2,000 tokens for SKILL.mds.
+**SKILL.md convention:**
+- **Single file** containing everything: triggers, prerequisites, workflows (organized by curation phase), commands, data model, quality checks.
+- Use a `read_strategy` field in the YAML frontmatter to tell Claude which sections to read for which tasks — not every section needs to be read every time.
+- Organize by **curation phases**: Discovery → Ingestion → Sensemaking → Analysis → Reporting. This maps to the natural workflow of how a skill processes information.
 
 **Single source of truth:** `skills-registry.yaml` — lists all skills (core with `path:`, external with `git:`).
 
@@ -471,7 +464,7 @@ local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
 
 **Adding a new skill:**
 1. Copy template: `cp -r skills/_template skills/<skill-name>`
-2. Implement short `SKILL.md` (triggers, prereqs, quick start, USAGE.md reference), full `USAGE.md` (commands, workflows, data model), `skill.yaml`, `<skill-name>.py`, `schema.tql`
+2. Implement `SKILL.md` (triggers, prereqs, workflows by curation phase, commands, data model), `skill.yaml`, `<skill-name>.py`, `schema.tql`
 3. Add to `skills-registry.yaml` with `path: skills/<skill-name>`
 4. Run `make build-skills` to wire it into Claude Code
 5. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide
@@ -844,6 +837,26 @@ This is how the DisMech disease mechanism knowledge graph was originally integra
 ## Team Conventions
 
 When Claude makes a mistake, add it to this section so it doesn't happen again.
+
+### Data Quality Audit Process
+
+Skills can define data quality checks in `quality-checks.yaml` (declarative TypeQL queries with root cause analysis). The audit runner executes these and files structured GitHub issues. The fix cycle is:
+
+1. **Run audit**: `uv run python src/skillful_alhazen/utils/audit_runner.py run --checks local_skills/<skill>/quality-checks.yaml`
+2. **File issues**: Add `--file-issues` to create GitHub issues on the skill's repo with full improvement records (finding, data fix, root cause, prevention fix, verification test)
+3. **Plan the fix**: Read the issue, create a branch, write an implementation plan. **Record the plan as a comment on the issue** so it's visible in the PR trail:
+   ```bash
+   gh issue comment <number> --repo <repo> --body "## Implementation Plan\n..."
+   ```
+4. **Implement**: Fix the root cause (code/schema/prompt change) + write a one-off data repair script if needed
+5. **Verify**: Re-run the audit — the finding should disappear or improve
+6. **PR**: Create a PR linking the issue. The PR documents: the code fix, before/after audit comparison, and closes the issue
+   ```bash
+   gh pr create --title "fix: <issue title>" --body "Fixes #<number>\n\n## Before\n<audit output>\n\n## After\n<audit output>"
+   ```
+7. **Close**: Merge PR → issue auto-closes
+
+**Every fix must address the root cause**, not just repair the data. The issue's `Prevention Fix` section specifies what code/prompt/convention change prevents recurrence. The `Verification Test` section specifies how to confirm the root cause is fixed.
 
 ### Schema Gap Reporting
 
