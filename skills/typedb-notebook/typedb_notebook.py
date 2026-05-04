@@ -88,11 +88,11 @@ def insert_collection(args):
     """Create a new collection."""
     cid = args.id or generate_id("collection")
 
-    query = f'insert $c isa collection, has id "{cid}", has name "{escape_string(args.name)}"'
+    query = f'insert $c isa alh-collection, has id "{cid}", has name "{escape_string(args.name)}"'
     if args.description:
         query += f', has description "{escape_string(args.description)}"'
     if args.query:
-        query += f', has logical-query "{escape_string(args.query)}"'
+        query += f', has alh-logical-query "{escape_string(args.query)}"'
     query += ";"
 
     with get_driver() as driver:
@@ -109,7 +109,7 @@ def insert_note(args):
     nid = args.id or generate_id("note")
 
     # Insert the note
-    query = f'insert $n isa note, has id "{nid}", has content "{escape_string(args.content)}"'
+    query = f'insert $n isa alh-note, has id "{nid}", has content "{escape_string(args.content)}"'
     if args.name:
         query += f', has name "{escape_string(args.name)}"'
     if args.confidence:
@@ -121,9 +121,9 @@ def insert_note(args):
             tx.query(query).resolve()
             tx.commit()
 
-        # Create aboutness relation
+        # Create alh-aboutness relation
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-            rel_query = f'match $s isa identifiable-entity, has id "{args.subject}"; $n isa note, has id "{nid}"; insert (note: $n, subject: $s) isa aboutness;'
+            rel_query = f'match $s isa alh-identifiable-entity, has id "{args.subject}"; $n isa alh-note, has id "{nid}"; insert (note: $n, subject: $s) isa alh-aboutness;'
             tx.query(rel_query).resolve()
             tx.commit()
 
@@ -133,14 +133,14 @@ def insert_note(args):
                 tag_id = generate_id("tag")
                 with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
                     try:
-                        tx.query(f'insert $t isa tag, has id "{tag_id}", has name "{tag}";').resolve()
+                        tx.query(f'insert $t isa alh-tag, has id "{tag_id}", has name "{tag}";').resolve()
                         tx.commit()
                     except Exception:
                         tx.rollback()  # Tag might already exist
 
                 with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
                     tx.query(
-                        f'match $n isa note, has id "{nid}"; $t isa tag, has name "{tag}"; insert (tagged-entity: $n, tag: $t) isa tagging;'
+                        f'match $n isa alh-note, has id "{nid}"; $t isa alh-tag, has name "{tag}"; insert (tagged-entity: $n, tag: $t) isa alh-tagging;'
                     ).resolve()
                     tx.commit()
 
@@ -153,7 +153,7 @@ def query_collection(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             # Get collection
             result = list(tx.query(
-                f'match $c isa collection, has id "{args.id}"; '
+                f'match $c isa alh-collection, has id "{args.id}"; '
                 f'fetch {{ "id": $c.id, "name": $c.name, "description": $c.description }};'
             ).resolve())
             if not result:
@@ -162,8 +162,8 @@ def query_collection(args):
 
             # Get members
             members = list(tx.query(
-                f'match $c isa collection, has id "{args.id}"; '
-                f'(collection: $c, member: $m) isa collection-membership; '
+                f'match $c isa alh-collection, has id "{args.id}"; '
+                f'(collection: $c, member: $m) isa alh-collection-membership; '
                 f'fetch {{ "id": $m.id, "name": $m.name }};'
             ).resolve())
 
@@ -185,8 +185,8 @@ def query_notes(args):
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             query = (
-                f'match $s isa identifiable-entity, has id "{args.subject}"; '
-                f'(note: $n, subject: $s) isa aboutness; '
+                f'match $s isa alh-identifiable-entity, has id "{args.subject}"; '
+                f'(note: $n, subject: $s) isa alh-aboutness; '
                 f'fetch {{ "id": $n.id, "name": $n.name, "content": $n.content, "confidence": $n.confidence }};'
             )
             results = [{k: v for k, v in r.items() if v is not None}
@@ -212,7 +212,7 @@ def tag_entity(args):
         tag_id = generate_id("tag")
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             try:
-                tx.query(f'insert $t isa tag, has id "{tag_id}", has name "{args.tag}";').resolve()
+                tx.query(f'insert $t isa alh-tag, has id "{tag_id}", has name "{args.tag}";').resolve()
                 tx.commit()
             except Exception:
                 tx.rollback()  # Tag might already exist
@@ -220,7 +220,7 @@ def tag_entity(args):
         # Create tagging relation
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(
-                f'match $e isa identifiable-entity, has id "{args.entity}"; $t isa tag, has name "{args.tag}"; insert (tagged-entity: $e, tag: $t) isa tagging;'
+                f'match $e isa alh-identifiable-entity, has id "{args.entity}"; $t isa alh-tag, has name "{args.tag}"; insert (tagged-entity: $e, tag: $t) isa alh-tagging;'
             ).resolve()
             tx.commit()
 
@@ -232,8 +232,8 @@ def search_tag(args):
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             query = (
-                f'match $t isa tag, has name "{args.tag}"; '
-                f'(tagged-entity: $e, tag: $t) isa tagging; '
+                f'match $t isa alh-tag, has name "{args.tag}"; '
+                f'(tagged-entity: $e, tag: $t) isa alh-tagging; '
                 f'fetch {{ "id": $e.id, "name": $e.name }};'
             )
             results = [{k: v for k, v in r.items() if v is not None}
@@ -255,47 +255,47 @@ def search_tag(args):
 def record_gap(args):
     """Record a schema gap for a skill."""
     with get_driver() as driver:
-        # Upsert skill-model
+        # Upsert slog-skill-model
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             check = list(tx.query(
-                f'match $s isa skill-model, has skill-name "{escape_string(args.skill)}"; fetch {{ "id": $s.id }};'
+                f'match $s isa slog-skill-model, has slog-skill-name "{escape_string(args.skill)}"; fetch {{ "id": $s.id }};'
             ).resolve())
 
         if check:
             skill_id = check[0]["id"]
         else:
-            skill_id = generate_id("skill-model")
+            skill_id = generate_id("slog-skill-model")
             with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
                 tx.query(
-                    f'insert $s isa skill-model, has id "{skill_id}", has name "{escape_string(args.skill)}", '
-                    f'has skill-name "{escape_string(args.skill)}";'
+                    f'insert $s isa slog-skill-model, has id "{skill_id}", has name "{escape_string(args.skill)}", '
+                    f'has slog-skill-name "{escape_string(args.skill)}";'
                 ).resolve()
                 tx.commit()
 
-        # Insert schema-gap
+        # Insert slog-schema-gap
         gap_id = generate_id("gap")
         severity = getattr(args, "severity", "moderate") or "moderate"
         query = (
-            f'insert $g isa schema-gap, has id "{gap_id}", '
+            f'insert $g isa slog-schema-gap, has id "{gap_id}", '
             f'has name "{escape_string(args.skill)}: {escape_string(args.type)}", '
             f'has description "{escape_string(args.description)}", '
-            f'has gap-type "{escape_string(args.type)}", '
-            f'has gap-severity "{severity}", '
-            f'has gap-status "open"'
+            f'has slog-gap-type "{escape_string(args.type)}", '
+            f'has slog-gap-severity "{severity}", '
+            f'has slog-gap-status "open"'
         )
         if args.example:
-            query += f', has gap-example "{escape_string(args.example)}"'
+            query += f', has slog-gap-example "{escape_string(args.example)}"'
         query += ";"
 
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
             tx.commit()
 
-        # Link gap to skill-model
+        # Link gap to slog-skill-model
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(
-                f'match $s isa skill-model, has id "{skill_id}"; $g isa schema-gap, has id "{gap_id}"; '
-                f'insert (skill-model: $s, schema-gap: $g) isa skill-has-gap;'
+                f'match $s isa slog-skill-model, has id "{skill_id}"; $g isa slog-schema-gap, has id "{gap_id}"; '
+                f'insert (slog-skill-model: $s, slog-schema-gap: $g) isa slog-skill-has-gap;'
             ).resolve()
             tx.commit()
 
@@ -308,26 +308,26 @@ def list_gaps(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             skill_filter = ""
             if hasattr(args, "skill") and args.skill:
-                skill_filter = f'$s isa skill-model, has skill-name "{escape_string(args.skill)}"; '
+                skill_filter = f'$s isa slog-skill-model, has slog-skill-name "{escape_string(args.skill)}"; '
 
             status_filter = ""
             if hasattr(args, "status") and args.status:
-                status_filter = f'$g has gap-status "{escape_string(args.status)}"; '
+                status_filter = f'$g has slog-gap-status "{escape_string(args.status)}"; '
             else:
-                status_filter = '$g has gap-status "open"; '
+                status_filter = '$g has slog-gap-status "open"; '
 
             if skill_filter:
                 query = (
-                    f'match {skill_filter}(skill-model: $s, schema-gap: $g) isa skill-has-gap; '
+                    f'match {skill_filter}(slog-skill-model: $s, slog-schema-gap: $g) isa slog-skill-has-gap; '
                     f'{status_filter}'
-                    f'fetch {{ "id": $g.id, "type": $g.gap-type, "severity": $g.gap-severity, '
-                    f'"status": $g.gap-status, "description": $g.description, "example": $g.gap-example }};'
+                    f'fetch {{ "id": $g.id, "type": $g.slog-gap-type, "severity": $g.slog-gap-severity, '
+                    f'"status": $g.slog-gap-status, "description": $g.description, "example": $g.slog-gap-example }};'
                 )
             else:
                 query = (
-                    f'match $g isa schema-gap; {status_filter}'
-                    f'fetch {{ "id": $g.id, "type": $g.gap-type, "severity": $g.gap-severity, '
-                    f'"status": $g.gap-status, "description": $g.description, "example": $g.gap-example }};'
+                    f'match $g isa slog-schema-gap; {status_filter}'
+                    f'fetch {{ "id": $g.id, "type": $g.slog-gap-type, "severity": $g.slog-gap-severity, '
+                    f'"status": $g.slog-gap-status, "description": $g.description, "example": $g.slog-gap-example }};'
                 )
 
             results = [{k: v for k, v in r.items() if v is not None}
@@ -342,15 +342,15 @@ def close_gap(args):
         # Delete old status, insert new
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(
-                f'match $g isa schema-gap, has id "{args.id}", has gap-status $s; '
+                f'match $g isa slog-schema-gap, has id "{args.id}", has slog-gap-status $s; '
                 f'delete $s;'
             ).resolve()
             tx.commit()
 
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(
-                f'match $g isa schema-gap, has id "{args.id}"; '
-                f'insert $g has gap-status "{escape_string(args.status)}";'
+                f'match $g isa slog-schema-gap, has id "{args.id}"; '
+                f'insert $g has slog-gap-status "{escape_string(args.status)}";'
             ).resolve()
             tx.commit()
 
