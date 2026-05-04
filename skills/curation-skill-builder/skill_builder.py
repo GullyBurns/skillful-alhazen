@@ -23,7 +23,7 @@ Commands:
     Design decisions:
         add-decision        Record a schema design decision
         add-rationale       Add reasoning for a decision
-        link-gap            Link a schema-gap as motivation for a decision
+        link-gap            Link a slog-schema-gap as motivation for a decision
         list-decisions      List decisions for a domain
 
     Experiments:
@@ -476,7 +476,7 @@ def cmd_init_domain(args):
     if args.description:
         clauses.append(s("description", args.description))
     if args.skill:
-        clauses.append(s("dm-skill-name", args.skill))
+        clauses.append(s("dm-slog-skill-name", args.skill))
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
@@ -494,7 +494,7 @@ def cmd_list_domains(args):
     q = """
         match $d isa dm-domain;
         fetch { "id": $d.id, "name": $d.name, "description": $d.description,
-                "skill": $d.dm-skill-name, "created": $d.created-at };
+                "skill": $d.dm-slog-skill-name, "created": $d.created-at };
     """
     with get_driver() as driver:
         results = fetch_query(driver, q)
@@ -525,7 +525,7 @@ def cmd_show_domain(args):
         d_q = f"""
             match $d isa dm-domain, has id "{eid}";
             fetch {{ "id": $d.id, "name": $d.name, "description": $d.description,
-                    "skill": $d.dm-skill-name, "task": $d.dm-skill-task, "created": $d.created-at }};
+                    "skill": $d.dm-slog-skill-name, "task": $d.dm-skill-task, "created": $d.created-at }};
         """
         d_res = fetch_query(driver, d_q)
         if not d_res:
@@ -1115,7 +1115,7 @@ def cmd_add_rationale(args):
 
 
 def cmd_link_gap(args):
-    """Link a schema-gap ID to a design decision (stored as dm-linked-gap-id attribute)."""
+    """Link a slog-schema-gap ID to a design decision (stored as dm-linked-gap-id attribute)."""
     if not TYPEDB_AVAILABLE:
         out({"success": False, "error": "typedb-driver not installed"})
         return
@@ -1382,7 +1382,7 @@ def cmd_export_design(args):
         # Domain info
         d_q = f"""
             match $d isa dm-domain, has id "{eid}";
-            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-skill-name, "task": $d.dm-skill-task }};
+            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-slog-skill-name, "task": $d.dm-skill-task }};
         """
         d_res = fetch_query(driver, d_q)
         if not d_res:
@@ -1985,7 +1985,7 @@ def cmd_export_design_phases(args):
         # Domain info
         d_q = f"""
             match $d isa dm-domain, has id "{eid}";
-            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-skill-name }};
+            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-slog-skill-name }};
         """
         d_res = fetch_query(driver, d_q)
         if not d_res:
@@ -2152,7 +2152,7 @@ def cmd_generate_evals(args):
         # Domain info
         d_q = f"""
             match $d isa dm-domain, has id "{eid}";
-            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-skill-name }};
+            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-slog-skill-name }};
         """
         d_res = fetch_query(driver, d_q)
         if not d_res:
@@ -2523,7 +2523,7 @@ def cmd_export_skill_data(args):
     """
     Export all skill-builder KG data for a skill as a structured JSON snapshot.
 
-    Queries domains whose dm-skill-name matches --skill, plus their phase items
+    Queries domains whose dm-slog-skill-name matches --skill, plus their phase items
     (entity schemas, source schemas, derivation skills, analysis skills) and all
     design gaps linked to those phase items.
     """
@@ -2537,15 +2537,15 @@ def cmd_export_skill_data(args):
     with get_driver() as driver:
         # Find domains with matching skill name
         domain_q = f"""
-            match $d isa dm-domain, has dm-skill-name "{escape_string(skill_name)}";
+            match $d isa dm-domain, has dm-slog-skill-name "{escape_string(skill_name)}";
             fetch {{ "id": $d.id, "name": $d.name, "description": $d.description,
-                    "skill": $d.dm-skill-name, "created": $d.created-at }};
+                    "skill": $d.dm-slog-skill-name, "created": $d.created-at }};
         """
         domains_raw = fetch_query(driver, domain_q)
 
         if not domains_raw:
             out({"success": True, "skill": skill_name, "exported_at": ts, "domains": [],
-                 "message": f"No domains found with dm-skill-name='{skill_name}'"})
+                 "message": f"No domains found with dm-slog-skill-name='{skill_name}'"})
             return
 
         domains_out = []
@@ -2668,7 +2668,7 @@ def cmd_import_skill_data(args):
                 if domain.get("description"):
                     clauses.append(s("description", domain["description"]))
                 if domain.get("skill"):
-                    clauses.append(s("dm-skill-name", domain["skill"]))
+                    clauses.append(s("dm-slog-skill-name", domain["skill"]))
                 with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
                     insert_entity(tx, "dm-domain", clauses)
                     tx.commit()
@@ -2865,12 +2865,12 @@ def cmd_validate_namespace(args):
 
     # --- Core types exempt from prefix checks ---
     CORE_TYPES = {
-        "identifiable-entity", "domain-thing", "collection",
-        "information-content-entity", "artifact", "fragment", "note",
+        "alh-identifiable-entity", "alh-domain-thing", "collection",
+        "alh-information-content-entity", "artifact", "fragment", "note",
         "episode", "agent", "person", "author", "organization",
-        "interaction", "tag", "vocabulary", "vocabulary-type",
-        "vocabulary-property", "user-question", "information-resource",
-        "ai-agent", "operator-user", "application-user", "memory-claim-note",
+        "interaction", "tag", "vocabulary", "alh-vocabulary-type",
+        "alh-vocabulary-property", "alh-user-question", "alh-information-resource",
+        "alh-ai-agent", "nbmem-operator-user", "nbmem-application-user", "nbmem-memory-claim-note",
     }
 
     # --- Rule (a): Read skill.yaml and extract namespace ---
@@ -3105,7 +3105,7 @@ def main():
     p.add_argument("--rationale", required=True, help="Reasoning text")
     p.add_argument("--alternatives", help="Why alternatives were rejected")
 
-    p = subparsers.add_parser("link-gap", help="Link a schema-gap as motivation for a decision")
+    p = subparsers.add_parser("link-gap", help="Link a slog-schema-gap as motivation for a decision")
     p.add_argument("--decision-id", required=True, help="Decision ID")
     p.add_argument("--gap-id", required=True, help="Schema-gap ID from skilllog")
 
@@ -3293,7 +3293,7 @@ def main():
     # --- Skill data export/import ---
     p = subparsers.add_parser("export-skill-data",
                               help="Export skill-builder KG snapshot for a skill (for zip bundles)")
-    p.add_argument("--skill", required=True, help="Skill name to export (matches dm-skill-name)")
+    p.add_argument("--skill", required=True, help="Skill name to export (matches dm-slog-skill-name)")
 
     p = subparsers.add_parser("import-skill-data",
                               help="Import skill-builder KG snapshot from export-skill-data JSON")

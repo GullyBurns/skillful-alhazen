@@ -281,7 +281,7 @@ def run_hook():
             f"encountered TypeDB schema error {_schema_error}.\n"
             f"This may mean the schema is missing an entity type, attribute, or relation.\n"
             f"File a schema gap issue:\n"
-            f"  uv run python local_resources/skilllog/skill_logger.py file-schema-gap \\\n"
+            f"  uv run python local_resources/skilllog/skill_logger.py file-slog-schema-gap \\\n"
             f"    --skill {skill_name} \\\n"
             f"    --concept \"<what concept were you trying to represent?>\" \\\n"
             f"    --missing \"<what type/attribute/relation is absent in TypeDB?>\" \\\n"
@@ -334,30 +334,30 @@ def run_hook():
         with driver.transaction(database, TransactionType.WRITE) as tx:
             # Insert invocation entity
             tx.query(f"""
-                insert $inv isa skilllog-invocation,
+                insert $inv isa slog-invocation,
                     has id "{invocation_id}",
                     has name "{escape_string(f'{skill_name}:{cmd_name}')}",
-                    has skill-name "{escape_string(skill_name)}",
-                    has command-name "{escape_string(cmd_name)}",
-                    has session-id "{escape_string(session_id)}",
-                    has exit-code {exit_code},
-                    has input-tokens-estimate {input_tokens},
-                    has output-tokens-estimate {output_tokens},
-                    has total-tokens-estimate {total_tokens},
-                    has context-tokens-estimate {context_tokens},
-                    has claude-md-tokens {claude_md_tokens},
-                    has memory-md-tokens {memory_md_tokens},
-                    has skill-mds-tokens {skill_mds_tokens},
-                    has soul-md-tokens {soul_md_tokens},
-                    has agents-md-tokens {agents_md_tokens},
-                    has evaluation-label "unlabeled",
+                    has slog-skill-name "{escape_string(skill_name)}",
+                    has slog-command-name "{escape_string(cmd_name)}",
+                    has alh-session-id "{escape_string(session_id)}",
+                    has slog-exit-code {exit_code},
+                    has slog-input-tokens-estimate {input_tokens},
+                    has slog-output-tokens-estimate {output_tokens},
+                    has slog-total-tokens-estimate {total_tokens},
+                    has slog-context-tokens-estimate {context_tokens},
+                    has slog-claude-md-tokens {claude_md_tokens},
+                    has slog-memory-md-tokens {memory_md_tokens},
+                    has slog-skill-mds-tokens {skill_mds_tokens},
+                    has slog-soul-md-tokens {soul_md_tokens},
+                    has slog-agents-md-tokens {agents_md_tokens},
+                    has slog-evaluation-label "unlabeled",
                     has created-at {timestamp},
                     has provenance "skilllog-hook";
             """).resolve()
 
             # Insert input artifact (store inline — commands are always small)
             tx.query(f"""
-                insert $art isa skilllog-input,
+                insert $art isa slog-input,
                     has id "{input_id}",
                     has name "input:{invocation_id}",
                     has content "{escape_string(command)}",
@@ -369,7 +369,7 @@ def run_hook():
             # Insert output artifact (truncate if very large)
             truncated_output = output_text[:8000] if len(output_text) > 8000 else output_text
             tx.query(f"""
-                insert $art isa skilllog-output,
+                insert $art isa slog-output,
                     has id "{output_id}",
                     has name "output:{invocation_id}",
                     has content "{escape_string(truncated_output)}",
@@ -381,17 +381,17 @@ def run_hook():
             # Link input artifact to invocation via representation relation
             tx.query(f"""
                 match
-                    $inv isa skilllog-invocation, has id "{invocation_id}";
-                    $art isa skilllog-input, has id "{input_id}";
-                insert (referent: $inv, artifact: $art) isa representation;
+                    $inv isa slog-invocation, has id "{invocation_id}";
+                    $art isa slog-input, has id "{input_id}";
+                insert (referent: $inv, artifact: $art) isa alh-representation;
             """).resolve()
 
             # Link output artifact to invocation
             tx.query(f"""
                 match
-                    $inv isa skilllog-invocation, has id "{invocation_id}";
-                    $art isa skilllog-output, has id "{output_id}";
-                insert (referent: $inv, artifact: $art) isa representation;
+                    $inv isa slog-invocation, has id "{invocation_id}";
+                    $art isa slog-output, has id "{output_id}";
+                insert (referent: $inv, artifact: $art) isa alh-representation;
             """).resolve()
 
             tx.commit()
@@ -416,17 +416,17 @@ def cmd_list_invocations(args):
         from typedb.driver import TransactionType
 
         driver, database = get_typedb_connection()
-        skill_filter = f', has skill-name "{args.skill}"' if args.skill else ""
+        skill_filter = f', has slog-skill-name "{args.skill}"' if args.skill else ""
         limit = args.limit if hasattr(args, "limit") and args.limit else 50
 
         with driver.transaction(database, TransactionType.READ) as tx:
             query = f"""
-                match $inv isa skilllog-invocation{skill_filter},
+                match $inv isa slog-invocation{skill_filter},
                     has id $id,
-                    has skill-name $skill,
-                    has command-name $cmd,
-                    has total-tokens-estimate $tokens,
-                    has evaluation-label $label,
+                    has slog-skill-name $skill,
+                    has slog-command-name $cmd,
+                    has slog-total-tokens-estimate $tokens,
+                    has slog-evaluation-label $label,
                     has created-at $ts;
                 limit {limit};
                 fetch {{
@@ -466,15 +466,15 @@ def cmd_token_report(args):
         from typedb.driver import TransactionType
 
         driver, database = get_typedb_connection()
-        skill_filter = f', has skill-name "{args.skill}"' if args.skill else ""
+        skill_filter = f', has slog-skill-name "{args.skill}"' if args.skill else ""
 
         with driver.transaction(database, TransactionType.READ) as tx:
             query = f"""
-                match $inv isa skilllog-invocation{skill_filter},
-                    has skill-name $skill,
-                    has command-name $cmd,
-                    has total-tokens-estimate $tokens,
-                    has context-tokens-estimate $ctx;
+                match $inv isa slog-invocation{skill_filter},
+                    has slog-skill-name $skill,
+                    has slog-command-name $cmd,
+                    has slog-total-tokens-estimate $tokens,
+                    has slog-context-tokens-estimate $ctx;
                 fetch {{
                     "skill": $skill,
                     "cmd": $cmd,
@@ -546,13 +546,13 @@ def cmd_label(args):
         with driver.transaction(database, TransactionType.WRITE) as tx:
             # Delete old label
             tx.query(f"""
-                match $inv isa skilllog-invocation, has id "{args.id}", has evaluation-label $old;
+                match $inv isa slog-invocation, has id "{args.id}", has slog-evaluation-label $old;
                 delete has $old;
             """).resolve()
             # Insert new label
             tx.query(f"""
-                match $inv isa skilllog-invocation, has id "{args.id}";
-                insert $inv has evaluation-label "{label}";
+                match $inv isa slog-invocation, has id "{args.id}";
+                insert $inv has slog-evaluation-label "{label}";
             """).resolve()
             tx.commit()
 
@@ -566,7 +566,7 @@ def cmd_label(args):
                 "  uv run python .claude/skills/agentic-memory/agentic_memory.py consolidate \\\n"
                 "    --content \"<key finding or decision>\" \\\n"
                 "    --subject <relevant-entity-id> \\\n"
-                "    --fact-type knowledge|decision|goal \\\n"
+                "    --alh-fact-type knowledge|decision|goal \\\n"
                 "    --source-episode <episode-id>",
                 file=sys.stderr,
             )
@@ -586,15 +586,15 @@ def cmd_token_report_llm(args):
 
         with driver.transaction(database, TransactionType.READ) as tx:
             query = """
-                match $c isa skilllog-llm-call,
-                    has llm-model $model,
-                    has input-tokens-estimate $in_tok,
-                    has output-tokens-estimate $out_tok,
-                    has cache-creation-tokens $cc_tok,
-                    has cache-read-tokens $cr_tok,
-                    has cost-usd $cost,
-                    has duration-ms $dur,
-                    has exit-code $exit;
+                match $c isa slog-llm-call,
+                    has slog-llm-model $model,
+                    has slog-input-tokens-estimate $in_tok,
+                    has slog-output-tokens-estimate $out_tok,
+                    has slog-cache-creation-tokens $cc_tok,
+                    has slog-cache-read-tokens $cr_tok,
+                    has slog-cost-usd $cost,
+                    has slog-duration-ms $dur,
+                    has slog-exit-code $exit;
                 fetch {
                     "model":    $model,
                     "in_tok":   $in_tok,
@@ -674,22 +674,22 @@ def cmd_migrate_context_schema(args):
         with driver.transaction(database, TransactionType.SCHEMA) as tx:
             tx.query("""
                 define
-                    attribute claude-md-tokens, value integer;
-                    attribute memory-md-tokens, value integer;
-                    attribute skill-mds-tokens, value integer;
-                    attribute soul-md-tokens, value integer;
-                    attribute agents-md-tokens, value integer;
-                    entity skilllog-invocation
-                        owns claude-md-tokens,
-                        owns memory-md-tokens,
-                        owns skill-mds-tokens,
-                        owns soul-md-tokens,
-                        owns agents-md-tokens;
+                    attribute slog-claude-md-tokens, value integer;
+                    attribute slog-memory-md-tokens, value integer;
+                    attribute slog-skill-mds-tokens, value integer;
+                    attribute slog-soul-md-tokens, value integer;
+                    attribute slog-agents-md-tokens, value integer;
+                    entity slog-invocation
+                        owns slog-claude-md-tokens,
+                        owns slog-memory-md-tokens,
+                        owns slog-skill-mds-tokens,
+                        owns slog-soul-md-tokens,
+                        owns slog-agents-md-tokens;
             """).resolve()
             tx.commit()
 
         driver.close()
-        print("Migration complete. Per-file context token attributes added to skilllog-invocation.")
+        print("Migration complete. Per-file context token attributes added to slog-invocation.")
 
     except Exception as e:
         msg = str(e)
@@ -712,14 +712,14 @@ def cmd_context_trend(args):
         from typedb.driver import TransactionType
 
         driver, database = get_typedb_connection()
-        skill_filter = f', has skill-name "{args.skill}"' if args.skill else ""
+        skill_filter = f', has slog-skill-name "{args.skill}"' if args.skill else ""
 
         with driver.transaction(database, TransactionType.READ) as tx:
             # All invocations with context total + timestamp
             results = list(tx.query(f"""
-                match $inv isa skilllog-invocation{skill_filter},
+                match $inv isa slog-invocation{skill_filter},
                     has id $id,
-                    has context-tokens-estimate $ctx,
+                    has slog-context-tokens-estimate $ctx,
                     has created-at $ts;
                 fetch {{
                     "id": $id,
@@ -731,11 +731,11 @@ def cmd_context_trend(args):
             # Per-file breakdown — only present on records logged after migration
             try:
                 breakdown_results = list(tx.query(f"""
-                    match $inv isa skilllog-invocation{skill_filter},
+                    match $inv isa slog-invocation{skill_filter},
                         has id $id,
-                        has claude-md-tokens $claude,
-                        has memory-md-tokens $mem,
-                        has skill-mds-tokens $skills;
+                        has slog-claude-md-tokens $claude,
+                        has slog-memory-md-tokens $mem,
+                        has slog-skill-mds-tokens $skills;
                     fetch {{
                         "id": $id,
                         "claude": $claude,
@@ -806,7 +806,7 @@ def cmd_context_trend(args):
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
-# file-schema-gap subcommand
+# file-slog-schema-gap subcommand
 # ---------------------------------------------------------------------------
 
 def cmd_file_schema_gap(args):
@@ -1220,9 +1220,9 @@ def main():
     p_trend.add_argument("--skill", help="Filter by skill name")
     p_trend.set_defaults(func=cmd_context_trend)
 
-    # file-schema-gap
+    # file-slog-schema-gap
     p_sgap = sub.add_parser(
-        "file-schema-gap",
+        "file-slog-schema-gap",
         help="File a TypeDB schema gap issue (concept not representable in schema)",
     )
     p_sgap.add_argument("--skill", required=True,
