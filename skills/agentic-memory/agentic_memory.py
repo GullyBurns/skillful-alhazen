@@ -1042,18 +1042,20 @@ def search_semantic(args):
     all_results = []
     for coll_name in search_collections:
         try:
-            hits = client.search(
+            result = client.query_points(
                 collection_name=coll_name,
-                query_vector=query_vector,
+                query=query_vector,
                 limit=limit,
                 score_threshold=threshold if threshold > 0 else None,
             )
+            hits = result.points
             coll_info = collections_info.get(coll_name, {})
             for hit in hits:
                 entry = {
                     "score": hit.score,
                     "collection": coll_name,
                     "entity_type": coll_info.get("entity_type", "unknown"),
+                    "skill": coll_info.get("skill", "unknown"),
                     "id": str(hit.id),
                 }
                 if hit.payload:
