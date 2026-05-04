@@ -2,48 +2,22 @@
 # ========================
 # Single source of truth for all skills -- core (path-based) and external (git-based).
 #
-# Build all skills locally:
-#   make build-skills
-#
-# Update installed skills:
-#   make skills-update
-#
-# Override the skill library URL at build time:
-#   make build-skills SKILL_LIBRARY=https://github.com/MyOrg/my-skill-fork
-#   ALHAZEN_SKILL_LIBRARY=https://github.com/MyOrg/my-skill-fork make build-skills
-#
-# Skills resolve to local_skills/ (gitignored build artifact).
-#
-# Entry formats:
-#
-#   Core skills (from this repo, symlinked into local_skills/):
-#     - name: my-skill
-#       path: skills/my-skill       # path relative to repo root
-#
-#   External skills from the default skill library (inherits defaults.git + defaults.ref):
-#     - name: my-skill
-#       subdir: skills/category/my-skill
-#
-#   External skills from a custom git repository:
-#     - name: my-skill
-#       git: https://...            # overrides defaults.git
-#       ref: main                   # overrides defaults.ref (default: main)
-#       subdir: .                   # subdirectory within the repo (default: .)
+# Build all skills locally:  make build-skills
+# Update installed skills:   make skills-update
 #
 # Each skill directory must contain:
 #   - SKILL.md     (required: Claude Code skill definition)
-#   - skill.yaml   (recommended: structured metadata)
+#   - skill.yaml   (recommended: structured metadata, including schema.namespace)
 #   - {name}.py    (recommended: CLI entry point)
 #   - schema.tql   (optional: TypeDB schema extension -- loaded by make build-db)
-#   - dashboard/   (optional: Next.js dashboard components)
 
-# Default skill library -- override with ALHAZEN_SKILL_LIBRARY env var or SKILL_LIBRARY make var
+# Default skill library
 defaults:
   git: https://github.com/sciknow-io/alhazen-skill-examples
   ref: main
 
 skills:
-  # -- Core OS components (promoted from skills — managed by CLAUDE.md coordinator) --
+  # -- Core OS components --
   - name: agentic-memory
     path: skills/agentic-memory
     core_os: true
@@ -59,7 +33,7 @@ skills:
     path: skills/typedb-notebook
     core_os: true
 
-  # -- Domain skills (path-based: symlinked from skills/ in this repo) --------
+  # -- Domain skills (path-based) --
   - name: web-search
     path: skills/web-search
 
@@ -76,7 +50,7 @@ skills:
   - name: scientific-literature
     subdir: skills/biomed/scientific-literature
 
-  # -- External skills (git-based: cloned from defaults.git) ------------------
+  # -- External skills (git-based) --
   - name: jobhunt
     subdir: skills/demo/jobhunt
     dashboard:
@@ -123,15 +97,19 @@ schema_map:
     - scientific-literature
     - tech-recon
   namespaces:
+    nbmem:
+      skill: agentic-memory
+      schema: skills/agentic-memory/schema.tql
+      depends_on: []
     dm:
       skill: curation-skill-builder
       schema: skills/curation-skill-builder/schema.tql
       depends_on: []
-    jobhunt:
+    jhunt:
       skill: jobhunt
       schema: local_skills/jobhunt/schema.tql
       depends_on: []
-    trend:
+    sltrend:
       skill: literature-trends
       schema: local_skills/literature-trends/schema.tql
       depends_on: []
@@ -139,7 +117,7 @@ schema_map:
       skill: scientific-literature
       schema: local_skills/scientific-literature/schema.tql
       depends_on: []
-    tech-recon:
+    trec:
       skill: tech-recon
       schema: skills/tech-recon/schema.tql
       depends_on:

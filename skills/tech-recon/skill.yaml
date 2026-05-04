@@ -5,7 +5,7 @@ author: skillful-alhazen
 license: MIT
 typedb_schema: schema.tql
 schema:
-  namespace: tech-recon        # all types: tech-recon-investigation, tech-recon-system, etc.
+  namespace: trec              # all types: trec-investigation, trec-system, trec-note, etc.
   depends_on:
     - scientific-literature     # schema references scilit-paper (adds plays clause)
 dashboard:

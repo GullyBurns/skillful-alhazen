@@ -1,0 +1,24 @@
+name: literature-trends
+description: >
+  Abductive argumentation analysis for scientific literature — trace the evolution
+  of explanatory hypotheses over time within a keyword-tagged paper cluster.
+version: "0.1.0"
+license: MIT
+authors:
+  - Skillful Alhazen
+
+schema: schema.tql
+entrypoint: literature_trends.py
+schema:
+  namespace: sltrend           # all types: sltrend-thread, sltrend-hypothesis-note
+  depends_on: []               # queries scilit-paper but doesn't modify its schema
+
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+  skills:
+    - name: scientific-literature
+      reason: >
+        Queries scilit-paper entities and their keyword, publication-year,
+        abstract-text attributes (defined in scientific-literature/schema.tql).
+        Calls scientific_literature.py list-by-keyword to fetch papers for analysis.
