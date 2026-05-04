@@ -665,13 +665,32 @@ def describe_schema(args):
             match entity $t;
             fetch { "type": $t };
             ''').resolve())
-            entity_labels = sorted(set(str(r.get("type", "")) for r in entity_rows if r.get("type")))
+            entity_labels = sorted(set(
+                r["type"]["label"] for r in entity_rows
+                if isinstance(r.get("type"), dict) and "label" in r["type"]
+            ))
+
+            # Build parent map using hierarchy query
+            parent_map = {}
+            try:
+                hier_rows = list(tx.query(
+                    'match { $t sub! $supertype; } or '
+                    '{ $t sub $supertype; $t is $supertype; }; '
+                    'fetch { "type": $t, "super": $supertype };'
+                ).resolve())
+                for row in hier_rows:
+                    t_label = row["type"]["label"] if isinstance(row.get("type"), dict) else str(row.get("type", ""))
+                    s_label = row["super"]["label"] if isinstance(row.get("super"), dict) else str(row.get("super", ""))
+                    if t_label != s_label:
+                        parent_map[t_label] = s_label
+            except Exception:
+                pass
 
             entities = {}
             for label in entity_labels:
                 if not label or label in ("entity",):
                     continue
-                info = {"owns": [], "plays": [], "subtypes": []}
+                info = {"parent": parent_map.get(label), "owns": [], "plays": [], "subtypes": []}
 
                 # Get owns
                 try:
@@ -679,7 +698,10 @@ def describe_schema(args):
                     match $t label {label}; $t owns $a;
                     fetch {{ "attr": $a }};
                     ''').resolve())
-                    info["owns"] = sorted(set(str(r.get("attr", "")) for r in owns_rows))
+                    info["owns"] = sorted(set(
+                        r["attr"]["label"] for r in owns_rows
+                        if isinstance(r.get("attr"), dict)
+                    ))
                 except Exception:
                     pass
 
@@ -689,7 +711,10 @@ def describe_schema(args):
                     match entity $t, label {label}, plays $role;
                     fetch {{ "role": $role }};
                     ''').resolve())
-                    info["plays"] = sorted(set(str(r.get("role", "")) for r in plays_rows))
+                    info["plays"] = sorted(set(
+                        r["role"]["label"] for r in plays_rows
+                        if isinstance(r.get("role"), dict)
+                    ))
                 except Exception:
                     pass
 
@@ -700,8 +725,8 @@ def describe_schema(args):
                     fetch {{ "type": $t }};
                     ''').resolve())
                     info["subtypes"] = sorted(set(
-                        str(r.get("type", "")) for r in sub_rows
-                        if str(r.get("type", "")) != label
+                        r["type"]["label"] for r in sub_rows
+                        if isinstance(r.get("type"), dict) and r["type"]["label"] != label
                     ))
                 except Exception:
                     pass
@@ -724,7 +749,10 @@ def describe_schema(args):
             match relation $t;
             fetch { "type": $t };
             ''').resolve())
-            rel_labels = sorted(set(str(r.get("type", "")) for r in rel_rows if r.get("type")))
+            rel_labels = sorted(set(
+                r["type"]["label"] for r in rel_rows
+                if isinstance(r.get("type"), dict) and "label" in r["type"]
+            ))
 
             relations = {}
             for label in rel_labels:
@@ -737,7 +765,10 @@ def describe_schema(args):
                     match relation $t, label {label}, relates $role;
                     fetch {{ "role": $role }};
                     ''').resolve())
-                    rinfo["roles"] = sorted(set(str(r.get("role", "")) for r in role_rows))
+                    rinfo["roles"] = sorted(set(
+                        r["role"]["label"] for r in role_rows
+                        if isinstance(r.get("role"), dict)
+                    ))
                 except Exception:
                     pass
 
@@ -746,7 +777,10 @@ def describe_schema(args):
                     match $t label {label}; $t owns $a;
                     fetch {{ "attr": $a }};
                     ''').resolve())
-                    rinfo["owns"] = sorted(set(str(r.get("attr", "")) for r in owns_rows))
+                    rinfo["owns"] = sorted(set(
+                        r["attr"]["label"] for r in owns_rows
+                        if isinstance(r.get("attr"), dict)
+                    ))
                 except Exception:
                     pass
 
@@ -754,12 +788,32 @@ def describe_schema(args):
 
     # Apply skill filter if provided
     if skill_filter:
-        # Filter by namespace prefix
-        prefix = skill_filter.replace("-", "-")
-        entities = {k: v for k, v in entities.items() if k.startswith(prefix + "-") or k == prefix}
-        relations = {k: v for k, v in relations.items() if k.startswith(prefix + "-") or k == prefix}
+        prefix = skill_filter
+        core_types = {
+            "identifiable-entity", "domain-thing", "collection",
+            "information-content-entity", "artifact", "fragment", "note",
+            "episode", "user-question", "information-resource",
+            "agent", "person", "author", "organization", "interaction",
+            "tag", "vocabulary", "vocabulary-type", "vocabulary-property",
+            "operator-user", "application-user", "memory-claim-note",
+        }
+        core_rels = {
+            "aboutness", "representation", "collection-membership",
+            "collection-nesting", "fragmentation", "authorship",
+            "affiliation", "citation-reference", "derivation",
+            "works-at", "interaction-participation", "evidence-chain",
+            "provenance-record", "classification", "tagging",
+            "episode-mention", "note-threading", "semantic-triple",
+            "property-assertion", "quotation",
+            "project-involvement", "tool-familiarity",
+            "relationship-context", "fact-evidence", "entity-alias",
+        }
+        entities = {k: v for k, v in entities.items()
+                    if k.startswith(prefix + "-") or k == prefix or k in core_types}
+        relations = {k: v for k, v in relations.items()
+                    if k.startswith(prefix + "-") or k == prefix or k in core_rels}
 
-    result = {"entities": entities, "relations": relations}
+    result = {"source": "live", "entities": entities, "relations": relations}
 
     # Add embedding index
     result["embedding_index"] = _get_embedding_index()
@@ -1077,37 +1131,35 @@ def list_aliases(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             if entity_id:
                 eid = escape_string(entity_id)
-                results = list(tx.query(f'''
-                match
-                    {{ $c isa identifiable-entity, has id "{eid}";
-                       $r (primary-entity: $c, aliased-entity: $a) isa entity-alias;
-                       $a has id $aid, has name $aname;
-                       $c has name $cname; }}
-                    or
-                    {{ $a isa identifiable-entity, has id "{eid}";
-                       $r (primary-entity: $c, aliased-entity: $a) isa entity-alias;
-                       $c has id $cid, has name $cname;
-                       $a has name $aname; }};
-                fetch {{
-                    "canonical_name": $cname,
-                    "alias_name": $aname
-                }};
-                ''').resolve())
+                # Check both directions: entity is canonical or aliased
+                results = []
+                for direction_q in [
+                    f'''match
+                        $e isa identifiable-entity, has id "{eid}";
+                        (primary-entity: $e, aliased-entity: $other) isa entity-alias;
+                    fetch {{ "other-id": $other.id, "other-name": $other.name }};''',
+                    f'''match
+                        $e isa identifiable-entity, has id "{eid}";
+                        (primary-entity: $other, aliased-entity: $e) isa entity-alias;
+                    fetch {{ "other-id": $other.id, "other-name": $other.name }};''',
+                ]:
+                    try:
+                        results.extend(list(tx.query(direction_q).resolve()))
+                    except Exception:
+                        pass
             else:
                 results = list(tx.query('''
                 match
-                    $r (primary-entity: $c, aliased-entity: $a) isa entity-alias;
-                    $c has id $cid, has name $cname;
-                    $a has id $aid, has name $aname;
+                    (primary-entity: $c, aliased-entity: $a) isa entity-alias;
                 fetch {
-                    "canonical_id": $cid,
-                    "canonical_name": $cname,
-                    "alias_id": $aid,
-                    "alias_name": $aname
+                    "canonical-id": $c.id,
+                    "canonical-name": $c.name,
+                    "alias-id": $a.id,
+                    "alias-name": $a.name
                 };
                 ''').resolve())
 
-    print(json.dumps({"success": True, "aliases": results, "count": len(results)}, default=str))
+    print(json.dumps({"success": True, "aliases": results}, default=str))
 
 
 # ---------------------------------------------------------------------------
