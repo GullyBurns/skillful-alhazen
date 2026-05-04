@@ -225,12 +225,12 @@ def cmd_start_investigation(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             # Insert investigation
             q = f'''
-                insert $inv isa tech-recon-investigation,
+                insert $inv isa trec-investigation,
                     has id "{inv_id}",
                     has name "{name}",
-                    has goal-description "{goal}",
-                    has success-criteria "{criteria}",
-                    has tech-recon-status "scoping",
+                    has trec-goal-description "{goal}",
+                    has trec-success-criteria "{criteria}",
+                    has trec-status "scoping",
                     has created-at {ts};
             '''
             tx.query(q).resolve()
@@ -241,10 +241,10 @@ def cmd_start_investigation(args):
                 sys_id = generate_id("trs")
                 esc_name = escape_string(sys_name)
                 sq = f'''
-                    insert $sys isa tech-recon-system,
+                    insert $sys isa trec-system,
                         has id "{sys_id}",
                         has name "{esc_name}",
-                        has tech-recon-status "confirmed",
+                        has trec-status "confirmed",
                         has created-at {ts};
                 '''
                 tx.query(sq).resolve()
@@ -252,10 +252,10 @@ def cmd_start_investigation(args):
                 # Link system to investigation
                 lq = f'''
                     match
-                        $inv isa tech-recon-investigation, has id "{inv_id}";
-                        $sys isa tech-recon-system, has id "{sys_id}";
+                        $inv isa trec-investigation, has id "{inv_id}";
+                        $sys isa trec-system, has id "{sys_id}";
                     insert
-                        (system: $sys, investigation: $inv) isa investigated-in;
+                        (system: $sys, investigation: $inv) isa trec-investigated-in;
                 '''
                 tx.query(lq).resolve()
                 inserted_systems.append({"id": sys_id, "name": sys_name})
@@ -284,12 +284,12 @@ def cmd_list_investigations(args):
         driver = get_driver()
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query('''
-                match $inv isa tech-recon-investigation;
+                match $inv isa trec-investigation;
                 fetch {
                     "id": $inv.id,
                     "name": $inv.name,
-                    "status": $inv.tech-recon-status,
-                    "goal": $inv.goal-description
+                    "status": $inv.trec-status,
+                    "goal": $inv.trec-goal-description
                 };
             ''').resolve())
         driver.close()
@@ -318,14 +318,14 @@ def cmd_show_investigation(args):
         # Fetch investigation details
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{
                     "id": $inv.id,
                     "name": $inv.name,
-                    "status": $inv.tech-recon-status,
-                    "goal": $inv.goal-description,
-                    "criteria": $inv.success-criteria,
-                    "iteration": $inv.iteration-number
+                    "status": $inv.trec-status,
+                    "goal": $inv.trec-goal-description,
+                    "criteria": $inv.trec-success-criteria,
+                    "iteration": $inv.trec-iteration-number
                 }};
             ''').resolve())
 
@@ -338,18 +338,18 @@ def cmd_show_investigation(args):
             # Count systems
             sys_results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $sys isa tech-recon-system;
-                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $sys isa trec-system;
+                    (system: $sys, investigation: $inv) isa trec-investigated-in;
                 fetch {{ "id": $sys.id }};
             ''').resolve())
 
             # Count analyses
             ana_results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $ana isa tech-recon-analysis;
-                    (analysis: $ana, investigation: $inv) isa analysis-of;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $ana isa trec-analysis;
+                    (analysis: $ana, investigation: $inv) isa trec-analysis-of;
                 fetch {{ "id": $ana.id }};
             ''').resolve())
 
@@ -379,7 +379,7 @@ def cmd_show_investigation(args):
 def cmd_update_investigation(args):
     """Update investigation status, goal, or success criteria."""
     if not any([args.status, args.goal, args.success_criteria]):
-        print(json.dumps({"success": False, "error": "At least one of --status, --goal, --success-criteria is required"}))
+        print(json.dumps({"success": False, "error": "At least one of --status, --goal, --trec-success-criteria is required"}))
         sys.exit(1)
 
     inv_id = escape_string(args.id)
@@ -388,7 +388,7 @@ def cmd_update_investigation(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             # Verify existence
             check = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{ "id": $inv.id }};
             ''').resolve())
             if not check:
@@ -399,30 +399,30 @@ def cmd_update_investigation(args):
                 new_status = escape_string(args.status)
                 tx.query(f'''
                     match
-                        $inv isa tech-recon-investigation, has id "{inv_id}",
-                            has tech-recon-status $old_status;
+                        $inv isa trec-investigation, has id "{inv_id}",
+                            has trec-status $old_status;
                     delete has $old_status of $inv;
-                    insert $inv has tech-recon-status "{new_status}";
+                    insert $inv has trec-status "{new_status}";
                 ''').resolve()
 
             if args.goal:
                 new_goal = escape_string(args.goal)
                 tx.query(f'''
                     match
-                        $inv isa tech-recon-investigation, has id "{inv_id}",
-                            has goal-description $old_goal;
+                        $inv isa trec-investigation, has id "{inv_id}",
+                            has trec-goal-description $old_goal;
                     delete has $old_goal of $inv;
-                    insert $inv has goal-description "{new_goal}";
+                    insert $inv has trec-goal-description "{new_goal}";
                 ''').resolve()
 
             if args.success_criteria:
                 new_criteria = escape_string(args.success_criteria)
                 tx.query(f'''
                     match
-                        $inv isa tech-recon-investigation, has id "{inv_id}",
-                            has success-criteria $old_criteria;
+                        $inv isa trec-investigation, has id "{inv_id}",
+                            has trec-success-criteria $old_criteria;
                     delete has $old_criteria of $inv;
-                    insert $inv has success-criteria "{new_criteria}";
+                    insert $inv has trec-success-criteria "{new_criteria}";
                 ''').resolve()
 
             tx.commit()
@@ -459,13 +459,13 @@ def cmd_delete_note(args):
         driver = get_driver()
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             check = list(tx.query(
-                f'match $n isa note, has id "{note_id}"; fetch {{ "id": $n.id }};'
+                f'match $n isa alh-note, has id "{note_id}"; fetch {{ "id": $n.id }};'
             ).resolve())
         if not check:
             print(json.dumps({"success": False, "error": f"Note {args.id} not found"}))
             sys.exit(1)
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-            tx.query(f'match $n isa note, has id "{note_id}"; delete $n;').resolve()
+            tx.query(f'match $n isa alh-note, has id "{note_id}"; delete $n;').resolve()
             tx.commit()
         print(json.dumps({"success": True, "deleted": args.id}))
     except Exception as e:
@@ -476,7 +476,7 @@ def cmd_delete_note(args):
 def cmd_delete_system(args):
     """Delete a system and all its notes and artifacts.
     Dry-run by default — use --force to confirm.
-    TypeDB automatically removes investigated-in and sourced-from relations.
+    TypeDB automatically removes trec-investigated-in and trec-sourced-from relations.
     """
     sys_id = escape_string(args.id)
     try:
@@ -484,23 +484,23 @@ def cmd_delete_system(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             # Verify system exists
             check = list(tx.query(
-                f'match $s isa tech-recon-system, has id "{sys_id}"; fetch {{ "id": $s.id }};'
+                f'match $s isa trec-system, has id "{sys_id}"; fetch {{ "id": $s.id }};'
             ).resolve())
             if not check:
                 print(json.dumps({"success": False, "error": f"System {args.id} not found"}))
                 sys.exit(1)
             # Find child notes (linked via aboutness)
             note_ids = [r["id"] for r in tx.query(f'''
-                match $n isa note;
-                      (note: $n, subject: $s) isa aboutness;
-                      $s isa tech-recon-system, has id "{sys_id}";
+                match $n isa alh-note;
+                      (note: $n, subject: $s) isa alh-aboutness;
+                      $s isa trec-system, has id "{sys_id}";
                 fetch {{ "id": $n.id }};
             ''').resolve()]
-            # Find child artifacts (linked via sourced-from)
+            # Find child artifacts (linked via trec-sourced-from)
             artifact_ids = [r["id"] for r in tx.query(f'''
-                match $a isa artifact;
-                      (artifact: $a, source: $s) isa sourced-from;
-                      $s isa tech-recon-system, has id "{sys_id}";
+                match $a isa alh-artifact;
+                      (artifact: $a, source: $s) isa trec-sourced-from;
+                      $s isa trec-system, has id "{sys_id}";
                 fetch {{ "id": $a.id }};
             ''').resolve()]
 
@@ -519,10 +519,10 @@ def cmd_delete_system(args):
 
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             for nid in note_ids:
-                tx.query(f'match $n isa note, has id "{escape_string(nid)}"; delete $n;').resolve()
+                tx.query(f'match $n isa alh-note, has id "{escape_string(nid)}"; delete $n;').resolve()
             for aid in artifact_ids:
-                tx.query(f'match $a isa artifact, has id "{escape_string(aid)}"; delete $a;').resolve()
-            tx.query(f'match $s isa tech-recon-system, has id "{sys_id}"; delete $s;').resolve()
+                tx.query(f'match $a isa alh-artifact, has id "{escape_string(aid)}"; delete $a;').resolve()
+            tx.query(f'match $s isa trec-system, has id "{sys_id}"; delete $s;').resolve()
             tx.commit()
 
         print(json.dumps({
@@ -547,30 +547,30 @@ def cmd_delete_investigation(args):
         driver = get_driver()
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             check = list(tx.query(
-                f'match $i isa tech-recon-investigation, has id "{inv_id}"; fetch {{ "id": $i.id }};'
+                f'match $i isa trec-investigation, has id "{inv_id}"; fetch {{ "id": $i.id }};'
             ).resolve())
             if not check:
                 print(json.dumps({"success": False, "error": f"Investigation {args.id} not found"}))
                 sys.exit(1)
             # Find all systems
             system_ids = [r["id"] for r in tx.query(f'''
-                match $s isa tech-recon-system;
-                      (system: $s, investigation: $i) isa investigated-in;
-                      $i isa tech-recon-investigation, has id "{inv_id}";
+                match $s isa trec-system;
+                      (system: $s, investigation: $i) isa trec-investigated-in;
+                      $i isa trec-investigation, has id "{inv_id}";
                 fetch {{ "id": $s.id }};
             ''').resolve()]
             # Find investigation-level notes
             inv_note_ids = [r["id"] for r in tx.query(f'''
-                match $n isa note;
-                      (note: $n, subject: $i) isa aboutness;
-                      $i isa tech-recon-investigation, has id "{inv_id}";
+                match $n isa alh-note;
+                      (note: $n, subject: $i) isa alh-aboutness;
+                      $i isa trec-investigation, has id "{inv_id}";
                 fetch {{ "id": $n.id }};
             ''').resolve()]
             # Find analyses
             analysis_ids = [r["id"] for r in tx.query(f'''
-                match $a isa tech-recon-analysis;
-                      (analysis: $a, investigation: $i) isa analysis-of;
-                      $i isa tech-recon-investigation, has id "{inv_id}";
+                match $a isa trec-analysis;
+                      (analysis: $a, investigation: $i) isa trec-analysis-of;
+                      $i isa trec-investigation, has id "{inv_id}";
                 fetch {{ "id": $a.id }};
             ''').resolve()]
             # Count system-level children for summary
@@ -579,13 +579,13 @@ def cmd_delete_investigation(args):
             for sid in system_ids:
                 esc = escape_string(sid)
                 sys_note_count += len(list(tx.query(f'''
-                    match $n isa note; (note: $n, subject: $s) isa aboutness;
-                          $s isa tech-recon-system, has id "{esc}";
+                    match $n isa alh-note; (note: $n, subject: $s) isa alh-aboutness;
+                          $s isa trec-system, has id "{esc}";
                     fetch {{ "id": $n.id }};
                 ''').resolve()))
                 sys_artifact_count += len(list(tx.query(f'''
-                    match $a isa artifact; (artifact: $a, source: $s) isa sourced-from;
-                          $s isa tech-recon-system, has id "{esc}";
+                    match $a isa alh-artifact; (artifact: $a, source: $s) isa trec-sourced-from;
+                          $s isa trec-system, has id "{esc}";
                     fetch {{ "id": $a.id }};
                 ''').resolve()))
 
@@ -610,27 +610,27 @@ def cmd_delete_investigation(args):
             for sid in system_ids:
                 esc = escape_string(sid)
                 sys_notes = [r["id"] for r in tx.query(f'''
-                    match $n isa note; (note: $n, subject: $s) isa aboutness;
-                          $s isa tech-recon-system, has id "{esc}";
+                    match $n isa alh-note; (note: $n, subject: $s) isa alh-aboutness;
+                          $s isa trec-system, has id "{esc}";
                     fetch {{ "id": $n.id }};
                 ''').resolve()]
                 sys_artifacts = [r["id"] for r in tx.query(f'''
-                    match $a isa artifact; (artifact: $a, source: $s) isa sourced-from;
-                          $s isa tech-recon-system, has id "{esc}";
+                    match $a isa alh-artifact; (artifact: $a, source: $s) isa trec-sourced-from;
+                          $s isa trec-system, has id "{esc}";
                     fetch {{ "id": $a.id }};
                 ''').resolve()]
                 for nid in sys_notes:
-                    tx.query(f'match $n isa note, has id "{escape_string(nid)}"; delete $n;').resolve()
+                    tx.query(f'match $n isa alh-note, has id "{escape_string(nid)}"; delete $n;').resolve()
                 for aid in sys_artifacts:
-                    tx.query(f'match $a isa artifact, has id "{escape_string(aid)}"; delete $a;').resolve()
-                tx.query(f'match $s isa tech-recon-system, has id "{esc}"; delete $s;').resolve()
+                    tx.query(f'match $a isa alh-artifact, has id "{escape_string(aid)}"; delete $a;').resolve()
+                tx.query(f'match $s isa trec-system, has id "{esc}"; delete $s;').resolve()
             # Delete investigation-level notes and analyses
             for nid in inv_note_ids:
-                tx.query(f'match $n isa note, has id "{escape_string(nid)}"; delete $n;').resolve()
+                tx.query(f'match $n isa alh-note, has id "{escape_string(nid)}"; delete $n;').resolve()
             for aid in analysis_ids:
-                tx.query(f'match $a isa tech-recon-analysis, has id "{escape_string(aid)}"; delete $a;').resolve()
+                tx.query(f'match $a isa trec-analysis, has id "{escape_string(aid)}"; delete $a;').resolve()
             # Delete investigation
-            tx.query(f'match $i isa tech-recon-investigation, has id "{inv_id}"; delete $i;').resolve()
+            tx.query(f'match $i isa trec-investigation, has id "{inv_id}"; delete $i;').resolve()
             tx.commit()
 
         print(json.dumps({
@@ -656,14 +656,14 @@ def cmd_advance_iteration(args):
         driver = get_driver()
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             check = list(tx.query(f'''
-                match $i isa tech-recon-investigation, has id "{inv_id}";
+                match $i isa trec-investigation, has id "{inv_id}";
                 fetch {{ "id": $i.id }};
             ''').resolve())
             if not check:
                 print(json.dumps({"success": False, "error": f"Investigation {args.investigation} not found"}))
                 sys.exit(1)
             iter_results = list(tx.query(f'''
-                match $i isa tech-recon-investigation, has id "{inv_id}", has iteration-number $n;
+                match $i isa trec-investigation, has id "{inv_id}", has trec-iteration-number $n;
                 fetch {{ "n": $n }};
             ''').resolve())
             current = iter_results[0].get("n") if iter_results else None
@@ -671,14 +671,14 @@ def cmd_advance_iteration(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             if current is not None:
                 tx.query(f'''
-                    match $i isa tech-recon-investigation, has id "{inv_id}",
-                          has iteration-number $old;
+                    match $i isa trec-investigation, has id "{inv_id}",
+                          has trec-iteration-number $old;
                     delete has $old of $i;
                 ''').resolve()
             new_iter = (current or 1) + 1
             tx.query(f'''
-                match $i isa tech-recon-investigation, has id "{inv_id}";
-                insert $i has iteration-number {new_iter};
+                match $i isa trec-investigation, has id "{inv_id}";
+                insert $i has trec-iteration-number {new_iter};
             ''').resolve()
             tx.commit()
 
@@ -707,7 +707,7 @@ def cmd_add_system(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             # Verify investigation exists
             check = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{ "id": $inv.id }};
             ''').resolve())
             if not check:
@@ -717,20 +717,20 @@ def cmd_add_system(args):
             # Build insert query with optional attributes
             optional_attrs = ""
             if args.github_url:
-                optional_attrs += f', has github-url "{escape_string(args.github_url)}"'
+                optional_attrs += f', has trec-github-url "{escape_string(args.github_url)}"'
             if args.language:
-                optional_attrs += f', has tech-recon-language "{escape_string(args.language)}"'
+                optional_attrs += f', has trec-language "{escape_string(args.language)}"'
             if args.license:
                 optional_attrs += f', has license "{escape_string(args.license)}"'
             if args.star_count is not None:
-                optional_attrs += f", has star-count {args.star_count}"
+                optional_attrs += f", has trec-star-count {args.star_count}"
 
             sq = f'''
-                insert $sys isa tech-recon-system,
+                insert $sys isa trec-system,
                     has id "{sys_id}",
                     has name "{name}",
-                    has tech-recon-url "{url}",
-                    has tech-recon-status "{status}",
+                    has trec-url "{url}",
+                    has trec-status "{status}",
                     has created-at {ts}{optional_attrs};
             '''
             tx.query(sq).resolve()
@@ -738,10 +738,10 @@ def cmd_add_system(args):
             # Link to investigation
             lq = f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $sys isa tech-recon-system, has id "{sys_id}";
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $sys isa trec-system, has id "{sys_id}";
                 insert
-                    (system: $sys, investigation: $inv) isa investigated-in;
+                    (system: $sys, investigation: $inv) isa trec-investigated-in;
             '''
             tx.query(lq).resolve()
             tx.commit()
@@ -769,7 +769,7 @@ def cmd_approve_system(args):
         driver = get_driver()
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             check = list(tx.query(f'''
-                match $sys isa tech-recon-system, has id "{sys_id}";
+                match $sys isa trec-system, has id "{sys_id}";
                 fetch {{ "id": $sys.id }};
             ''').resolve())
             if not check:
@@ -778,10 +778,10 @@ def cmd_approve_system(args):
 
             tx.query(f'''
                 match
-                    $sys isa tech-recon-system, has id "{sys_id}",
-                        has tech-recon-status $old_status;
+                    $sys isa trec-system, has id "{sys_id}",
+                        has trec-status $old_status;
                 delete has $old_status of $sys;
-                insert $sys has tech-recon-status "confirmed";
+                insert $sys has trec-status "confirmed";
             ''').resolve()
             tx.commit()
 
@@ -797,11 +797,11 @@ def cmd_approve_system(args):
 
 
 def cmd_link_paper(args):
-    """Link a scilit-paper to a tech-recon system via system-paper-reference."""
+    """Link a scilit-paper to a tech-recon system via trec-system-paper-reference."""
     sys_id = escape_string(args.system)
 
     if not args.arxiv_id and not args.paper_id:
-        print(json.dumps({"success": False, "error": "Provide --arxiv-id or --paper-id"}))
+        print(json.dumps({"success": False, "error": "Provide --scilit-arxiv-id or --paper-id"}))
         sys.exit(1)
 
     try:
@@ -809,7 +809,7 @@ def cmd_link_paper(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             # Verify system exists
             sys_check = list(tx.query(f'''
-                match $sys isa tech-recon-system, has id "{sys_id}";
+                match $sys isa trec-system, has id "{sys_id}";
                 fetch {{ "id": $sys.id, "name": $sys.name }};
             ''').resolve())
             if not sys_check:
@@ -819,16 +819,16 @@ def cmd_link_paper(args):
             # Resolve paper
             if args.arxiv_id:
                 arxiv_id = escape_string(args.arxiv_id)
-                # Try arxiv-id attribute first (may be null if ingest used DOI path)
+                # Try scilit-arxiv-id attribute first (may be null if ingest used DOI path)
                 paper_rows = list(tx.query(f'''
-                    match $p isa scilit-paper, has arxiv-id "{arxiv_id}";
+                    match $p isa scilit-paper, has scilit-arxiv-id "{arxiv_id}";
                     fetch {{ "id": $p.id, "name": $p.name }};
                 ''').resolve())
                 # Fall back to DOI lookup (10.48550/arXiv.<id> — case variants)
                 if not paper_rows:
                     for doi_variant in [f"10.48550/arXiv.{arxiv_id}", f"10.48550/arxiv.{arxiv_id}"]:
                         paper_rows = list(tx.query(f'''
-                            match $p isa scilit-paper, has doi "{escape_string(doi_variant)}";
+                            match $p isa scilit-paper, has scilit-doi "{escape_string(doi_variant)}";
                             fetch {{ "id": $p.id, "name": $p.name }};
                         ''').resolve())
                         if paper_rows:
@@ -852,9 +852,9 @@ def cmd_link_paper(args):
             # Check for existing link
             existing = list(tx.query(f'''
                 match
-                    $sys isa tech-recon-system, has id "{sys_id}";
+                    $sys isa trec-system, has id "{sys_id}";
                     $p isa scilit-paper, has id "{escape_string(paper_id)}";
-                    (referencing-system: $sys, referenced-paper: $p) isa system-paper-reference;
+                    (referencing-system: $sys, referenced-paper: $p) isa trec-system-paper-reference;
                 fetch {{ "id": $sys.id }};
             ''').resolve())
 
@@ -872,10 +872,10 @@ def cmd_link_paper(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
                 match
-                    $sys isa tech-recon-system, has id "{sys_id}";
+                    $sys isa trec-system, has id "{sys_id}";
                     $p isa scilit-paper, has id "{escape_string(paper_id)}";
                 insert
-                    (referencing-system: $sys, referenced-paper: $p) isa system-paper-reference;
+                    (referencing-system: $sys, referenced-paper: $p) isa trec-system-paper-reference;
             ''').resolve()
             tx.commit()
 
@@ -904,56 +904,56 @@ def cmd_list_systems(args):
             if status_filter == "all":
                 results = list(tx.query(f'''
                     match
-                        $inv isa tech-recon-investigation, has id "{inv_id}";
-                        $sys isa tech-recon-system;
-                        (system: $sys, investigation: $inv) isa investigated-in;
+                        $inv isa trec-investigation, has id "{inv_id}";
+                        $sys isa trec-system;
+                        (system: $sys, investigation: $inv) isa trec-investigated-in;
                     fetch {{
                         "id": $sys.id,
                         "name": $sys.name,
-                        "url": $sys.tech-recon-url,
-                        "status": $sys.tech-recon-status,
-                        "language": $sys.tech-recon-language,
+                        "url": $sys.trec-url,
+                        "status": $sys.trec-status,
+                        "language": $sys.trec-language,
                         "license": $sys.license,
-                        "star_count": $sys.star-count
+                        "star_count": $sys.trec-star-count
                     }};
                 ''').resolve())
             else:
                 esc_status = escape_string(status_filter)
                 results = list(tx.query(f'''
                     match
-                        $inv isa tech-recon-investigation, has id "{inv_id}";
-                        $sys isa tech-recon-system, has tech-recon-status "{esc_status}";
-                        (system: $sys, investigation: $inv) isa investigated-in;
+                        $inv isa trec-investigation, has id "{inv_id}";
+                        $sys isa trec-system, has trec-status "{esc_status}";
+                        (system: $sys, investigation: $inv) isa trec-investigated-in;
                     fetch {{
                         "id": $sys.id,
                         "name": $sys.name,
-                        "url": $sys.tech-recon-url,
-                        "status": $sys.tech-recon-status,
-                        "language": $sys.tech-recon-language,
+                        "url": $sys.trec-url,
+                        "status": $sys.trec-status,
+                        "language": $sys.trec-language,
                         "license": $sys.license,
-                        "star_count": $sys.star-count
+                        "star_count": $sys.trec-star-count
                     }};
                 ''').resolve())
 
             # Bulk-count artifacts and notes per system for this investigation
             art_rows = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $sys isa tech-recon-system;
-                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $sys isa trec-system;
+                    (system: $sys, investigation: $inv) isa trec-investigated-in;
                     $sys has id $sid;
-                    $art isa tech-recon-artifact;
-                    (artifact: $art, source: $sys) isa sourced-from;
+                    $art isa trec-artifact;
+                    (artifact: $art, source: $sys) isa trec-sourced-from;
                 fetch {{ "sid": $sid }};
             ''').resolve())
             note_rows = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $sys isa tech-recon-system;
-                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $sys isa trec-system;
+                    (system: $sys, investigation: $inv) isa trec-investigated-in;
                     $sys has id $sid;
-                    $n isa tech-recon-note;
-                    (note: $n, subject: $sys) isa aboutness;
+                    $n isa trec-note;
+                    (note: $n, subject: $sys) isa alh-aboutness;
                 fetch {{ "sid": $sid }};
             ''').resolve())
 
@@ -999,16 +999,16 @@ def cmd_show_system(args):
     try:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
-                match $sys isa tech-recon-system, has id "{sys_id}";
+                match $sys isa trec-system, has id "{sys_id}";
                 fetch {{
                     "id": $sys.id,
                     "name": $sys.name,
-                    "url": $sys.tech-recon-url,
-                    "status": $sys.tech-recon-status,
-                    "github_url": $sys.github-url,
-                    "language": $sys.tech-recon-language,
+                    "url": $sys.trec-url,
+                    "status": $sys.trec-status,
+                    "github_url": $sys.trec-github-url,
+                    "language": $sys.trec-language,
                     "license": $sys.license,
-                    "star_count": $sys.star-count
+                    "star_count": $sys.trec-star-count
                 }};
             ''').resolve())
 
@@ -1021,18 +1021,18 @@ def cmd_show_system(args):
             # Count artifacts sourced from this system
             art_results = list(tx.query(f'''
                 match
-                    $sys isa tech-recon-system, has id "{sys_id}";
-                    $art isa tech-recon-artifact;
-                    (artifact: $art, source: $sys) isa sourced-from;
+                    $sys isa trec-system, has id "{sys_id}";
+                    $art isa trec-artifact;
+                    (artifact: $art, source: $sys) isa trec-sourced-from;
                 fetch {{ "id": $art.id }};
             ''').resolve())
 
             # Count notes about this system
             note_results = list(tx.query(f'''
                 match
-                    $sys isa tech-recon-system, has id "{sys_id}";
-                    $n isa tech-recon-note;
-                    (note: $n, subject: $sys) isa aboutness;
+                    $sys isa trec-system, has id "{sys_id}";
+                    $n isa trec-note;
+                    (note: $n, subject: $sys) isa alh-aboutness;
                 fetch {{ "id": $n.id }};
             ''').resolve())
 
@@ -1068,12 +1068,12 @@ def cmd_discover_systems(args):
     try:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{
                     "id": $inv.id,
                     "name": $inv.name,
-                    "goal": $inv.goal-description,
-                    "criteria": $inv.success-criteria
+                    "goal": $inv.trec-goal-description,
+                    "criteria": $inv.trec-success-criteria
                 }};
             ''').resolve())
 
@@ -1086,9 +1086,9 @@ def cmd_discover_systems(args):
             # Get existing system names
             sys_results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $sys isa tech-recon-system;
-                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $sys isa trec-system;
+                    (system: $sys, investigation: $inv) isa trec-investigated-in;
                 fetch {{ "name": $sys.name }};
             ''').resolve())
 
@@ -1130,7 +1130,7 @@ if GITHUB_TOKEN:
 
 
 def _insert_artifact_and_link(tx, art_id, ts, artifact_type, url, fmt, cache_path, content, sys_id):
-    """Insert a tech-recon-artifact and link it to a system via sourced-from.
+    """Insert a trec-artifact and link it to a system via trec-sourced-from.
 
     Exactly one of cache_path or content should be truthy. Both are optional TypeDB
     attributes (artifact may store content inline or by reference).
@@ -1148,10 +1148,10 @@ def _insert_artifact_and_link(tx, art_id, ts, artifact_type, url, fmt, cache_pat
         optional += f', has content "{esc_content}"'
 
     insert_q = f'''
-        insert $art isa tech-recon-artifact,
+        insert $art isa trec-artifact,
             has id "{art_id}",
-            has artifact-type "{esc_type}",
-            has tech-recon-url "{esc_url}",
+            has trec-artialh-fact-type "{esc_type}",
+            has trec-url "{esc_url}",
             has format "{esc_fmt}",
             has created-at {ts}{optional};
     '''
@@ -1159,10 +1159,10 @@ def _insert_artifact_and_link(tx, art_id, ts, artifact_type, url, fmt, cache_pat
 
     link_q = f'''
         match
-            $art isa tech-recon-artifact, has id "{art_id}";
-            $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+            $art isa trec-artifact, has id "{art_id}";
+            $sys isa trec-system, has id "{escape_string(sys_id)}";
         insert
-            (artifact: $art, source: $sys) isa sourced-from;
+            (artifact: $art, source: $sys) isa trec-sourced-from;
     '''
     tx.query(link_q).resolve()
 
@@ -1170,16 +1170,16 @@ def _insert_artifact_and_link(tx, art_id, ts, artifact_type, url, fmt, cache_pat
 def _update_system_status_if_confirmed(tx, sys_id):
     """Update system status from 'confirmed' -> 'ingested'."""
     check = list(tx.query(f'''
-        match $sys isa tech-recon-system, has id "{escape_string(sys_id)}", has tech-recon-status "confirmed";
+        match $sys isa trec-system, has id "{escape_string(sys_id)}", has trec-status "confirmed";
         fetch {{ "id": $sys.id }};
     ''').resolve())
     if check:
         tx.query(f'''
             match
-                $sys isa tech-recon-system, has id "{escape_string(sys_id)}",
-                    has tech-recon-status $old_status;
+                $sys isa trec-system, has id "{escape_string(sys_id)}",
+                    has trec-status $old_status;
             delete has $old_status of $sys;
-            insert $sys has tech-recon-status "ingested";
+            insert $sys has trec-status "ingested";
         ''').resolve()
 
 
@@ -1201,7 +1201,7 @@ def _clone_repo(url: str, owner: str, repo: str):
 
 
 def _insert_note_tx(tx, subject_id: str, topic: str, content: str, fmt: str, tags=None) -> str:
-    """Insert a tech-recon-note and link it to subject_id via aboutness. Returns note_id.
+    """Insert a trec-note and link it to subject_id via aboutness. Returns note_id.
 
     Accepts an open write transaction -- caller is responsible for commit.
     """
@@ -1213,10 +1213,10 @@ def _insert_note_tx(tx, subject_id: str, topic: str, content: str, fmt: str, tag
     esc_content = escape_string(content)
 
     tx.query(f'''
-        insert $n isa tech-recon-note,
+        insert $n isa trec-note,
             has id "{note_id}",
             has name "{esc_topic}",
-            has topic "{esc_topic}",
+            has trec-topic "{esc_topic}",
             has format "{esc_fmt}",
             has content "{esc_content}",
             has created-at {ts};
@@ -1227,16 +1227,16 @@ def _insert_note_tx(tx, subject_id: str, topic: str, content: str, fmt: str, tag
             tag = escape_string(str(raw_tag).strip())
             if tag:
                 tx.query(f'''
-                    match $n isa tech-recon-note, has id "{note_id}";
-                    insert $n has tech-recon-tag "{tag}";
+                    match $n isa trec-note, has id "{note_id}";
+                    insert $n has trec-tag "{tag}";
                 ''').resolve()
 
     tx.query(f'''
         match
-            $e isa identifiable-entity, has id "{esc_subj}";
-            $n isa tech-recon-note, has id "{note_id}";
+            $e isa alh-identifiable-entity, has id "{esc_subj}";
+            $n isa trec-note, has id "{note_id}";
         insert
-            (note: $n, subject: $e) isa aboutness;
+            (note: $n, subject: $e) isa alh-aboutness;
     ''').resolve()
 
     return note_id
@@ -1248,7 +1248,7 @@ def _insert_note_tx(tx, subject_id: str, topic: str, content: str, fmt: str, tag
 
 
 def cmd_ingest_page(args):
-    """Fetch a web page and record it as a tech-recon-artifact."""
+    """Fetch a web page and record it as a trec-artifact."""
     url = args.url
     sys_id = args.system
     art_id = generate_id("tra")
@@ -1271,7 +1271,7 @@ def cmd_ingest_page(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             # Verify system exists
             check = list(tx.query(f'''
-                match $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+                match $sys isa trec-system, has id "{escape_string(sys_id)}";
                 fetch {{ "id": $sys.id }};
             ''').resolve())
             if not check:
@@ -1343,7 +1343,7 @@ def cmd_ingest_repo(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             # Verify system exists
             check = list(tx.query(f'''
-                match $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+                match $sys isa trec-system, has id "{escape_string(sys_id)}";
                 fetch {{ "id": $sys.id }};
             ''').resolve())
             if not check:
@@ -1415,9 +1415,9 @@ def cmd_ingest_repo(args):
                         # Check for existing repo-clone artifact (idempotent)
                         existing = list(tx2.query(f'''
                             match
-                                $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
-                                $art isa tech-recon-artifact, has artifact-type "repo-clone";
-                                (artifact: $art, source: $sys) isa sourced-from;
+                                $sys isa trec-system, has id "{escape_string(sys_id)}";
+                                $art isa trec-artifact, has trec-artialh-fact-type "repo-clone";
+                                (artifact: $art, source: $sys) isa trec-sourced-from;
                             fetch {{ "id": $art.id, "cache_path": $art.cache-path }};
                         ''').resolve())
                         if existing:
@@ -1426,20 +1426,20 @@ def cmd_ingest_repo(args):
                             esc_url = escape_string(url)
                             esc_cp = escape_string(rel_cache_path)
                             tx2.query(f'''
-                                insert $art isa tech-recon-artifact,
+                                insert $art isa trec-artifact,
                                     has id "{art_id}",
-                                    has artifact-type "repo-clone",
-                                    has tech-recon-url "{esc_url}",
+                                    has trec-artialh-fact-type "repo-clone",
+                                    has trec-url "{esc_url}",
                                     has format "directory",
                                     has cache-path "{esc_cp}",
                                     has created-at {ts2};
                             ''').resolve()
                             tx2.query(f'''
                                 match
-                                    $art isa tech-recon-artifact, has id "{art_id}";
-                                    $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+                                    $art isa trec-artifact, has id "{art_id}";
+                                    $sys isa trec-system, has id "{escape_string(sys_id)}";
                                 insert
-                                    (artifact: $art, source: $sys) isa sourced-from;
+                                    (artifact: $art, source: $sys) isa trec-sourced-from;
                             ''').resolve()
                             tx2.commit()
                             clone_artifact_id = art_id
@@ -1476,13 +1476,13 @@ def cmd_explore_repo(args):
             # Find the repo-clone artifact for this system
             art_results = list(tx.query(f'''
                 match
-                    $sys isa tech-recon-system, has id "{sys_id}";
-                    $art isa tech-recon-artifact, has artifact-type "repo-clone";
-                    (artifact: $art, source: $sys) isa sourced-from;
+                    $sys isa trec-system, has id "{sys_id}";
+                    $art isa trec-artifact, has trec-artialh-fact-type "repo-clone";
+                    (artifact: $art, source: $sys) isa trec-sourced-from;
                 fetch {{
                     "id": $art.id,
                     "cache_path": $art.cache-path,
-                    "url": $art.tech-recon-url
+                    "url": $art.trec-url
                 }};
             ''').resolve())
 
@@ -1500,7 +1500,7 @@ def cmd_explore_repo(args):
 
             # Get system name
             sys_results = list(tx.query(f'''
-                match $sys isa tech-recon-system, has id "{sys_id}";
+                match $sys isa trec-system, has id "{sys_id}";
                 fetch {{ "id": $sys.id, "name": $sys.name }};
             ''').resolve())
             sys_name = sys_results[0].get("name", "") if sys_results else ""
@@ -1511,10 +1511,10 @@ def cmd_explore_repo(args):
             if args.investigation:
                 inv_id = escape_string(args.investigation)
                 inv_results = list(tx.query(f'''
-                    match $inv isa tech-recon-investigation, has id "{inv_id}";
+                    match $inv isa trec-investigation, has id "{inv_id}";
                     fetch {{
-                        "goal": $inv.goal-description,
-                        "criteria": $inv.success-criteria
+                        "goal": $inv.trec-goal-description,
+                        "criteria": $inv.trec-success-criteria
                     }};
                 ''').resolve())
                 if inv_results:
@@ -1592,12 +1592,12 @@ def cmd_extract_fragments(args):
     try:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             art_results = list(tx.query(f'''
-                match $art isa tech-recon-artifact, has id "{art_id}";
+                match $art isa trec-artifact, has id "{art_id}";
                 fetch {{
                     "id": $art.id,
-                    "type": $art.artifact-type,
+                    "type": $art.trec-artialh-fact-type,
                     "cache_path": $art.cache-path,
-                    "url": $art.tech-recon-url
+                    "url": $art.trec-url
                 }};
             ''').resolve())
 
@@ -1612,9 +1612,9 @@ def cmd_extract_fragments(args):
             # Find the system linked to this artifact
             sys_results = list(tx.query(f'''
                 match
-                    $art isa tech-recon-artifact, has id "{art_id}";
-                    $sys isa tech-recon-system;
-                    (artifact: $art, source: $sys) isa sourced-from;
+                    $art isa trec-artifact, has id "{art_id}";
+                    $sys isa trec-system;
+                    (artifact: $art, source: $sys) isa trec-sourced-from;
                 fetch {{ "id": $sys.id, "name": $sys.name }};
             ''').resolve())
 
@@ -1628,10 +1628,10 @@ def cmd_extract_fragments(args):
             existing_tags = set()
             existing_results = list(tx.query(f'''
                 match
-                    $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
-                    $n isa tech-recon-note, has topic "fragment";
-                    (note: $n, subject: $sys) isa aboutness;
-                    $n has tech-recon-tag $tag;
+                    $sys isa trec-system, has id "{escape_string(sys_id)}";
+                    $n isa trec-note, has trec-topic "fragment";
+                    (note: $n, subject: $sys) isa alh-aboutness;
+                    $n has trec-tag $tag;
                 fetch {{ "tag": $tag }};
             ''').resolve())
             for r in existing_results:
@@ -1793,7 +1793,7 @@ def cmd_extract_fragments(args):
 
 
 def cmd_ingest_pdf(args):
-    """Fetch a PDF and record it as a tech-recon-artifact."""
+    """Fetch a PDF and record it as a trec-artifact."""
     url = args.url
     sys_id = args.system
     art_id = generate_id("tra")
@@ -1820,7 +1820,7 @@ def cmd_ingest_pdf(args):
         driver = get_driver()
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             check = list(tx.query(f'''
-                match $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+                match $sys isa trec-system, has id "{escape_string(sys_id)}";
                 fetch {{ "id": $sys.id }};
             ''').resolve())
             if not check:
@@ -1882,7 +1882,7 @@ def cmd_ingest_docs(args):
         # Verify system exists
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             check = list(tx.query(f'''
-                match $sys isa tech-recon-system, has id "{escape_string(sys_id)}";
+                match $sys isa trec-system, has id "{escape_string(sys_id)}";
                 fetch {{ "id": $sys.id }};
             ''').resolve())
         if not check:
@@ -1957,7 +1957,7 @@ def cmd_ingest_docs(args):
 
 
 def cmd_list_artifacts(args):
-    """List artifacts linked to a system via sourced-from."""
+    """List artifacts linked to a system via trec-sourced-from."""
     sys_id = escape_string(args.system)
     type_filter = args.type
 
@@ -1968,13 +1968,13 @@ def cmd_list_artifacts(args):
                 esc_type = escape_string(type_filter)
                 results = list(tx.query(f'''
                     match
-                        $sys isa tech-recon-system, has id "{sys_id}";
-                        $art isa tech-recon-artifact, has artifact-type "{esc_type}";
-                        (artifact: $art, source: $sys) isa sourced-from;
+                        $sys isa trec-system, has id "{sys_id}";
+                        $art isa trec-artifact, has trec-artialh-fact-type "{esc_type}";
+                        (artifact: $art, source: $sys) isa trec-sourced-from;
                     fetch {{
                         "id": $art.id,
-                        "type": $art.artifact-type,
-                        "url": $art.tech-recon-url,
+                        "type": $art.trec-artialh-fact-type,
+                        "url": $art.trec-url,
                         "format": $art.format,
                         "cache_path": $art.cache-path
                     }};
@@ -1982,13 +1982,13 @@ def cmd_list_artifacts(args):
             else:
                 results = list(tx.query(f'''
                     match
-                        $sys isa tech-recon-system, has id "{sys_id}";
-                        $art isa tech-recon-artifact;
-                        (artifact: $art, source: $sys) isa sourced-from;
+                        $sys isa trec-system, has id "{sys_id}";
+                        $art isa trec-artifact;
+                        (artifact: $art, source: $sys) isa trec-sourced-from;
                     fetch {{
                         "id": $art.id,
-                        "type": $art.artifact-type,
-                        "url": $art.tech-recon-url,
+                        "type": $art.trec-artialh-fact-type,
+                        "url": $art.trec-url,
                         "format": $art.format,
                         "cache_path": $art.cache-path
                     }};
@@ -2019,11 +2019,11 @@ def cmd_show_artifact(args):
     try:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
-                match $art isa tech-recon-artifact, has id "{art_id}";
+                match $art isa trec-artifact, has id "{art_id}";
                 fetch {{
                     "id": $art.id,
-                    "type": $art.artifact-type,
-                    "url": $art.tech-recon-url,
+                    "type": $art.trec-artialh-fact-type,
+                    "url": $art.trec-url,
                     "format": $art.format,
                     "cache_path": $art.cache-path,
                     "content": $art.content
@@ -2099,7 +2099,7 @@ def cmd_write_note(args):
         # Verify subject exists
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             check = list(tx.query(f'''
-                match $e isa identifiable-entity, has id "{subject_id}";
+                match $e isa alh-identifiable-entity, has id "{subject_id}";
                 fetch {{ "id": $e.id }};
             ''').resolve())
         if not check:
@@ -2110,24 +2110,24 @@ def cmd_write_note(args):
             # If --replace, delete existing notes with same topic on same subject
             if getattr(args, 'replace', False):
                 old_ids = [r["id"] for r in tx.query(f'''
-                    match $n isa note, has topic "{topic}";
-                          (note: $n, subject: $e) isa aboutness;
-                          $e isa identifiable-entity, has id "{subject_id}";
+                    match $n isa alh-note, has trec-topic "{topic}";
+                          (note: $n, subject: $e) isa alh-aboutness;
+                          $e isa alh-identifiable-entity, has id "{subject_id}";
                     fetch {{ "id": $n.id }};
                 ''').resolve()]
                 for oid in old_ids:
-                    tx.query(f'match $n isa note, has id "{escape_string(oid)}"; delete $n;').resolve()
+                    tx.query(f'match $n isa alh-note, has id "{escape_string(oid)}"; delete $n;').resolve()
 
             # Insert note
             iter_num = getattr(args, 'iteration', 1) or 1
             insert_q = f'''
-                insert $n isa tech-recon-note,
+                insert $n isa trec-note,
                     has id "{note_id}",
                     has name "{topic}",
-                    has topic "{topic}",
+                    has trec-topic "{topic}",
                     has format "{fmt}",
                     has content "{content}",
-                    has iteration-number {iter_num},
+                    has trec-iteration-number {iter_num},
                     has created-at {ts};
             '''
             tx.query(insert_q).resolve()
@@ -2138,17 +2138,17 @@ def cmd_write_note(args):
                     tag = escape_string(raw_tag.strip())
                     if tag:
                         tx.query(f'''
-                            match $n isa tech-recon-note, has id "{note_id}";
-                            insert $n has tech-recon-tag "{tag}";
+                            match $n isa trec-note, has id "{note_id}";
+                            insert $n has trec-tag "{tag}";
                         ''').resolve()
 
             # Link note to subject via aboutness
             link_q = f'''
                 match
-                    $e isa identifiable-entity, has id "{subject_id}";
-                    $n isa tech-recon-note, has id "{note_id}";
+                    $e isa alh-identifiable-entity, has id "{subject_id}";
+                    $n isa trec-note, has id "{note_id}";
                 insert
-                    (note: $n, subject: $e) isa aboutness;
+                    (note: $n, subject: $e) isa alh-aboutness;
             '''
             tx.query(link_q).resolve()
             tx.commit()
@@ -2181,17 +2181,17 @@ def cmd_list_notes(args):
             # Build optional filters
             topic_filter = ""
             if args.topic:
-                topic_filter = f', has topic "{escape_string(args.topic)}"'
+                topic_filter = f', has trec-topic "{escape_string(args.topic)}"'
             fmt_filter = ""
             if args.format:
                 fmt_filter = f', has format "{escape_string(args.format)}"'
 
             results = list(tx.query(f'''
                 match
-                    $e isa identifiable-entity, has id "{subject_id}";
-                    $n isa tech-recon-note{topic_filter}{fmt_filter};
-                    (note: $n, subject: $e) isa aboutness;
-                    $n has topic $topic;
+                    $e isa alh-identifiable-entity, has id "{subject_id}";
+                    $n isa trec-note{topic_filter}{fmt_filter};
+                    (note: $n, subject: $e) isa alh-aboutness;
+                    $n has trec-topic $topic;
                     $n has format $fmt;
                     $n has content $content;
                     $n has id $nid;
@@ -2211,13 +2211,13 @@ def cmd_list_notes(args):
                 note_id_val = r.get("id")
                 content_val = r.get("content") or ""
                 tag_results = list(tx.query(f'''
-                    match $n isa tech-recon-note, has id "{escape_string(note_id_val)}", has tech-recon-tag $tag;
+                    match $n isa trec-note, has id "{escape_string(note_id_val)}", has trec-tag $tag;
                     fetch {{ "tag": $tag }};
                 ''').resolve())
                 tags = [t.get("tag") for t in tag_results if t.get("tag")]
-                # Fetch iteration-number (optional — legacy notes may not have it)
+                # Fetch trec-iteration-number (optional — legacy notes may not have it)
                 iter_results = list(tx.query(f'''
-                    match $n isa tech-recon-note, has id "{escape_string(note_id_val)}", has iteration-number $iter;
+                    match $n isa trec-note, has id "{escape_string(note_id_val)}", has trec-iteration-number $iter;
                     fetch {{ "iter": $iter }};
                 ''').resolve())
                 iteration_number = iter_results[0].get("iter") if iter_results else 1
@@ -2249,7 +2249,7 @@ def cmd_show_note(args):
     try:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
-                match $n isa tech-recon-note, has id "{note_id}";
+                match $n isa trec-note, has id "{note_id}";
                 fetch {{
                     "id": $n.id,
                     "topic": $n.topic,
@@ -2267,7 +2267,7 @@ def cmd_show_note(args):
 
             # Fetch tags
             tag_results = list(tx.query(f'''
-                match $n isa tech-recon-note, has id "{note_id}", has tech-recon-tag $tag;
+                match $n isa trec-note, has id "{note_id}", has trec-tag $tag;
                 fetch {{ "tag": $tag }};
             ''').resolve())
             tags = [t.get("tag") for t in tag_results if t.get("tag")]
@@ -2314,7 +2314,7 @@ def cmd_add_analysis(args):
         # Verify investigation exists
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             check = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{ "id": $inv.id }};
             ''').resolve())
         if not check:
@@ -2324,25 +2324,25 @@ def cmd_add_analysis(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             # Insert analysis artifact
             insert_q = f'''
-                insert $a isa tech-recon-analysis,
+                insert $a isa trec-analysis,
                     has id "{ana_id}",
                     has name "{title}",
-                    has tech-recon-title "{title}",
-                    has analysis-type "{analysis_type}",
-                    has plot-code "{plot_code}",
-                    has tql-query "{tql_query}",
+                    has trec-title "{title}",
+                    has trec-analysis-type "{analysis_type}",
+                    has trec-plot-code "{plot_code}",
+                    has trec-tql-query "{tql_query}",
                     has format "javascript",
                     has created-at {ts};
             '''
             if description:
                 insert_q = f'''
-                    insert $a isa tech-recon-analysis,
+                    insert $a isa trec-analysis,
                         has id "{ana_id}",
                         has name "{title}",
-                        has tech-recon-title "{title}",
-                        has analysis-type "{analysis_type}",
-                        has plot-code "{plot_code}",
-                        has tql-query "{tql_query}",
+                        has trec-title "{title}",
+                        has trec-analysis-type "{analysis_type}",
+                        has trec-plot-code "{plot_code}",
+                        has trec-tql-query "{tql_query}",
                         has format "javascript",
                         has content "{description}",
                         has created-at {ts};
@@ -2352,10 +2352,10 @@ def cmd_add_analysis(args):
             # Link analysis to investigation
             link_q = f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $a isa tech-recon-analysis, has id "{ana_id}";
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $a isa trec-analysis, has id "{ana_id}";
                 insert
-                    (analysis: $a, investigation: $inv) isa analysis-of;
+                    (analysis: $a, investigation: $inv) isa trec-analysis-of;
             '''
             tx.query(link_q).resolve()
             tx.commit()
@@ -2387,13 +2387,13 @@ def cmd_list_analyses(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $a isa tech-recon-analysis;
-                    (analysis: $a, investigation: $inv) isa analysis-of;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $a isa trec-analysis;
+                    (analysis: $a, investigation: $inv) isa trec-analysis-of;
                 fetch {{
                     "id": $a.id,
-                    "title": $a.tech-recon-title,
-                    "type": $a.analysis-type,
+                    "title": $a.trec-title,
+                    "type": $a.trec-analysis-type,
                     "content": $a.content
                 }};
             ''').resolve())
@@ -2426,16 +2426,16 @@ def cmd_show_analysis(args):
     try:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
-                match $a isa tech-recon-analysis, has id "{ana_id}";
+                match $a isa trec-analysis, has id "{ana_id}";
                 fetch {{
                     "id": $a.id,
-                    "title": $a.tech-recon-title,
-                    "type": $a.analysis-type,
-                    "plot_code": $a.plot-code,
-                    "query": $a.tql-query,
+                    "title": $a.trec-title,
+                    "type": $a.trec-analysis-type,
+                    "plot_code": $a.trec-plot-code,
+                    "query": $a.trec-tql-query,
                     "description": $a.content,
-                    "pipeline_script": $a.pipeline-script,
-                    "pipeline_config": $a.pipeline-config
+                    "pipeline_script": $a.trec-pipeline-script,
+                    "pipeline_config": $a.trec-pipeline-config
                 }};
             ''').resolve())
 
@@ -2478,10 +2478,10 @@ def cmd_run_analysis(args):
         # Step 1: Get the analysis plot code, stored query, and pre-computed content
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
-                match $a isa tech-recon-analysis, has id "{ana_id}";
+                match $a isa trec-analysis, has id "{ana_id}";
                 fetch {{
-                    "plot_code": $a.plot-code,
-                    "query": $a.tql-query,
+                    "plot_code": $a.trec-plot-code,
+                    "query": $a.trec-tql-query,
                     "content": $a.content
                 }};
             ''').resolve())
@@ -2582,7 +2582,7 @@ def cmd_add_pipeline(args):
     try:
         json.loads(pipeline_config)
     except json.JSONDecodeError as e:
-        print(json.dumps({"success": False, "error": f"pipeline-config is not valid JSON: {e}"}))
+        print(json.dumps({"success": False, "error": f"trec-pipeline-config is not valid JSON: {e}"}))
         sys.exit(1)
 
     ana_id = generate_id("tra")
@@ -2593,7 +2593,7 @@ def cmd_add_pipeline(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             # Verify investigation exists
             inv_check = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{ "id": $inv.id }};
             ''').resolve())
             if not inv_check:
@@ -2605,20 +2605,20 @@ def cmd_add_pipeline(args):
             escaped_title = title
 
             tx.query(f'''
-                insert $a isa tech-recon-analysis,
+                insert $a isa trec-analysis,
                     has id "{ana_id}",
-                    has tech-recon-title "{escaped_title}",
-                    has analysis-type "{analysis_type}",
-                    has pipeline-script "{escaped_script}",
-                    has pipeline-config "{escaped_config}",
+                    has trec-title "{escaped_title}",
+                    has trec-analysis-type "{analysis_type}",
+                    has trec-pipeline-script "{escaped_script}",
+                    has trec-pipeline-config "{escaped_config}",
                     has created-at {now};
             ''').resolve()
 
             tx.query(f'''
                 match
-                    $a isa tech-recon-analysis, has id "{ana_id}";
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                insert (analysis: $a, investigation: $inv) isa analysis-of;
+                    $a isa trec-analysis, has id "{ana_id}";
+                    $inv isa trec-investigation, has id "{inv_id}";
+                insert (analysis: $a, investigation: $inv) isa trec-analysis-of;
             ''').resolve()
 
             tx.commit()
@@ -2643,7 +2643,7 @@ def cmd_add_pipeline(args):
 
 # Mapping from Hamilton terminal node name → TypeDB attribute name + update action
 _PIPELINE_OUTPUT_ATTRS = {
-    "plot_code": "plot-code",
+    "plot_code": "trec-plot-code",
     "table_data": "content",   # serialized as JSON string
     "prose_text": "content",
     "artifact_path": "cache-path",
@@ -2655,13 +2655,13 @@ def cmd_run_pipeline(args):
     ana_id = escape_string(args.id)
     driver = get_driver()
     try:
-        # Step 1: Fetch pipeline-script + pipeline-config from TypeDB
+        # Step 1: Fetch trec-pipeline-script + trec-pipeline-config from TypeDB
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
-                match $a isa tech-recon-analysis, has id "{ana_id}";
+                match $a isa trec-analysis, has id "{ana_id}";
                 fetch {{
-                    "pipeline_script": $a.pipeline-script,
-                    "pipeline_config": $a.pipeline-config
+                    "pipeline_script": $a.trec-pipeline-script,
+                    "pipeline_config": $a.trec-pipeline-config
                 }};
             ''').resolve())
 
@@ -2673,16 +2673,16 @@ def cmd_run_pipeline(args):
         pipeline_config_str = results[0].get("pipeline_config")
 
         if not pipeline_script:
-            print(json.dumps({"success": False, "error": "Analysis has no pipeline-script stored"}))
+            print(json.dumps({"success": False, "error": "Analysis has no trec-pipeline-script stored"}))
             sys.exit(1)
         if not pipeline_config_str:
-            print(json.dumps({"success": False, "error": "Analysis has no pipeline-config stored"}))
+            print(json.dumps({"success": False, "error": "Analysis has no trec-pipeline-config stored"}))
             sys.exit(1)
 
         config = json.loads(pipeline_config_str)
         outputs = config.get("outputs", [])
         if not outputs:
-            print(json.dumps({"success": False, "error": "pipeline-config has no 'outputs' list"}))
+            print(json.dumps({"success": False, "error": "trec-pipeline-config has no 'outputs' list"}))
             sys.exit(1)
 
         # Step 2: Resolve inputs — merge explicit inputs with env_inputs
@@ -2733,11 +2733,11 @@ def cmd_run_pipeline(args):
 
                 # Delete existing attribute value, then insert new one
                 tx.query(f'''
-                    match $a isa tech-recon-analysis, has id "{ana_id}", has {attr_name} $old;
+                    match $a isa trec-analysis, has id "{ana_id}", has {attr_name} $old;
                     delete has $old of $a;
                 ''').resolve()
                 tx.query(f'''
-                    match $a isa tech-recon-analysis, has id "{ana_id}";
+                    match $a isa trec-analysis, has id "{ana_id}";
                     insert $a has {attr_name} "{escaped_val}";
                 ''').resolve()
                 written[output_name] = len(value)
@@ -2768,12 +2768,12 @@ def cmd_plan_analyses(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             # Fetch investigation details
             inv_results = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{
                     "id": $inv.id,
                     "name": $inv.name,
-                    "goal": $inv.goal-description,
-                    "criteria": $inv.success-criteria
+                    "goal": $inv.trec-goal-description,
+                    "criteria": $inv.trec-success-criteria
                 }};
             ''').resolve())
 
@@ -2786,13 +2786,13 @@ def cmd_plan_analyses(args):
             # Fetch all systems for the investigation
             sys_results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $sys isa tech-recon-system;
-                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $sys isa trec-system;
+                    (system: $sys, investigation: $inv) isa trec-investigated-in;
                 fetch {{
                     "id": $sys.id,
                     "name": $sys.name,
-                    "status": $sys.tech-recon-status
+                    "status": $sys.trec-status
                 }};
             ''').resolve())
 
@@ -2807,10 +2807,10 @@ def cmd_plan_analyses(args):
                 sid = escape_string(sys_item["id"])
                 note_results = list(tx.query(f'''
                     match
-                        $sys isa tech-recon-system, has id "{sid}";
-                        $n isa tech-recon-note;
-                        (note: $n, subject: $sys) isa aboutness;
-                        $n has topic $topic;
+                        $sys isa trec-system, has id "{sid}";
+                        $n isa trec-note;
+                        (note: $n, subject: $sys) isa alh-aboutness;
+                        $n has trec-topic $topic;
                         $n has format $fmt;
                         $n has content $content;
                     fetch {{
@@ -2832,13 +2832,13 @@ def cmd_plan_analyses(args):
             # Fetch existing analyses
             ana_results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $a isa tech-recon-analysis;
-                    (analysis: $a, investigation: $inv) isa analysis-of;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $a isa trec-analysis;
+                    (analysis: $a, investigation: $inv) isa trec-analysis-of;
                 fetch {{
                     "id": $a.id,
-                    "title": $a.tech-recon-title,
-                    "type": $a.analysis-type
+                    "title": $a.trec-title,
+                    "type": $a.trec-analysis-type
                 }};
             ''').resolve())
 
@@ -2878,9 +2878,9 @@ def cmd_compile_report(args):
             # Check for existing synthesis-report
             existing_report = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $n isa tech-recon-note, has topic "synthesis-report";
-                    (note: $n, subject: $inv) isa aboutness;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $n isa trec-note, has trec-topic "synthesis-report";
+                    (note: $n, subject: $inv) isa alh-aboutness;
                 fetch {{ "id": $n.id, "content": $n.content }};
             ''').resolve())
 
@@ -2896,12 +2896,12 @@ def cmd_compile_report(args):
 
             # Fetch investigation
             inv_results = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{
                     "id": $inv.id,
                     "name": $inv.name,
-                    "goal": $inv.goal-description,
-                    "criteria": $inv.success-criteria
+                    "goal": $inv.trec-goal-description,
+                    "criteria": $inv.trec-success-criteria
                 }};
             ''').resolve())
 
@@ -2914,13 +2914,13 @@ def cmd_compile_report(args):
             # Fetch all systems
             sys_results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $sys isa tech-recon-system;
-                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $sys isa trec-system;
+                    (system: $sys, investigation: $inv) isa trec-investigated-in;
                 fetch {{
                     "id": $sys.id,
                     "name": $sys.name,
-                    "status": $sys.tech-recon-status
+                    "status": $sys.trec-status
                 }};
             ''').resolve())
 
@@ -2937,11 +2937,11 @@ def cmd_compile_report(args):
 
                 note_results = list(tx.query(f'''
                     match
-                        $sys isa tech-recon-system, has id "{sid}";
-                        $n isa tech-recon-note;
-                        (note: $n, subject: $sys) isa aboutness;
+                        $sys isa trec-system, has id "{sid}";
+                        $n isa trec-note;
+                        (note: $n, subject: $sys) isa alh-aboutness;
                         $n has id $nid;
-                        $n has topic $topic;
+                        $n has trec-topic $topic;
                         $n has format $fmt;
                         $n has content $content;
                     fetch {{
@@ -2965,12 +2965,12 @@ def cmd_compile_report(args):
 
                 art_results = list(tx.query(f'''
                     match
-                        $sys isa tech-recon-system, has id "{sid}";
-                        $art isa tech-recon-artifact;
-                        (artifact: $art, source: $sys) isa sourced-from;
+                        $sys isa trec-system, has id "{sid}";
+                        $art isa trec-artifact;
+                        (artifact: $art, source: $sys) isa trec-sourced-from;
                         $art has id $aid;
-                        $art has artifact-type $atype;
-                        $art has tech-recon-url $aurl;
+                        $art has trec-artialh-fact-type $atype;
+                        $art has trec-url $aurl;
                     fetch {{
                         "id": $aid,
                         "type": $atype,
@@ -2986,11 +2986,11 @@ def cmd_compile_report(args):
             # Fetch investigation-level notes
             inv_note_results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $n isa tech-recon-note;
-                    (note: $n, subject: $inv) isa aboutness;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $n isa trec-note;
+                    (note: $n, subject: $inv) isa alh-aboutness;
                     $n has id $nid;
-                    $n has topic $topic;
+                    $n has trec-topic $topic;
                     $n has content $content;
                 fetch {{
                     "id": $nid,
@@ -3018,7 +3018,7 @@ def cmd_compile_report(args):
             "artifacts_by_system": artifacts_by_system,
             "investigation_notes": inv_notes,
             "instruction": (
-                "Using the above context, write a synthesis report as a tech-recon-note "
+                "Using the above context, write a synthesis report as a trec-note "
                 "with topic='synthesis-report', format='markdown', subject-id=investigation-id. "
                 "Required structure:\n"
                 "## Executive Summary\n"
@@ -3049,12 +3049,12 @@ def cmd_evaluate_completion(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             # Fetch investigation
             inv_results = list(tx.query(f'''
-                match $inv isa tech-recon-investigation, has id "{inv_id}";
+                match $inv isa trec-investigation, has id "{inv_id}";
                 fetch {{
                     "id": $inv.id,
                     "name": $inv.name,
-                    "goal": $inv.goal-description,
-                    "criteria": $inv.success-criteria
+                    "goal": $inv.trec-goal-description,
+                    "criteria": $inv.trec-success-criteria
                 }};
             ''').resolve())
 
@@ -3071,22 +3071,22 @@ def cmd_evaluate_completion(args):
             # Check for existing completion assessment
             completion_exists = bool(list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $n isa tech-recon-note, has topic "completion-assessment";
-                    (note: $n, subject: $inv) isa aboutness;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $n isa trec-note, has trec-topic "completion-assessment";
+                    (note: $n, subject: $inv) isa alh-aboutness;
                 fetch {{ "id": $n.id }};
             ''').resolve()))
 
             # Fetch all systems
             sys_results = list(tx.query(f'''
                 match
-                    $inv isa tech-recon-investigation, has id "{inv_id}";
-                    $sys isa tech-recon-system;
-                    (system: $sys, investigation: $inv) isa investigated-in;
+                    $inv isa trec-investigation, has id "{inv_id}";
+                    $sys isa trec-system;
+                    (system: $sys, investigation: $inv) isa trec-investigated-in;
                 fetch {{
                     "id": $sys.id,
                     "name": $sys.name,
-                    "status": $sys.tech-recon-status
+                    "status": $sys.trec-status
                 }};
             ''').resolve())
 
@@ -3102,18 +3102,18 @@ def cmd_evaluate_completion(args):
 
                 artifact_count = len(list(tx.query(f'''
                     match
-                        $sys isa tech-recon-system, has id "{sid}";
-                        $art isa tech-recon-artifact;
-                        (artifact: $art, source: $sys) isa sourced-from;
+                        $sys isa trec-system, has id "{sid}";
+                        $art isa trec-artifact;
+                        (artifact: $art, source: $sys) isa trec-sourced-from;
                     fetch {{ "id": $art.id }};
                 ''').resolve()))
 
                 note_results = list(tx.query(f'''
                     match
-                        $sys isa tech-recon-system, has id "{sid}";
-                        $n isa tech-recon-note;
-                        (note: $n, subject: $sys) isa aboutness;
-                        $n has topic $topic;
+                        $sys isa trec-system, has id "{sid}";
+                        $n isa trec-note;
+                        (note: $n, subject: $sys) isa alh-aboutness;
+                        $n has trec-topic $topic;
                     fetch {{ "topic": $topic }};
                 ''').resolve())
 
@@ -3121,9 +3121,9 @@ def cmd_evaluate_completion(args):
                 has_assessment = "assessment" in topics
                 has_repo_clone = bool(list(tx.query(f'''
                     match
-                        $sys isa tech-recon-system, has id "{sid}";
-                        $art isa tech-recon-artifact, has artifact-type "repo-clone";
-                        (artifact: $art, source: $sys) isa sourced-from;
+                        $sys isa trec-system, has id "{sid}";
+                        $art isa trec-artifact, has trec-artialh-fact-type "repo-clone";
+                        (artifact: $art, source: $sys) isa trec-sourced-from;
                     fetch {{ "id": $art.id }};
                 ''').resolve()))
 
@@ -3156,7 +3156,7 @@ def cmd_evaluate_completion(args):
             "shallow_systems": shallow_systems,
             "systems_missing_assessment": missing_assessment,
             "instruction": (
-                "Using the above coverage data, write a completion assessment as a tech-recon-note "
+                "Using the above coverage data, write a completion assessment as a trec-note "
                 "with topic='completion-assessment', format='markdown', subject-id=investigation-id.\n\n"
                 "Required structure:\n"
                 "| Criterion | Status (YES/PARTIAL/NO) | Strongest evidence | Gaps |\n"
@@ -3200,7 +3200,7 @@ def build_parser():
     p = subparsers.add_parser("start-investigation", help="Start a new investigation")
     p.add_argument("--name", required=True, help="Investigation name")
     p.add_argument("--goal", required=True, help="Investigation goal description")
-    p.add_argument("--success-criteria", required=True, help="Success criteria")
+    p.add_argument("--trec-success-criteria", required=True, help="Success criteria")
     p.add_argument("--systems", help="Comma-separated list of initial system names")
     p.set_defaults(func=cmd_start_investigation)
 
@@ -3222,7 +3222,7 @@ def build_parser():
         help="New status",
     )
     p.add_argument("--goal", help="New goal description")
-    p.add_argument("--success-criteria", help="New success criteria")
+    p.add_argument("--trec-success-criteria", help="New success criteria")
     p.set_defaults(func=cmd_update_investigation)
 
     # -- advance-iteration --
@@ -3252,10 +3252,10 @@ def build_parser():
     p.add_argument("--investigation", required=True, help="Investigation ID")
     p.add_argument("--name", required=True, help="System name")
     p.add_argument("--url", required=True, help="System homepage URL")
-    p.add_argument("--github-url", help="GitHub repository URL")
+    p.add_argument("--trec-github-url", help="GitHub repository URL")
     p.add_argument("--language", help="Primary programming language")
     p.add_argument("--license", help="Software license")
-    p.add_argument("--star-count", type=int, help="GitHub star count")
+    p.add_argument("--trec-star-count", type=int, help="GitHub star count")
     p.add_argument("--status", default="confirmed", help="System status (default: confirmed)")
     p.set_defaults(func=cmd_add_system)
 
@@ -3267,7 +3267,7 @@ def build_parser():
     # -- link-paper --
     p = subparsers.add_parser("link-paper", help="Link a scilit-paper to a tech-recon system")
     p.add_argument("--system", required=True, help="Tech-recon system ID (trs-...)")
-    p.add_argument("--arxiv-id", help="arXiv ID of the paper (e.g. 2410.10813)")
+    p.add_argument("--scilit-arxiv-id", help="arXiv ID of the paper (e.g. 2410.10813)")
     p.add_argument("--paper-id", help="TypeDB scilit-paper ID")
     p.set_defaults(func=cmd_link_paper)
 
@@ -3378,10 +3378,10 @@ def build_parser():
     p.add_argument("--investigation", required=True, help="Investigation ID")
     p.add_argument("--title", required=True, help="Analysis title")
     p.add_argument("--description", help="Analysis description (optional)")
-    p.add_argument("--plot-code", required=True, help="Observable Plot JavaScript code")
+    p.add_argument("--trec-plot-code", required=True, help="Observable Plot JavaScript code")
     p.add_argument("--query", required=True, help="TypeQL fetch query that produces the data")
     p.add_argument(
-        "--analysis-type",
+        "--trec-analysis-type",
         default="plot",
         choices=["plot", "table", "prose"],
         help="Analysis type (default: plot)",
@@ -3414,17 +3414,17 @@ def build_parser():
     p.add_argument("--investigation", required=True, help="Investigation ID")
     p.add_argument("--title", required=True, help="Analysis title")
     p.add_argument(
-        "--pipeline-script",
+        "--trec-pipeline-script",
         required=True,
         help="Hamilton module source code, or @path/to/file.py to read from file",
     )
     p.add_argument(
-        "--pipeline-config",
+        "--trec-pipeline-config",
         required=True,
         help='Pipeline config JSON (outputs/inputs/env_inputs), or @path/to/config.json',
     )
     p.add_argument(
-        "--analysis-type",
+        "--trec-analysis-type",
         default="pipeline-plot",
         choices=["pipeline-plot", "pipeline-table", "pipeline-prose", "pipeline-artifact"],
         help="Analysis type (default: pipeline-plot)",
