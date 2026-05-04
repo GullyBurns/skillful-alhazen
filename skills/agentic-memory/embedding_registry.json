@@ -7,7 +7,7 @@
       "skill": "scientific-literature"
     },
     "apt-notes": {
-      "entity_type": "note",
+      "entity_type": "alh-note",
       "indexed_fields": ["content"],
       "id_field": "note_id",
       "filter_fields": ["mondo_id"],
@@ -20,13 +20,13 @@
       "skill": "scientific-literature"
     },
     "jobhunt-opportunities": {
-      "entity_type": "jobhunt-position",
+      "entity_type": "jhunt-position",
       "indexed_fields": ["name", "description"],
       "id_field": "opportunity_id",
       "skill": "jobhunt"
     },
     "dismech_benchmark": {
-      "entity_type": "apt-disease",
+      "entity_type": "dm-disease",
       "indexed_fields": ["mechanism_text", "abstract"],
       "id_field": "disease_id",
       "skill": "dismech"
