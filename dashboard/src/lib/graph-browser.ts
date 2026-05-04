@@ -50,17 +50,17 @@ const PALETTE = [
 
 // Core types that don't belong to a namespace prefix
 const CORE_TYPE_NAMES = new Set([
-  'identifiable-entity',
-  'domain-thing',
-  'information-content-entity',
+  'alh-identifiable-entity',
+  'alh-domain-thing',
+  'alh-information-content-entity',
   'collection',
   'artifact',
   'fragment',
   'note',
   'agent',
-  'ai-agent',
+  'alh-ai-agent',
   'person',
-  'operator-user',
+  'nbmem-operator-user',
   'author',
   'organization',
   'interaction',

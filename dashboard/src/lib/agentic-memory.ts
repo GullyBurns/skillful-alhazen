@@ -31,14 +31,14 @@ async function runAgenticMemory(args: string[]): Promise<unknown> {
 export interface Person {
   id: string;
   name?: string;
-  'given-name'?: string;
-  'family-name'?: string;
-  'identity-summary'?: string;
-  'role-description'?: string;
-  'communication-style'?: string;
-  'goals-summary'?: string;
-  'preferences-summary'?: string;
-  'domain-expertise'?: string;
+  'alh-given-name'?: string;
+  'alh-family-name'?: string;
+  'nbmem-identity-summary'?: string;
+  'nbmem-role-description'?: string;
+  'nbmem-communication-style'?: string;
+  'nbmem-goals-summary'?: string;
+  'nbmem-preferences-summary'?: string;
+  'nbmem-domain-expertise'?: string;
 }
 
 export interface PersonContext {
@@ -51,7 +51,7 @@ export interface PersonContext {
 export interface MemoryClaimNote {
   id: string;
   content: string;
-  'fact-type'?: string;
+  'alh-fact-type'?: string;
   confidence?: number;
   'created-at'?: string;
   'valid-until'?: string;
@@ -60,8 +60,8 @@ export interface MemoryClaimNote {
 export interface Episode {
   id: string;
   content: string;
-  'source-skill'?: string;
-  'session-id'?: string;
+  'alh-source-skill'?: string;
+  'alh-session-id'?: string;
   'created-at'?: string;
 }
 
@@ -88,7 +88,7 @@ export async function recallPerson(personId: string): Promise<MemoryClaimNote[]>
 
 export async function listClaims(factType?: string, limit = 50): Promise<MemoryClaimNote[]> {
   const args = ['list-claims', '--limit', String(limit)];
-  if (factType) args.push('--fact-type', factType);
+  if (factType) args.push('--alh-fact-type', factType);
   const result = await runAgenticMemory(args) as { success: boolean; claims: MemoryClaimNote[] };
   return result.claims || [];
 }

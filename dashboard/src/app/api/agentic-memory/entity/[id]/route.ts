@@ -16,7 +16,7 @@ export async function GET(
     const safeId = id.replace(/'/g, "\\'");
 
     const result = await queryTypeQL(
-      `match $e isa identifiable-entity, has id '${safeId}'; fetch { "id": $e.id, "name": $e.name, "description": $e.description, "created-at": $e.created-at };`
+      `match $e isa alh-identifiable-entity, has id '${safeId}'; fetch { "id": $e.id, "name": $e.name, "description": $e.description, "created-at": $e.created-at };`
     );
 
     if (!result.success || result.count === 0) {

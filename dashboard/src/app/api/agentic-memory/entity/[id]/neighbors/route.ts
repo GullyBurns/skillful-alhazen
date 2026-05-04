@@ -20,24 +20,24 @@ interface NeighborEdge {
 const RELATION_DEFS: [string, string, string][] = [
   ['aboutness', 'subject', 'note'],
   ['aboutness', 'note', 'subject'],
-  ['works-at', 'employee', 'employer'],
-  ['works-at', 'employer', 'employee'],
-  ['collection-membership', 'member', 'collection'],
-  ['collection-membership', 'collection', 'member'],
-  ['episode-mention', 'mentioned-entity', 'episode'],
-  ['episode-mention', 'episode', 'mentioned-entity'],
+  ['alh-works-at', 'employee', 'employer'],
+  ['alh-works-at', 'employer', 'employee'],
+  ['alh-collection-membership', 'member', 'collection'],
+  ['alh-collection-membership', 'collection', 'member'],
+  ['alh-episode-mention', 'mentioned-entity', 'episode'],
+  ['alh-episode-mention', 'episode', 'mentioned-entity'],
   ['authorship', 'author', 'authored-work'],
   ['authorship', 'authored-work', 'author'],
   ['affiliation', 'affiliated-person', 'affiliated-org'],
   ['affiliation', 'affiliated-org', 'affiliated-person'],
-  ['entity-alias', 'primary-entity', 'aliased-entity'],
-  ['entity-alias', 'aliased-entity', 'primary-entity'],
-  ['relationship-context', 'context-subject', 'context-object'],
-  ['relationship-context', 'context-object', 'context-subject'],
-  ['project-involvement', 'involved-person', 'project'],
-  ['project-involvement', 'project', 'involved-person'],
-  ['tool-familiarity', 'tool-user', 'tool'],
-  ['tool-familiarity', 'tool', 'tool-user'],
+  ['nbmem-entity-alias', 'primary-entity', 'aliased-entity'],
+  ['nbmem-entity-alias', 'aliased-entity', 'primary-entity'],
+  ['nbmem-relationship-context', 'context-subject', 'context-object'],
+  ['nbmem-relationship-context', 'context-object', 'context-subject'],
+  ['nbmem-project-involvement', 'involved-person', 'project'],
+  ['nbmem-project-involvement', 'project', 'involved-person'],
+  ['nbmem-tool-familiarity', 'tool-user', 'tool'],
+  ['nbmem-tool-familiarity', 'tool', 'tool-user'],
 ];
 
 export async function GET(
@@ -55,7 +55,7 @@ export async function GET(
 
     // First, get the center entity info
     const centerResult = await queryTypeQL(
-      `match $e isa identifiable-entity, has id '${safeId}'; fetch { "id": $e.id, "name": $e.name };`
+      `match $e isa alh-identifiable-entity, has id '${safeId}'; fetch { "id": $e.id, "name": $e.name };`
     );
 
     if (!centerResult.success || centerResult.count === 0) {
@@ -71,7 +71,7 @@ export async function GET(
 
     // Query each relation type in parallel
     const queryPromises = RELATION_DEFS.map(([relationType, centerRole, neighborRole]) => {
-      const typeql = `match $e isa identifiable-entity, has id '${safeId}'; (${centerRole}: $e, ${neighborRole}: $other) isa ${relationType}; $other has id $oid, has name $oname; fetch { "id": $oid, "name": $oname };`;
+      const typeql = `match $e isa alh-identifiable-entity, has id '${safeId}'; (${centerRole}: $e, ${neighborRole}: $other) isa ${relationType}; $other has id $oid, has name $oname; fetch { "id": $oid, "name": $oname };`;
       return queryTypeQL(typeql)
         .then((result) => ({ relationType, centerRole, neighborRole, result }))
         .catch(() => ({ relationType, centerRole, neighborRole, result: null }));
