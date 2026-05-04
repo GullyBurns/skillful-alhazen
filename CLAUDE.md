@@ -14,16 +14,16 @@ Claude Code acts as the **coordinator agent** for the Alhazen notebook OS. The O
 
 | Layer | Purpose | Implementation |
 |-------|---------|----------------|
-| **Identity** | Who the operator is, rules enforced every session | `operator-user` entity (10 context domains) via `agentic_memory.py` |
+| **Identity** | Who the operator is, rules enforced every session | `nbmem-operator-user` entity (10 context domains) via `agentic_memory.py` |
 | **Context** | Structured knowledge about the operator's situation | TypeDB relations + context files in workspace |
 | **Skills** | Domain-specific reusable instruction sets | `skills/` directories, `skills-registry.yaml` |
-| **Memory** | What the system remembers across sessions | Two-tier: MEMORY.md (short-term) + TypeDB `memory-claim-note` (long-term) |
+| **Memory** | What the system remembers across sessions | Two-tier: MEMORY.md (short-term) + TypeDB `nbmem-memory-claim-note` (long-term) |
 | **Connections** | How agents reach external systems | Documented in `connections/README.md` |
 | **Verification** | Ensuring outputs are correct, system improves | `skilllog` + quality labels + schema gap detection |
 
 ### Coordinator Responsibilities
 
-1. **Load identity at session start** — Query the operator-user from TypeDB to understand who you're working for:
+1. **Load identity at session start** — Query the nbmem-operator-user from TypeDB to understand who you're working for:
    ```bash
    uv run python skills/agentic-memory/agentic_memory.py get-context --operator-id <id> 2>/dev/null
    ```
@@ -31,7 +31,7 @@ Claude Code acts as the **coordinator agent** for the Alhazen notebook OS. The O
 2. **Consolidate results into long-term memory** — After significant work:
    ```bash
    uv run python skills/agentic-memory/agentic_memory.py consolidate \
-     --content "<key finding>" --subject <entity-id> --fact-type knowledge --confidence 0.9
+     --content "<key finding>" --subject <entity-id> --alh-fact-type knowledge --confidence 0.9
    ```
 
 3. **Create session episodes** — At session close, capture a process account:
@@ -319,11 +319,11 @@ Migration from TypeDB 2.x to 3.x was completed Feb 2026. Key changes:
 - Fetch syntax: `fetch { "key": $var.attr };` (JSON-style, replaces `fetch $var: attr1, attr2;`)
 - Schema: `attribute X, value T;` syntax (not `X sub attribute, value T;`)
 - Abstract sub-entities: `entity X @abstract, sub Y,` (comma after `@abstract`, before `sub`) — **only works when Y is also abstract** (SVL14)
-- `agent` is now `sub domain-thing` (inherits description, created-at, etc. from identifiable-entity)
+- `agent` is now `sub alh-domain-thing` (inherits description, created-at, etc. from alh-identifiable-entity)
 
 **TypeDB 3.x `redefine` for schema changes:**
 ```typeql
-redefine entity agent sub identifiable-entity;  -- in-place schema change without data migration
+redefine entity agent sub alh-identifiable-entity;  -- in-place schema change without data migration
 ```
 
 **TypeDB 3.x Connection (Python):**
@@ -338,13 +338,13 @@ driver = TypeDB.driver(
 
 # Write transaction
 with driver.transaction(database, TransactionType.WRITE) as tx:
-    tx.query("insert $x isa collection, has id 'abc', has name 'Test';").resolve()
+    tx.query("insert $x isa alh-collection, has id 'abc', has name 'Test';").resolve()
     tx.commit()
 
 # Read transaction (fetch returns plain Python dicts)
 with driver.transaction(database, TransactionType.READ) as tx:
     results = list(tx.query('''
-        match $c isa collection;
+        match $c isa alh-collection;
         fetch { "id": $c.id, "name": $c.name };
     ''').resolve())
 ```
@@ -359,33 +359,33 @@ with driver.transaction(database, TransactionType.READ) as tx:
 
 ### Alhazen's Notebook Model
 
-The data model uses a three-branch hierarchy rooted at `identifiable-entity`:
+The data model uses a three-branch hierarchy rooted at `alh-identifiable-entity`:
 
 ```
-identifiable-entity (abstract)         — id, name, description, provenance
-├── domain-thing                       — real-world objects (papers, genes, jobs)
+alh-identifiable-entity (abstract)         — id, name, description, provenance
+├── alh-domain-thing                       — real-world objects (papers, genes, jobs)
 │   ├── agent                          — operational actors (human or AI)
-│   │   ├── ai-agent                   — Claude, GPT-4, etc.
+│   │   ├── alh-ai-agent                   — Claude, GPT-4, etc.
 │   │   └── person                     — enriched: name, email, linkedin, title, bio, phone
-│   │       ├── operator-user          — 10 context domains (identity, role, goals, etc.)
+│   │       ├── nbmem-operator-user          — 10 context domains (identity, role, goals, etc.)
 │   │       ├── author                 — publication authorship
-│   │       └── jobhunt-contact        — contact-role (recruiter, hiring manager, etc.)
+│   │       └── jhunt-contact        — jhunt-contact-role (recruiter, hiring manager, etc.)
 │   ├── organization                   — enriched: linkedin, website, location, industry
-│   │   └── jobhunt-company            — job search context company
+│   │   └── jhunt-company            — job search context company
 │   └── interaction                    — type, date, outcome, follow-up tracking
 ├── collection                         — typed sets (corpora, searches, case files)
-└── information-content-entity (abstract) — content, format, cache-path
+└── alh-information-content-entity (abstract) — content, format, cache-path
     ├── artifact                       — raw captured content (PDF, HTML, email, calendar)
     ├── fragment                       — extracted piece of an artifact
     └── note                           — Claude's analysis or annotation
 ```
 
-- **domain-thing** is the base for all domain objects. Namespace subtypes (e.g., `scilit-paper`, `jobhunt-position`, `apm-gene`) inherit from it.
-- **person** (sub agent) is the universal person model. All people — operator, authors, contacts — inherit from it. Enriched with linkedin-url, title, bio, phone-number. Plays works-at:employee and interaction-participation:participant.
-- **organization** (sub domain-thing) is enriched with linkedin-url, company-url, location, industry. Plays works-at:employer. `jobhunt-company` inherits from it.
-- **interaction** (sub domain-thing) tracks meetings, calls, emails, and interviews. Has type, date, outcome, follow-up tracking. Linked to participants via `interaction-participation` relation.
-- **collection** is typed per namespace: `scilit-corpus`, `jobhunt-search`, `apm-case-file`, `apm-disease-family`, `apm-patient-cohort`.
-- **information-content-entity** is only for content-bearing entities that own `content`, `cache-path`, `format`, etc.
+- **alh-domain-thing** is the base for all domain objects. Namespace subtypes (e.g., `scilit-paper`, `jhunt-position`, `apm-gene`) inherit from it.
+- **person** (sub alh-agent) is the universal person model. All people — operator, authors, contacts — inherit from it. Enriched with alh-linkedin-url, title, bio, alh-phone-number. Plays alh-works-at:employee and alh-interaction-participation:participant.
+- **organization** (sub alh-domain-thing) is enriched with alh-linkedin-url, alh-company-url, location, industry. Plays alh-works-at:employer. `jhunt-company` inherits from it.
+- **interaction** (sub alh-domain-thing) tracks meetings, calls, emails, and interviews. Has type, date, outcome, follow-up tracking. Linked to participants via `alh-interaction-participation` relation.
+- **collection** is typed per namespace: `scilit-corpus`, `jhunt-search`, `apm-case-file`, `apm-disease-family`, `apm-patient-cohort`.
+- **alh-information-content-entity** is only for content-bearing entities that own `content`, `cache-path`, `format`, etc.
 
 ### MCP Server
 - `src/skillful_alhazen/mcp/typedb_client.py` - TypeDB client library
@@ -463,9 +463,9 @@ local_skills/<name>/    (gitignored build artifact — DO NOT EDIT HERE)
   - registered in `skills-registry.yaml`, resolved to `local_skills/scientific-literature/`
 
 **Adding a new skill:**
-1. Copy template: `cp -r skills/_template skills/<skill-name>`
-2. Implement `SKILL.md` (triggers, prereqs, workflows by curation phase, commands, data model), `skill.yaml`, `<skill-name>.py`, `schema.tql`
-3. Add to `skills-registry.yaml` with `path: skills/<skill-name>`
+1. Copy template: `cp -r skills/_template skills/<slog-skill-name>`
+2. Implement `SKILL.md` (triggers, prereqs, workflows by curation phase, commands, data model), `skill.yaml`, `<slog-skill-name>.py`, `schema.tql`
+3. Add to `skills-registry.yaml` with `path: skills/<slog-skill-name>`
 4. Run `make build-skills` to wire it into Claude Code
 5. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide
 
@@ -539,11 +539,11 @@ cd dashboard && npm install && npm run dev
 - Analyzing results returned by scripts
 
 **Writing new skills:** When integrating a new data source or API:
-1. Copy the template: `cp -r skills/_template skills/<skill-name>`
-2. Design the TypeDB schema in `skills/<skill-name>/schema.tql` (auto-discovered by `make build-db`)
-3. Implement commands in `<skill-name>.py` following the template
+1. Copy the template: `cp -r skills/_template skills/<slog-skill-name>`
+2. Design the TypeDB schema in `skills/<slog-skill-name>/schema.tql` (auto-discovered by `make build-db`)
+3. Implement commands in `<slog-skill-name>.py` following the template
 4. Fill in `SKILL.md` and `skill.yaml` with metadata and commands
-5. Add a `path: skills/<skill-name>` entry to `skills-registry.yaml`
+5. Add a `path: skills/<slog-skill-name>` entry to `skills-registry.yaml`
 6. Run `make build-skills` then `make build-db` to wire everything
 7. See wiki [Skill Architecture](https://github.com/GullyBurns/skillful-alhazen/wiki/Skill-Architecture) for full guide
 
@@ -711,11 +711,11 @@ When a schema gap requires changing existing entity types (hierarchy changes, at
    ```yaml
    # local_resources/typedb/migration-rules/<migration-name>/intent.yaml
    renames:
-     - old: contact-email
-       new: email-address
+     - old: jhunt-contact-email
+       new: alh-email-address
        reason: "Standardized on core person attribute"
    hierarchy_changes:
-     - type: jobhunt-contact
+     - type: jhunt-contact
        old_parent: agent
        new_parent: person
        reason: "Contacts are people, should inherit person attributes"
@@ -797,12 +797,12 @@ When the GLAV schema_mapper approach is too complex (many entity types, unclear 
    ```python
    # Read from backup (old schema — data is intact)
    with driver.transaction("alhazen_backup", TransactionType.READ) as tx:
-       results = list(tx.query('match $p isa jobhunt-position, has id $id, has name $n; fetch { "id": $id, "name": $n };').resolve())
+       results = list(tx.query('match $p isa jhunt-position, has id $id, has name $n; fetch { "id": $id, "name": $n };').resolve())
 
    # Write to new database (new schema)
    with driver.transaction("alhazen_notebook", TransactionType.WRITE) as tx:
        for r in results:
-           tx.query(f'insert $p isa jobhunt-position, has id "{r["id"]}", has name "{r["name"]}";').resolve()
+           tx.query(f'insert $p isa jhunt-position, has id "{r["id"]}", has name "{r["name"]}";').resolve()
        tx.commit()
    ```
 5. **Clean up** the backup database when satisfied
@@ -868,8 +868,8 @@ A **schema gap** is when Claude tries to represent a concept, relationship, or e
 
 **File a schema gap:**
 ```bash
-uv run python local_resources/skilllog/skill_logger.py file-schema-gap \
-  --skill <skill-name> \
+uv run python local_resources/skilllog/skill_logger.py file-slog-schema-gap \
+  --skill <slog-skill-name> \
   --concept "<concept Claude tried to represent>" \
   --missing "<which TypeDB entity/relation/attribute is absent>" \
   --suggested "<proposed TypeQL snippet, or 'unknown'>" \
@@ -899,16 +899,16 @@ uv run python .claude/skills/curation-skill-builder/skill_builder.py \
 
 ### TypeDB 3.x Query Notes
 - **Fetch syntax** - Use `fetch { "key": $var.attr };` JSON-style (NOT `fetch $var: attr1, attr2;` — that is 2.x syntax)
-- **Abstract sub-entities** - Syntax is `entity X @abstract, sub Y,` (comma between `@abstract` and `sub`) — **SVL14: Y must also be abstract**; `domain-thing` is concrete so entities subtyping it cannot be `@abstract`
+- **Abstract sub-entities** - Syntax is `entity X @abstract, sub Y,` (comma between `@abstract` and `sub`) — **SVL14: Y must also be abstract**; `alh-domain-thing` is concrete so entities subtyping it cannot be `@abstract`
 - **No sessions** - Use `driver.transaction(database, TransactionType.X)` directly (no `driver.session(...)` wrapper)
 - **All queries use same method** - `tx.query(query_string).resolve()` for insert, fetch, delete, define
 - **Fetch results are plain dicts** - No `.get("value")` unwrapping needed; access keys directly
 - **Delete entity/relation syntax** - Use `delete $x;` (NOT `delete $x isa type;` — the `isa` qualifier in the delete clause is invalid in 3.x and causes a parse error)
 - **Delete has-attribute syntax** - Use `delete has $v of $e;` (NOT `delete $e has attr $v;` — causes "expected OF" parse error)
-- **`entity` is reserved in match clauses** - Cannot use `$x isa entity, has id ...` — `entity` is a TypeQL keyword, not a type label. Use `$x isa identifiable-entity, has id ...` to match any entity by id regardless of concrete type
+- **`entity` is reserved in match clauses** - Cannot use `$x isa entity, has id ...` — `entity` is a TypeQL keyword, not a type label. Use `$x isa alh-identifiable-entity, has id ...` to match any entity by id regardless of concrete type
 - **Entity inequality** - Cannot compare entity variables with `!=` directly (causes [REP1] error). Compare id attributes: `$a has id $id1; $b has id $id2; $id1 != $id2;`
-- **Note linking relation** - Use `(note: $n, subject: $e) isa aboutness` to attach a note to an entity (NOT `isa annotation` — that relation does not exist in the alhazen schema). `identifiable-entity` plays `aboutness:subject`; `note` plays `aboutness:note`
-- **Entity keyword required** - New entity type definitions MUST use `entity` keyword: `entity my-type sub domain-thing,` — without it, TypeDB throws `[SYR1] The type 'X' was not found` (even for newly defined types)
+- **Note linking relation** - Use `(note: $n, subject: $e) isa alh-aboutness` to attach a note to an entity (NOT `isa annotation` — that relation does not exist in the alhazen schema). `alh-identifiable-entity` plays `aboutness:subject`; `note` plays `aboutness:note`
+- **Entity keyword required** - New entity type definitions MUST use `entity` keyword: `entity my-type sub alh-domain-thing,` — without it, TypeDB throws `[SYR1] The type 'X' was not found` (even for newly defined types)
 - **No limit in fetch** - Fetch queries don't support `limit` modifier; apply limit in Python: `results[:N]`
 - **Relations before entities** - Define relations first in namespace schemas so role names resolve when entities use `plays` clauses
 - **No @key on custom attrs** - Only the inherited `id @key` works; adding `@key` to namespace attributes causes schema errors
