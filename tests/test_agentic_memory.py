@@ -121,8 +121,8 @@ class TestSchemaIntrospection:
         assert "relations" in data
         assert "embedding_index" in data
         # Core entity types must be present
-        assert "operator-user" in data["entities"]
-        assert "episode" in data["entities"]
+        assert "nbmem-operator-user" in data["entities"]
+        assert "alh-episode" in data["entities"]
 
     @requires_typedb
     def test_describe_schema_live_skill_filter(self):
@@ -130,7 +130,7 @@ class TestSchemaIntrospection:
         data = run_cmd("describe-schema", "--skill", "jobhunt")
         entities = data["entities"]
         # Core types should still be present
-        assert "operator-user" in entities
+        assert "nbmem-operator-user" in entities
         # If any jobhunt types exist, they should start with 'jobhunt-'
         jobhunt_types = [k for k in entities if k.startswith("jobhunt-")]
         # At least some jobhunt types expected (position, company, etc.)
@@ -141,8 +141,8 @@ class TestSchemaIntrospection:
         """describe-schema --full includes instance counts."""
         data = run_cmd("describe-schema", "--full")
         # Pick a type that has known instances
-        if "operator-user" in data["entities"]:
-            entry = data["entities"]["operator-user"]
+        if "nbmem-operator-user" in data["entities"]:
+            entry = data["entities"]["nbmem-operator-user"]
             assert "instance_count" in entry
             assert isinstance(entry["instance_count"], int)
 
@@ -158,7 +158,7 @@ class TestSchemaIntrospection:
     def test_describe_schema_entities_have_parent(self):
         """Entity entries include parent in the hierarchy."""
         data = run_cmd("describe-schema")
-        ep = data["entities"].get("episode")
+        ep = data["entities"].get("alh-episode")
         assert ep is not None
         assert "parent" in ep
 
@@ -167,7 +167,7 @@ class TestSchemaIntrospection:
         """Relation entries include role lists."""
         data = run_cmd("describe-schema")
         # aboutness should have note and subject roles
-        aboutness = data["relations"].get("aboutness")
+        aboutness = data["relations"].get("alh-aboutness")
         assert aboutness is not None
         assert "roles" in aboutness
         assert len(aboutness["roles"]) >= 2
@@ -184,7 +184,7 @@ class TestQueryInterface:
     def test_query_read_fetch(self):
         """query --typeql with a fetch returns structured results."""
         typeql = (
-            f'match $p isa operator-user, has id "{OPERATOR_ID}"; '
+            f'match $p isa nbmem-operator-user, has id "{OPERATOR_ID}"; '
             'fetch { "id": $p.id, "name": $p.name };'
         )
         data = run_cmd("query", "--typeql", typeql)
@@ -195,7 +195,7 @@ class TestQueryInterface:
     @requires_typedb
     def test_query_read_with_limit(self):
         """query --limit restricts result count."""
-        typeql = 'match $n isa note; fetch { "id": $n.id };'
+        typeql = 'match $n isa alh-note; fetch { "id": $n.id };'
         data = run_cmd("query", "--typeql", typeql, "--limit", "3")
         assert data["count"] <= 3
 
@@ -203,7 +203,7 @@ class TestQueryInterface:
     def test_query_read_no_results(self):
         """query that matches nothing returns count 0."""
         typeql = (
-            'match $p isa operator-user, has id "nonexistent-id-xyz"; '
+            'match $p isa nbmem-operator-user, has id "nonexistent-id-xyz"; '
             'fetch { "id": $p.id };'
         )
         data = run_cmd("query", "--typeql", typeql)
@@ -223,7 +223,7 @@ class TestQueryInterface:
     @requires_typedb
     def test_query_count_collections(self):
         """query can count collections in the database."""
-        typeql = 'match $c isa collection; fetch { "id": $c.id };'
+        typeql = 'match $c isa alh-collection; fetch { "id": $c.id };'
         data = run_cmd("query", "--typeql", typeql)
         assert data["count"] > 0
 
@@ -310,7 +310,7 @@ class TestEntityAlias:
 
     @pytest.fixture(autouse=True)
     def _setup_test_entities(self):
-        """Create two temporary domain-thing entities for alias testing."""
+        """Create two temporary alh-domain-thing entities for alias testing."""
         self.id_a = f"test-alias-a-{uuid.uuid4().hex[:8]}"
         self.id_b = f"test-alias-b-{uuid.uuid4().hex[:8]}"
 
@@ -319,7 +319,7 @@ class TestEntityAlias:
             run_cmd(
                 "query", "--mode", "write",
                 "--typeql", (
-                    f'insert $x isa domain-thing, '
+                    f'insert $x isa alh-domain-thing, '
                     f'has id "{eid}", has name "{name}";'
                 ),
             )
@@ -332,7 +332,7 @@ class TestEntityAlias:
                 run_cmd(
                     "query", "--mode", "write",
                     "--typeql", (
-                        f'match $x isa domain-thing, has id "{eid}"; delete $x;'
+                        f'match $x isa alh-domain-thing, has id "{eid}"; delete $x;'
                     ),
                     expect_success=False,  # may fail if already cleaned
                 )
@@ -444,7 +444,7 @@ class TestEpisodeTracking:
         # Cleanup
         run_cmd(
             "query", "--mode", "write",
-            "--typeql", f'match $e isa episode, has id "{ep_id}"; delete $e;',
+            "--typeql", f'match $e isa alh-episode, has id "{ep_id}"; delete $e;',
             expect_success=False,
         )
 
@@ -478,19 +478,19 @@ class TestEpisodeTracking:
         entity_ids = [e["id"] for e in show_data["entities"]]
         assert OPERATOR_ID in entity_ids
 
-        # Cleanup: delete episode-mention first, then episode
+        # Cleanup: delete alh-episode-mention first, then episode
         run_cmd(
             "query", "--mode", "write",
             "--typeql", (
-                f'match $ep isa episode, has id "{ep_id}"; '
-                f'$r (session: $ep, subject: $e) isa episode-mention; '
+                f'match $ep isa alh-episode, has id "{ep_id}"; '
+                f'$r (session: $ep, subject: $e) isa alh-episode-mention; '
                 f'delete $r;'
             ),
             expect_success=False,
         )
         run_cmd(
             "query", "--mode", "write",
-            "--typeql", f'match $e isa episode, has id "{ep_id}"; delete $e;',
+            "--typeql", f'match $e isa alh-episode, has id "{ep_id}"; delete $e;',
             expect_success=False,
         )
 
@@ -542,8 +542,8 @@ class TestIntegrationPipeline:
         run_cmd(
             "query", "--mode", "write",
             "--typeql", (
-                f'match $n isa note, has id "{claim_id}"; '
-                f'$r (note: $n, subject: $e) isa aboutness; '
+                f'match $n isa alh-note, has id "{claim_id}"; '
+                f'$r (note: $n, subject: $e) isa alh-aboutness; '
                 f'delete $r;'
             ),
             expect_success=False,
@@ -551,7 +551,7 @@ class TestIntegrationPipeline:
         run_cmd(
             "query", "--mode", "write",
             "--typeql", (
-                f'match $n isa memory-claim-note, has id "{claim_id}"; delete $n;'
+                f'match $n isa nbmem-memory-claim-note, has id "{claim_id}"; delete $n;'
             ),
             expect_success=False,
         )
