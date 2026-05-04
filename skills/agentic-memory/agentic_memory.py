@@ -1175,8 +1175,8 @@ def main():
     # --- Person / Context ---
     p = subparsers.add_parser("create-operator", help="Create an nbmem-operator-user")
     p.add_argument("--name", required=True)
-    p.add_argument("--alh-given-name")
-    p.add_argument("--alh-family-name")
+    p.add_argument("--given-name")
+    p.add_argument("--family-name")
     p.add_argument("--identity", help="Identity summary prose")
     p.add_argument("--role", help="Role description prose")
 
@@ -1208,7 +1208,7 @@ def main():
     p = subparsers.add_parser("consolidate", help="Create a nbmem-memory-claim-note")
     p.add_argument("--content", required=True)
     p.add_argument("--subject", required=True, help="Entity ID this claim is about")
-    p.add_argument("--alh-fact-type", default="knowledge",
+    p.add_argument("--fact-type", default="knowledge",
                    help="Type: knowledge | decision | goal | preference | schema-gap | ...")
     p.add_argument("--confidence", type=float, default=0.8)
     p.add_argument("--valid-until", help="ISO datetime when claim expires")
@@ -1225,7 +1225,7 @@ def main():
     p.add_argument("claim_id", help="Memory-claim-note ID")
 
     p = subparsers.add_parser("list-claims", help="List nbmem-memory-claim-notes")
-    p.add_argument("--alh-fact-type")
+    p.add_argument("--fact-type")
     p.add_argument("--person")
     p.add_argument("--limit", type=int, default=50)
 
@@ -1233,12 +1233,12 @@ def main():
     p = subparsers.add_parser("create-episode", help="Create an episode entity")
     p.add_argument("--skill", help="Source skill name")
     p.add_argument("--summary", required=True, help="Narrative of what happened")
-    p.add_argument("--alh-session-id", help="Session ID to link to skilllog-session")
+    p.add_argument("--session-id", help="Session ID to link to skilllog-session")
 
     p = subparsers.add_parser("link-episode", help="Link episode to graph entities")
     p.add_argument("--episode", required=True)
     p.add_argument("--entities", required=True, help="Comma-separated entity IDs")
-    p.add_argument("--alh-operation-type", help="Operation type (e.g. created, updated, analyzed)")
+    p.add_argument("--operation-type", help="Operation type (e.g. created, updated, analyzed)")
     p.add_argument("--rationale", help="Why this operation was performed")
 
     p = subparsers.add_parser("show-episode", help="Show episode details")

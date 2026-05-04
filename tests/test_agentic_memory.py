@@ -126,15 +126,15 @@ class TestSchemaIntrospection:
 
     @requires_typedb
     def test_describe_schema_live_skill_filter(self):
-        """describe-schema --skill jobhunt filters to jobhunt + core types."""
-        data = run_cmd("describe-schema", "--skill", "jobhunt")
+        """describe-schema --skill jhunt filters to jhunt + core types."""
+        data = run_cmd("describe-schema", "--skill", "jhunt")
         entities = data["entities"]
         # Core types should still be present
         assert "nbmem-operator-user" in entities
-        # If any jobhunt types exist, they should start with 'jobhunt-'
-        jobhunt_types = [k for k in entities if k.startswith("jobhunt-")]
-        # At least some jobhunt types expected (position, company, etc.)
-        assert len(jobhunt_types) > 0, "Expected jobhunt namespace types"
+        # If any jhunt types exist, they should start with 'jhunt-'
+        jhunt_types = [k for k in entities if k.startswith("jhunt-")]
+        # At least some jhunt types expected (position, company, etc.)
+        assert len(jhunt_types) > 0, "Expected jhunt namespace types"
 
     @requires_typedb
     def test_describe_schema_live_full(self):
@@ -422,7 +422,7 @@ class TestEpisodeTracking:
         ep = data["episodes"][0]
         assert "id" in ep
         assert "content" in ep
-        assert "source-skill" in ep
+        assert "alh-source-skill" in ep
 
     @requires_typedb
     def test_create_and_show_episode(self):
