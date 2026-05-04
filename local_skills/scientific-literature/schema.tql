@@ -1,0 +1,258 @@
+# =============================================================================
+# SCIENTIFIC LITERATURE NAMESPACE (scilit-) - TypeDB 3.x Schema Extension
+# =============================================================================
+# Domain-specific subtypes for scientific literature analysis.
+# Namespace prefix: scilit-*
+# =============================================================================
+
+define
+
+# -----------------------------------------------------------------------------
+# ATTRIBUTE TYPES - Scientific Literature Specific
+# -----------------------------------------------------------------------------
+
+# Publication identifiers
+attribute scilit-doi, value string;
+attribute scilit-pmid, value string;
+attribute scilit-pmcid, value string;
+attribute scilit-arxiv-id, value string;
+attribute scilit-issn, value string;
+attribute scilit-isbn, value string;
+
+# Publication metadata
+attribute scilit-journal-name, value string;
+attribute scilit-journal-volume, value string;
+attribute scilit-journal-issue, value string;
+attribute scilit-page-range, value string;
+attribute scilit-publication-year, value integer;
+attribute scilit-keyword, value string;
+
+# Section types
+attribute scilit-section-type, value string;
+attribute scilit-section-number, value string;
+attribute scilit-heading-level, value integer;
+
+# Figure/table specific
+attribute scilit-figure-number, value string;
+attribute scilit-table-number, value string;
+attribute scilit-caption, value string;
+
+# Note type classification
+attribute scilit-note-type, value string;
+attribute scilit-extraction-method, value string;
+attribute scilit-extraction-model, value string;
+
+# Dataset specific
+attribute scilit-dataset-url, value string;
+attribute scilit-dataset-format, value string;
+attribute scilit-dataset-size, value string;
+
+# Relation attributes
+attribute scilit-usage-type, value string;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Collections
+# -----------------------------------------------------------------------------
+
+# SCILIT-CORPUS - A literature corpus (set of papers on a topic)
+entity scilit-corpus sub alh-collection;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Things
+# -----------------------------------------------------------------------------
+
+# SCILIT-PAPER - A scientific publication
+entity scilit-paper sub alh-domain-thing,
+    owns abstract-text,
+    owns publication-date,
+    owns scilit-doi,
+    owns scilit-pmid,
+    owns scilit-pmcid,
+    owns scilit-arxiv-id,
+    owns scilit-journal-name,
+    owns scilit-journal-volume,
+    owns scilit-journal-issue,
+    owns scilit-page-range,
+    owns scilit-publication-year,
+    owns scilit-keyword @card(0..),
+    plays scilit-supplementary-material:paper,
+    plays scilit-dataset-usage:paper-entity;
+
+
+# SCILIT-DATASET - A scientific dataset
+entity scilit-dataset sub alh-domain-thing,
+    owns abstract-text,
+    owns scilit-doi,
+    owns scilit-dataset-url,
+    owns scilit-dataset-format,
+    owns scilit-dataset-size,
+    plays scilit-dataset-usage:dataset-entity;
+
+
+# SCILIT-PREPRINT - A preprint publication
+entity scilit-preprint sub alh-domain-thing,
+    owns abstract-text,
+    owns publication-date,
+    owns scilit-doi,
+    owns scilit-arxiv-id;
+
+
+# SCILIT-REVIEW - A review article
+entity scilit-review sub scilit-paper;
+
+
+# SCILIT-BOOK - A book or book chapter
+entity scilit-book sub alh-domain-thing,
+    owns abstract-text,
+    owns publication-date,
+    owns scilit-isbn,
+    owns scilit-doi;
+
+
+# SCILIT-PROTOCOL - A published protocol or methods paper
+entity scilit-protocol sub scilit-paper;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Artifacts
+# -----------------------------------------------------------------------------
+
+# SCILIT-JATS-FULLTEXT - JATS XML full-text representation
+entity scilit-jats-fulltext sub alh-artifact;
+
+
+# SCILIT-PDF-FULLTEXT - PDF full-text representation
+entity scilit-pdf-fulltext sub alh-artifact;
+
+
+# SCILIT-CITATION-RECORD - Citation/metadata record (from PubMed, Crossref, etc.)
+entity scilit-citation-record sub alh-artifact;
+
+
+# SCILIT-SUPPLEMENTARY - Supplementary material artifact
+entity scilit-supplementary sub alh-artifact,
+    plays scilit-supplementary-material:supplement;
+
+
+# SCILIT-STRUCTURED-DATA - Structured data extracted from a paper
+entity scilit-structured-data sub alh-artifact;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Fragments
+# -----------------------------------------------------------------------------
+
+# SCILIT-SECTION - A section of a paper
+entity scilit-section sub alh-fragment,
+    owns scilit-section-type,
+    owns scilit-section-number,
+    owns scilit-heading-level;
+
+
+# SCILIT-FIGURE - A figure from a paper
+entity scilit-figure sub alh-fragment,
+    owns scilit-figure-number,
+    owns scilit-caption,
+    plays scilit-figure-reference:referenced-figure;
+
+
+# SCILIT-TABLE - A table from a paper
+entity scilit-table sub alh-fragment,
+    owns scilit-table-number,
+    owns scilit-caption,
+    plays scilit-table-reference:referenced-table;
+
+
+# SCILIT-PARAGRAPH - A paragraph from a paper
+entity scilit-paragraph sub alh-fragment,
+    plays scilit-figure-reference:referencing-text,
+    plays scilit-table-reference:referencing-text;
+
+
+# SCILIT-SENTENCE - A sentence from a paper
+entity scilit-sentence sub alh-fragment,
+    plays scilit-figure-reference:referencing-text,
+    plays scilit-table-reference:referencing-text;
+
+
+# SCILIT-EQUATION - An equation from a paper
+entity scilit-equation sub alh-fragment;
+
+
+# SCILIT-REFERENCE - A reference entry from a paper's bibliography
+entity scilit-reference sub alh-fragment;
+
+
+# -----------------------------------------------------------------------------
+# ENTITY TYPES - Scientific Literature Notes
+# -----------------------------------------------------------------------------
+
+# SCILIT-EXTRACTION-NOTE - Extracted information from a paper
+entity scilit-extraction-note sub alh-note,
+    owns scilit-note-type,
+    owns scilit-extraction-method,
+    owns scilit-extraction-model;
+
+
+# SCILIT-CLASSIFICATION-NOTE - Classification/categorization of a paper
+entity scilit-classification-note sub alh-note,
+    owns scilit-note-type;
+
+
+# SCILIT-SUMMARY-NOTE - Summary of a paper or section
+entity scilit-summary-note sub alh-note,
+    owns scilit-note-type;
+
+
+# SCILIT-SYNTHESIS-NOTE - Synthesis across multiple papers
+entity scilit-synthesis-note sub alh-note,
+    owns scilit-note-type;
+
+
+# SCILIT-CRITIQUE-NOTE - Critical analysis or review
+entity scilit-critique-note sub alh-note,
+    owns scilit-note-type;
+
+
+# SCILIT-METHODOLOGY-NOTE - Notes about methods/protocols
+entity scilit-methodology-note sub alh-note,
+    owns scilit-note-type;
+
+
+# -----------------------------------------------------------------------------
+# RELATION TYPES - Scientific Literature Specific
+# -----------------------------------------------------------------------------
+
+# SUPPLEMENTARY-MATERIAL - Links papers to their supplementary files
+relation scilit-supplementary-material,
+    relates paper,
+    relates supplement;
+
+
+# FIGURE-REFERENCE - When text references a figure
+relation scilit-figure-reference,
+    owns provenance,
+    relates referencing-text,
+    relates referenced-figure;
+
+
+# TABLE-REFERENCE - When text references a table
+relation scilit-table-reference,
+    owns provenance,
+    relates referencing-text,
+    relates referenced-table;
+
+
+# DATASET-USAGE - Links papers to datasets they use or produce
+relation scilit-dataset-usage,
+    owns scilit-usage-type,
+    owns provenance,
+    relates paper-entity,
+    relates dataset-entity;
+
+
+# =============================================================================
+# END SCIENTIFIC LITERATURE NAMESPACE
+# =============================================================================
