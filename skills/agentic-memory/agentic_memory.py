@@ -2,31 +2,31 @@
 """
 Agentic Memory CLI - TypeDB-backed two-tier memory architecture.
 
-Manages persons (operator-users + application-users) with personal context,
-memory-claim-notes (crystallized semantic propositions), and session episodes.
+Manages persons (nbmem-operator-users + application-users) with personal context,
+nbmem-memory-claim-notes (crystallized semantic propositions), and session episodes.
 
 Usage:
     python skills/agentic-memory/agentic_memory.py <command> [options]
 
 Person / Context commands:
-    create-operator        Create an operator-user with personal context
+    create-operator        Create an nbmem-operator-user with personal context
     update-context-domain  Update one personal context domain for a person
     get-context            Get formatted personal context for a person (JSON)
-    link-project           Link a person to a collection (project-involvement)
-    link-tool              Link a person to a domain-thing (tool-familiarity)
-    link-person            Create a relationship-context between two persons
+    link-project           Link a person to a collection (nbmem-project-involvement)
+    link-tool              Link a person to a alh-domain-thing (nbmem-tool-familiarity)
+    link-person            Create a nbmem-relationship-context between two persons
     list-persons           List all person entities
 
 Memory Claim Note commands:
-    consolidate            Create a memory-claim-note about an entity
-    recall                 Get memory-claim-notes about an entity
-    recall-person          Get all memory-claim-notes about a person
-    invalidate             Invalidate a memory-claim-note (set valid-until to now)
-    list-claims            List memory-claim-notes with optional filters
+    consolidate            Create a nbmem-memory-claim-note about an entity
+    recall                 Get nbmem-memory-claim-notes about an entity
+    recall-person          Get all nbmem-memory-claim-notes about a person
+    invalidate             Invalidate a nbmem-memory-claim-note (set valid-until to now)
+    list-claims            List nbmem-memory-claim-notes with optional filters
 
 Episode commands:
     create-episode         Create an episode entity
-    link-episode           Link an episode to graph entities via episode-mention
+    link-episode           Link an episode to graph entities via alh-episode-mention
     show-episode           Show episode details with linked entities
     list-episodes          List recent episodes
 
@@ -101,7 +101,7 @@ def get_driver():
 # ---------------------------------------------------------------------------
 
 def create_operator(args):
-    """Create an operator-user with initial personal context."""
+    """Create an nbmem-operator-user with initial personal context."""
     eid = generate_id("op")
     ts = get_timestamp()
     name_esc = escape_string(args.name)
@@ -111,19 +111,19 @@ def create_operator(args):
     role = escape_string(args.role or "")
 
     query = f'''
-    insert $p isa operator-user,
+    insert $p isa nbmem-operator-user,
         has id "{eid}",
         has name "{name_esc}",
         has created-at {ts};
     '''
     if given:
-        query = query.rstrip().rstrip(";") + f',\n        has given-name "{given}";'
+        query = query.rstrip().rstrip(";") + f',\n        has alh-given-name "{given}";'
     if family:
-        query = query.rstrip().rstrip(";") + f',\n        has family-name "{family}";'
+        query = query.rstrip().rstrip(";") + f',\n        has alh-family-name "{family}";'
     if identity:
-        query = query.rstrip().rstrip(";") + f',\n        has identity-summary "{identity}";'
+        query = query.rstrip().rstrip(";") + f',\n        has nbmem-identity-summary "{identity}";'
     if role:
-        query = query.rstrip().rstrip(";") + f',\n        has role-description "{role}";'
+        query = query.rstrip().rstrip(";") + f',\n        has nbmem-role-description "{role}";'
     if not query.rstrip().endswith(";"):
         query = query.rstrip() + ";"
 
@@ -138,12 +138,12 @@ def create_operator(args):
 def update_context_domain(args):
     """Update one personal context domain attribute for a person."""
     domain_map = {
-        "identity": "identity-summary",
-        "role": "role-description",
-        "style": "communication-style",
-        "goals": "goals-summary",
-        "preferences": "preferences-summary",
-        "expertise": "domain-expertise",
+        "identity": "nbmem-identity-summary",
+        "role": "nbmem-role-description",
+        "style": "nbmem-communication-style",
+        "goals": "nbmem-goals-summary",
+        "preferences": "nbmem-preferences-summary",
+        "expertise": "nbmem-domain-expertise",
     }
     attr = domain_map.get(args.domain)
     if not attr:
@@ -155,11 +155,11 @@ def update_context_domain(args):
     ts = get_timestamp()
 
     # Delete old value then insert new one
-    # Use operator-user as the match type so TypeDB inference resolves operator-user-specific attrs
+    # Use nbmem-operator-user as the match type so TypeDB inference resolves nbmem-operator-user-specific attrs
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             check_q = f'''
-            match $p isa operator-user, has id "{pid}", has {attr} $v;
+            match $p isa nbmem-operator-user, has id "{pid}", has {attr} $v;
             delete has $v of $p;
             '''
             try:
@@ -172,7 +172,7 @@ def update_context_domain(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             try:
                 tx.query(f'''
-                match $p isa operator-user, has id "{pid}", has updated-at $v;
+                match $p isa nbmem-operator-user, has id "{pid}", has updated-at $v;
                 delete has $v of $p;
                 ''').resolve()
                 tx.commit()
@@ -181,7 +181,7 @@ def update_context_domain(args):
 
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
-            match $p isa operator-user, has id "{pid}";
+            match $p isa nbmem-operator-user, has id "{pid}";
             insert $p has {attr} "{content_esc}", has updated-at {ts};
             ''').resolve()
             tx.commit()
@@ -194,30 +194,30 @@ def get_context(args):
     pid = escape_string(args.person)
 
     domain_attrs = [
-        ("identity", "identity-summary"),
-        ("role", "role-description"),
-        ("style", "communication-style"),
-        ("goals", "goals-summary"),
-        ("preferences", "preferences-summary"),
-        ("expertise", "domain-expertise"),
+        ("identity", "nbmem-identity-summary"),
+        ("role", "nbmem-role-description"),
+        ("style", "nbmem-communication-style"),
+        ("goals", "nbmem-goals-summary"),
+        ("preferences", "nbmem-preferences-summary"),
+        ("expertise", "nbmem-domain-expertise"),
     ]
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             # Get basic person info
             person_q = f'''
-            match $p isa operator-user, has id "{pid}";
+            match $p isa nbmem-operator-user, has id "{pid}";
             fetch {{
                 "id": $p.id,
                 "name": $p.name,
-                "given-name": $p.given-name,
-                "family-name": $p.family-name,
-                "identity-summary": $p.identity-summary,
-                "role-description": $p.role-description,
-                "communication-style": $p.communication-style,
-                "goals-summary": $p.goals-summary,
-                "preferences-summary": $p.preferences-summary,
-                "domain-expertise": $p.domain-expertise
+                "alh-given-name": $p.alh-given-name,
+                "alh-family-name": $p.alh-family-name,
+                "nbmem-identity-summary": $p.nbmem-identity-summary,
+                "nbmem-role-description": $p.nbmem-role-description,
+                "nbmem-communication-style": $p.nbmem-communication-style,
+                "nbmem-goals-summary": $p.nbmem-goals-summary,
+                "nbmem-preferences-summary": $p.nbmem-preferences-summary,
+                "nbmem-domain-expertise": $p.nbmem-domain-expertise
             }};
             '''
             persons = list(tx.query(person_q).resolve())
@@ -227,11 +227,11 @@ def get_context(args):
 
             ctx = persons[0]
 
-            # Get linked projects (project-involvement)
+            # Get linked projects (nbmem-project-involvement)
             proj_q = f'''
             match
-                $p isa identifiable-entity, has id "{pid}";
-                (participant: $p, project: $c) isa project-involvement;
+                $p isa alh-identifiable-entity, has id "{pid}";
+                (participant: $p, project: $c) isa nbmem-project-involvement;
                 $c has id $cid, has name $cname;
             fetch {{
                 "id": $cid,
@@ -243,11 +243,11 @@ def get_context(args):
             except Exception:
                 projects = []
 
-            # Get linked tools (tool-familiarity)
+            # Get linked tools (nbmem-tool-familiarity)
             tool_q = f'''
             match
-                $p isa identifiable-entity, has id "{pid}";
-                (practitioner: $p, tool: $t) isa tool-familiarity;
+                $p isa alh-identifiable-entity, has id "{pid}";
+                (practitioner: $p, tool: $t) isa nbmem-tool-familiarity;
                 $t has id $tid, has name $tname;
             fetch {{
                 "id": $tid,
@@ -269,7 +269,7 @@ def get_context(args):
 
 
 def link_project(args):
-    """Create a project-involvement relation between a person and a collection."""
+    """Create a nbmem-project-involvement relation between a person and a collection."""
     pid = escape_string(args.person)
     cid = escape_string(args.collection)
 
@@ -277,9 +277,9 @@ def link_project(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
             match
-                $p isa operator-user, has id "{pid}";
-                $c isa collection, has id "{cid}";
-            insert (participant: $p, project: $c) isa project-involvement;
+                $p isa nbmem-operator-user, has id "{pid}";
+                $c isa alh-collection, has id "{cid}";
+            insert (participant: $p, project: $c) isa nbmem-project-involvement;
             ''').resolve()
             tx.commit()
 
@@ -287,7 +287,7 @@ def link_project(args):
 
 
 def link_tool(args):
-    """Create a tool-familiarity relation between a person and a domain-thing."""
+    """Create a nbmem-tool-familiarity relation between a person and a alh-domain-thing."""
     pid = escape_string(args.person)
     tid = escape_string(args.entity)
 
@@ -295,9 +295,9 @@ def link_tool(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
             match
-                $p isa operator-user, has id "{pid}";
-                $t isa domain-thing, has id "{tid}";
-            insert (practitioner: $p, tool: $t) isa tool-familiarity;
+                $p isa nbmem-operator-user, has id "{pid}";
+                $t isa alh-domain-thing, has id "{tid}";
+            insert (practitioner: $p, tool: $t) isa nbmem-tool-familiarity;
             ''').resolve()
             tx.commit()
 
@@ -305,7 +305,7 @@ def link_tool(args):
 
 
 def link_person(args):
-    """Create a relationship-context between two persons."""
+    """Create a nbmem-relationship-context between two persons."""
     from_id = escape_string(args.from_person)
     to_id = escape_string(args.to_person)
     desc = escape_string(args.context or "")
@@ -314,9 +314,9 @@ def link_person(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             q = f'''
             match
-                $a isa identifiable-entity, has id "{from_id}";
-                $b isa identifiable-entity, has id "{to_id}";
-            insert (from-person: $a, to-person: $b) isa relationship-context
+                $a isa alh-identifiable-entity, has id "{from_id}";
+                $b isa alh-identifiable-entity, has id "{to_id}";
+            insert (from-person: $a, to-person: $b) isa nbmem-relationship-context
             '''
             if desc:
                 q += f', has description "{desc}"'
@@ -332,12 +332,12 @@ def list_persons(args):
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query('''
-            match $p isa person;
+            match $p isa alh-person;
             fetch {
                 "id": $p.id,
                 "name": $p.name,
-                "given-name": $p.given-name,
-                "family-name": $p.family-name
+                "alh-given-name": $p.alh-given-name,
+                "alh-family-name": $p.alh-family-name
             };
             ''').resolve())
 
@@ -349,7 +349,7 @@ def list_persons(args):
 # ---------------------------------------------------------------------------
 
 def consolidate(args):
-    """Create a memory-claim-note about an entity."""
+    """Create a nbmem-memory-claim-note about an entity."""
     nid = generate_id("mcn")
     ts = get_timestamp()
     content_esc = escape_string(args.content)
@@ -359,12 +359,12 @@ def consolidate(args):
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-            # Insert the memory-claim-note
+            # Insert the nbmem-memory-claim-note
             q = f'''
-            insert $n isa memory-claim-note,
+            insert $n isa nbmem-memory-claim-note,
                 has id "{nid}",
                 has content "{content_esc}",
-                has fact-type "{fact_type}",
+                has alh-fact-type "{fact_type}",
                 has confidence {confidence},
                 has created-at {ts};
             '''
@@ -375,13 +375,13 @@ def consolidate(args):
             tx.query(q).resolve()
             tx.commit()
 
-        # Link to subject via aboutness
+        # Link to subject via alh-aboutness
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
             match
-                $n isa note, has id "{nid}";
-                $e isa identifiable-entity, has id "{subject_id}";
-            insert (note: $n, subject: $e) isa aboutness;
+                $n isa alh-note, has id "{nid}";
+                $e isa alh-identifiable-entity, has id "{subject_id}";
+            insert (note: $n, subject: $e) isa alh-aboutness;
             ''').resolve()
             tx.commit()
 
@@ -391,9 +391,9 @@ def consolidate(args):
             with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
                 tx.query(f'''
                 match
-                    $n isa note, has id "{nid}";
-                    $src isa identifiable-entity, has id "{src_id}";
-                insert (derived: $n, source: $src) isa fact-evidence;
+                    $n isa alh-note, has id "{nid}";
+                    $src isa alh-identifiable-entity, has id "{src_id}";
+                insert (derived: $n, source: $src) isa nbmem-fact-evidence;
                 ''').resolve()
                 tx.commit()
 
@@ -401,20 +401,20 @@ def consolidate(args):
 
 
 def recall(args):
-    """Get memory-claim-notes about an entity."""
+    """Get nbmem-memory-claim-notes about an entity."""
     subject_id = escape_string(args.subject)
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
             match
-                $n isa memory-claim-note;
-                $e isa identifiable-entity, has id "{subject_id}";
-                (note: $n, subject: $e) isa aboutness;
+                $n isa nbmem-memory-claim-note;
+                $e isa alh-identifiable-entity, has id "{subject_id}";
+                (note: $n, subject: $e) isa alh-aboutness;
             fetch {{
                 "id": $n.id,
                 "content": $n.content,
-                "fact-type": $n.fact-type,
+                "alh-fact-type": $n.alh-fact-type,
                 "confidence": $n.confidence,
                 "created-at": $n.created-at
             }};
@@ -424,20 +424,20 @@ def recall(args):
 
 
 def recall_person(args):
-    """Get all memory-claim-notes about a person."""
+    """Get all nbmem-memory-claim-notes about a person."""
     args.subject = args.person
     recall(args)
 
 
 def invalidate(args):
-    """Set valid-until to now for a memory-claim-note."""
+    """Set valid-until to now for a nbmem-memory-claim-note."""
     nid = escape_string(args.claim_id)
     ts = get_timestamp()
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
-            match $n isa memory-claim-note, has id "{nid}";
+            match $n isa nbmem-memory-claim-note, has id "{nid}";
             insert $n has valid-until {ts};
             ''').resolve()
             tx.commit()
@@ -446,16 +446,16 @@ def invalidate(args):
 
 
 def list_claims(args):
-    """List memory-claim-notes with optional filters."""
+    """List nbmem-memory-claim-notes with optional filters."""
     filters = ""
     if args.fact_type:
         ft = escape_string(args.fact_type)
-        filters += f'\n                $n has fact-type "{ft}";'
+        filters += f'\n                $n has alh-fact-type "{ft}";'
     if args.person:
         pid = escape_string(args.person)
         filters += f'''
-                $e isa identifiable-entity, has id "{pid}";
-                (note: $n, subject: $e) isa aboutness;'''
+                $e isa alh-identifiable-entity, has id "{pid}";
+                (note: $n, subject: $e) isa alh-aboutness;'''
 
     limit = int(args.limit) if args.limit else 50
 
@@ -463,11 +463,11 @@ def list_claims(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
             match
-                $n isa memory-claim-note;{filters}
+                $n isa nbmem-memory-claim-note;{filters}
             fetch {{
                 "id": $n.id,
                 "content": $n.content,
-                "fact-type": $n.fact-type,
+                "alh-fact-type": $n.alh-fact-type,
                 "confidence": $n.confidence,
                 "created-at": $n.created-at
             }};
@@ -491,11 +491,11 @@ def create_episode(args):
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
-            insert $e isa episode,
+            insert $e isa alh-episode,
                 has id "{eid}",
                 has content "{summary}",
-                has source-skill "{skill}",
-                has session-id "{session_id}",
+                has alh-source-skill "{skill}",
+                has alh-session-id "{session_id}",
                 has created-at {ts};
             ''').resolve()
             tx.commit()
@@ -504,7 +504,7 @@ def create_episode(args):
 
 
 def link_episode(args):
-    """Add episode-mention relations linking an episode to graph entities."""
+    """Add alh-episode-mention relations linking an episode to graph entities."""
     ep_id = escape_string(args.episode)
     entity_ids = [e.strip() for e in args.entities.split(",") if e.strip()]
     op_type = getattr(args, "operation_type", None)
@@ -516,16 +516,16 @@ def link_episode(args):
             eid_esc = escape_string(eid)
             try:
                 with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-                    insert_clause = "(session: $ep, subject: $e) isa episode-mention"
+                    insert_clause = "(session: $ep, subject: $e) isa alh-episode-mention"
                     if op_type:
-                        insert_clause += f', has operation-type "{escape_string(op_type)}"'
+                        insert_clause += f', has alh-operation-type "{escape_string(op_type)}"'
                     if rationale_text:
-                        insert_clause += f', has rationale "{escape_string(rationale_text)}"'
+                        insert_clause += f', has nbmem-rationale "{escape_string(rationale_text)}"'
                     insert_clause += ";"
                     tx.query(f'''
                     match
-                        $ep isa episode, has id "{ep_id}";
-                        $e isa identifiable-entity, has id "{eid_esc}";
+                        $ep isa alh-episode, has id "{ep_id}";
+                        $e isa alh-identifiable-entity, has id "{eid_esc}";
                     insert {insert_clause}
                     ''').resolve()
                     tx.commit()
@@ -543,12 +543,12 @@ def show_episode(args):
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             eps = list(tx.query(f'''
-            match $ep isa episode, has id "{ep_id}";
+            match $ep isa alh-episode, has id "{ep_id}";
             fetch {{
                 "id": $ep.id,
                 "content": $ep.content,
-                "source-skill": $ep.source-skill,
-                "session-id": $ep.session-id,
+                "alh-source-skill": $ep.alh-source-skill,
+                "alh-session-id": $ep.alh-session-id,
                 "created-at": $ep.created-at
             }};
             ''').resolve())
@@ -559,8 +559,8 @@ def show_episode(args):
 
             entities = list(tx.query(f'''
             match
-                $ep isa episode, has id "{ep_id}";
-                (session: $ep, subject: $e) isa episode-mention;
+                $ep isa alh-episode, has id "{ep_id}";
+                (session: $ep, subject: $e) isa alh-episode-mention;
                 $e has id $eid, has name $ename;
             fetch {{
                 "id": $eid,
@@ -568,17 +568,17 @@ def show_episode(args):
             }};
             ''').resolve())
 
-            # Second query: get entities with operation-type metadata
+            # Second query: get entities with alh-operation-type metadata
             try:
                 entities_with_ops = list(tx.query(f'''
                 match
-                    $ep isa episode, has id "{ep_id}";
-                    $r (session: $ep, subject: $e) isa episode-mention, has operation-type $ot;
+                    $ep isa alh-episode, has id "{ep_id}";
+                    $r (session: $ep, subject: $e) isa alh-episode-mention, has alh-operation-type $ot;
                     $e has id $eid, has name $ename;
                 fetch {{
                     "id": $eid,
                     "name": $ename,
-                    "operation-type": $ot
+                    "alh-operation-type": $ot
                 }};
                 ''').resolve())
             except Exception:
@@ -616,18 +616,18 @@ def list_episodes(args):
     skill_filter = ""
     if args.skill:
         sf = escape_string(args.skill)
-        skill_filter = f'\n                $ep has source-skill "{sf}";'
+        skill_filter = f'\n                $ep has alh-source-skill "{sf}";'
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(f'''
             match
-                $ep isa episode;{skill_filter}
+                $ep isa alh-episode;{skill_filter}
             fetch {{
                 "id": $ep.id,
                 "content": $ep.content,
-                "source-skill": $ep.source-skill,
-                "session-id": $ep.session-id,
+                "alh-source-skill": $ep.alh-source-skill,
+                "alh-session-id": $ep.alh-session-id,
                 "created-at": $ep.created-at
             }};
             ''').resolve())
@@ -790,23 +790,23 @@ def describe_schema(args):
     if skill_filter:
         prefix = skill_filter
         core_types = {
-            "identifiable-entity", "domain-thing", "collection",
-            "information-content-entity", "artifact", "fragment", "note",
-            "episode", "user-question", "information-resource",
-            "agent", "person", "author", "organization", "interaction",
-            "tag", "vocabulary", "vocabulary-type", "vocabulary-property",
-            "operator-user", "application-user", "memory-claim-note",
+            "alh-identifiable-entity", "alh-domain-thing", "alh-collection",
+            "alh-information-content-entity", "alh-artifact", "alh-fragment", "alh-note",
+            "alh-episode", "alh-user-question", "alh-information-resource",
+            "alh-agent", "alh-person", "alh-author", "alh-organization", "alh-interaction",
+            "alh-tag", "alh-vocabulary", "alh-vocabulary-type", "alh-vocabulary-property",
+            "nbmem-operator-user", "nbmem-application-user", "nbmem-memory-claim-note",
         }
         core_rels = {
-            "aboutness", "representation", "collection-membership",
-            "collection-nesting", "fragmentation", "authorship",
-            "affiliation", "citation-reference", "derivation",
-            "works-at", "interaction-participation", "evidence-chain",
-            "provenance-record", "classification", "tagging",
-            "episode-mention", "note-threading", "semantic-triple",
-            "property-assertion", "quotation",
-            "project-involvement", "tool-familiarity",
-            "relationship-context", "fact-evidence", "entity-alias",
+            "alh-aboutness", "alh-representation", "alh-collection-membership",
+            "alh-collection-nesting", "alh-fragmentation", "alh-authorship",
+            "alh-affiliation", "alh-citation-reference", "alh-derivation",
+            "alh-works-at", "alh-interaction-participation", "alh-evidence-chain",
+            "alh-provenance-record", "alh-classification", "alh-tagging",
+            "alh-episode-mention", "alh-note-threading", "alh-semantic-triple",
+            "alh-property-assertion", "alh-quotation",
+            "nbmem-project-involvement", "nbmem-tool-familiarity",
+            "nbmem-relationship-context", "nbmem-fact-evidence", "nbmem-entity-alias",
         }
         entities = {k: v for k, v in entities.items()
                     if k.startswith(prefix + "-") or k == prefix or k in core_types}
@@ -908,14 +908,16 @@ def _get_embedding_index():
 def _run_namespace_audit(entities, relations):
     """Audit entity namespaces against skill registry."""
     CORE_TYPES = {
-        "identifiable-entity", "domain-thing", "collection",
-        "information-content-entity", "artifact", "fragment", "note",
-        "memory-claim-note", "episode", "agent", "ai-agent", "person",
-        "operator-user", "author", "organization", "interaction",
+        "alh-identifiable-entity", "alh-domain-thing", "alh-collection",
+        "alh-information-content-entity", "alh-artifact", "alh-fragment", "alh-note",
+        "nbmem-memory-claim-note", "alh-episode", "alh-agent", "alh-ai-agent", "alh-person",
+        "nbmem-operator-user", "alh-author", "alh-organization", "alh-interaction",
     }
     KNOWN_PREFIXES = [
-        "tech-recon",  # multi-part prefix, must come before single-part
-        "jobhunt", "scilit", "dm", "trend", "apt", "apm",
+        "trec",    # was tech-recon
+        "jhunt",   # was jobhunt
+        "sltrend", # was trend
+        "scilit", "dm", "slog", "nbmem", "alh",
     ]
 
     # Group entities by namespace prefix
@@ -1079,7 +1081,7 @@ def search_semantic(args):
 
 
 def merge_entities(args):
-    """Create an entity-alias relation between canonical and alias entity."""
+    """Create an nbmem-entity-alias relation between canonical and alias entity."""
     canonical_id = escape_string(args.canonical)
     alias_id = escape_string(args.alias)
 
@@ -1087,9 +1089,9 @@ def merge_entities(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             q = f'''
             match
-                $c isa identifiable-entity, has id "{canonical_id}";
-                $a isa identifiable-entity, has id "{alias_id}";
-            insert (primary-entity: $c, aliased-entity: $a) isa entity-alias'''
+                $c isa alh-identifiable-entity, has id "{canonical_id}";
+                $a isa alh-identifiable-entity, has id "{alias_id}";
+            insert (primary-entity: $c, aliased-entity: $a) isa nbmem-entity-alias'''
             # Add optional metadata
             desc = getattr(args, "description", None)
             conf = getattr(args, "confidence", None)
@@ -1105,7 +1107,7 @@ def merge_entities(args):
 
 
 def unmerge_entities(args):
-    """Remove an entity-alias relation between canonical and alias entity."""
+    """Remove an nbmem-entity-alias relation between canonical and alias entity."""
     canonical_id = escape_string(args.canonical)
     alias_id = escape_string(args.alias)
 
@@ -1113,9 +1115,9 @@ def unmerge_entities(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
             match
-                $c isa identifiable-entity, has id "{canonical_id}";
-                $a isa identifiable-entity, has id "{alias_id}";
-                $r isa entity-alias (primary-entity: $c, aliased-entity: $a);
+                $c isa alh-identifiable-entity, has id "{canonical_id}";
+                $a isa alh-identifiable-entity, has id "{alias_id}";
+                $r isa nbmem-entity-alias (primary-entity: $c, aliased-entity: $a);
             delete $r;
             ''').resolve()
             tx.commit()
@@ -1124,7 +1126,7 @@ def unmerge_entities(args):
 
 
 def list_aliases(args):
-    """List entity-alias relations, optionally filtered by entity ID."""
+    """List nbmem-entity-alias relations, optionally filtered by entity ID."""
     entity_id = getattr(args, "id", None)
 
     with get_driver() as driver:
@@ -1135,12 +1137,12 @@ def list_aliases(args):
                 results = []
                 for direction_q in [
                     f'''match
-                        $e isa identifiable-entity, has id "{eid}";
-                        (primary-entity: $e, aliased-entity: $other) isa entity-alias;
+                        $e isa alh-identifiable-entity, has id "{eid}";
+                        (primary-entity: $e, aliased-entity: $other) isa nbmem-entity-alias;
                     fetch {{ "other-id": $other.id, "other-name": $other.name }};''',
                     f'''match
-                        $e isa identifiable-entity, has id "{eid}";
-                        (primary-entity: $other, aliased-entity: $e) isa entity-alias;
+                        $e isa alh-identifiable-entity, has id "{eid}";
+                        (primary-entity: $other, aliased-entity: $e) isa nbmem-entity-alias;
                     fetch {{ "other-id": $other.id, "other-name": $other.name }};''',
                 ]:
                     try:
@@ -1150,7 +1152,7 @@ def list_aliases(args):
             else:
                 results = list(tx.query('''
                 match
-                    (primary-entity: $c, aliased-entity: $a) isa entity-alias;
+                    (primary-entity: $c, aliased-entity: $a) isa nbmem-entity-alias;
                 fetch {
                     "canonical-id": $c.id,
                     "canonical-name": $c.name,
@@ -1171,10 +1173,10 @@ def main():
     subparsers = parser.add_subparsers(dest="command")
 
     # --- Person / Context ---
-    p = subparsers.add_parser("create-operator", help="Create an operator-user")
+    p = subparsers.add_parser("create-operator", help="Create an nbmem-operator-user")
     p.add_argument("--name", required=True)
-    p.add_argument("--given-name")
-    p.add_argument("--family-name")
+    p.add_argument("--alh-given-name")
+    p.add_argument("--alh-family-name")
     p.add_argument("--identity", help="Identity summary prose")
     p.add_argument("--role", help="Role description prose")
 
@@ -1191,11 +1193,11 @@ def main():
     p.add_argument("--person", required=True)
     p.add_argument("--collection", required=True)
 
-    p = subparsers.add_parser("link-tool", help="Link person to a domain-thing")
+    p = subparsers.add_parser("link-tool", help="Link person to a alh-domain-thing")
     p.add_argument("--person", required=True)
     p.add_argument("--entity", required=True, help="Domain-thing ID")
 
-    p = subparsers.add_parser("link-person", help="Create relationship-context between two persons")
+    p = subparsers.add_parser("link-person", help="Create nbmem-relationship-context between two persons")
     p.add_argument("--from-person", required=True)
     p.add_argument("--to-person", required=True)
     p.add_argument("--context", help="Description of the relationship")
@@ -1203,27 +1205,27 @@ def main():
     p = subparsers.add_parser("list-persons", help="List all person entities")
 
     # --- Memory Claim Notes ---
-    p = subparsers.add_parser("consolidate", help="Create a memory-claim-note")
+    p = subparsers.add_parser("consolidate", help="Create a nbmem-memory-claim-note")
     p.add_argument("--content", required=True)
     p.add_argument("--subject", required=True, help="Entity ID this claim is about")
-    p.add_argument("--fact-type", default="knowledge",
+    p.add_argument("--alh-fact-type", default="knowledge",
                    help="Type: knowledge | decision | goal | preference | schema-gap | ...")
     p.add_argument("--confidence", type=float, default=0.8)
     p.add_argument("--valid-until", help="ISO datetime when claim expires")
     p.add_argument("--source-episode", help="Episode ID this was derived from")
     p.add_argument("--source-note", help="Note ID this was derived from")
 
-    p = subparsers.add_parser("recall", help="Get memory-claim-notes about an entity")
+    p = subparsers.add_parser("recall", help="Get nbmem-memory-claim-notes about an entity")
     p.add_argument("--subject", required=True)
 
-    p = subparsers.add_parser("recall-person", help="Get all memory-claim-notes about a person")
+    p = subparsers.add_parser("recall-person", help="Get all nbmem-memory-claim-notes about a person")
     p.add_argument("--person", required=True)
 
-    p = subparsers.add_parser("invalidate", help="Invalidate a memory-claim-note")
+    p = subparsers.add_parser("invalidate", help="Invalidate a nbmem-memory-claim-note")
     p.add_argument("claim_id", help="Memory-claim-note ID")
 
-    p = subparsers.add_parser("list-claims", help="List memory-claim-notes")
-    p.add_argument("--fact-type")
+    p = subparsers.add_parser("list-claims", help="List nbmem-memory-claim-notes")
+    p.add_argument("--alh-fact-type")
     p.add_argument("--person")
     p.add_argument("--limit", type=int, default=50)
 
@@ -1231,12 +1233,12 @@ def main():
     p = subparsers.add_parser("create-episode", help="Create an episode entity")
     p.add_argument("--skill", help="Source skill name")
     p.add_argument("--summary", required=True, help="Narrative of what happened")
-    p.add_argument("--session-id", help="Session ID to link to skilllog-session")
+    p.add_argument("--alh-session-id", help="Session ID to link to skilllog-session")
 
     p = subparsers.add_parser("link-episode", help="Link episode to graph entities")
     p.add_argument("--episode", required=True)
     p.add_argument("--entities", required=True, help="Comma-separated entity IDs")
-    p.add_argument("--operation-type", help="Operation type (e.g. created, updated, analyzed)")
+    p.add_argument("--alh-operation-type", help="Operation type (e.g. created, updated, analyzed)")
     p.add_argument("--rationale", help="Why this operation was performed")
 
     p = subparsers.add_parser("show-episode", help="Show episode details")
@@ -1265,17 +1267,17 @@ def main():
     p.add_argument("--limit", type=int, default=10)
     p.add_argument("--threshold", type=float, default=0.0, help="Minimum similarity score")
 
-    p = subparsers.add_parser("merge-entities", help="Create entity-alias relation")
+    p = subparsers.add_parser("merge-entities", help="Create nbmem-entity-alias relation")
     p.add_argument("--canonical", required=True, help="Canonical entity ID")
     p.add_argument("--alias", required=True, help="Alias entity ID")
     p.add_argument("--description", help="Description of the alias relationship")
     p.add_argument("--confidence", type=float, help="Confidence score")
 
-    p = subparsers.add_parser("unmerge-entities", help="Remove entity-alias relation")
+    p = subparsers.add_parser("unmerge-entities", help="Remove nbmem-entity-alias relation")
     p.add_argument("--canonical", required=True, help="Canonical entity ID")
     p.add_argument("--alias", required=True, help="Alias entity ID")
 
-    p = subparsers.add_parser("list-aliases", help="List entity-alias relations")
+    p = subparsers.add_parser("list-aliases", help="List nbmem-entity-alias relations")
     p.add_argument("--id", help="Entity ID to find aliases for")
 
     args = parser.parse_args()
