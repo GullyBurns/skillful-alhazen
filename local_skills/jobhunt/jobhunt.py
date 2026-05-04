@@ -1413,11 +1413,26 @@ def cmd_show_opportunity(args):
                     opp.update(extras[0])
 
             # Get linked company via jhunt-opportunity-at-organization
-            company_q = f'''match
-                $o isa jhunt-opportunity, has id "{args.id}";
-                (opportunity: $o, organization: $c) isa jhunt-opportunity-at-organization;
-            fetch {{ "id": $c.id, "name": $c.name }};'''
-            company_results = list(tx.query(company_q).resolve())
+            company_results = []
+            # Try opportunity-at-organization first
+            try:
+                company_q = f'''match
+                    $o isa jhunt-opportunity, has id "{args.id}";
+                    (opportunity: $o, organization: $c) isa jhunt-opportunity-at-organization;
+                fetch {{ "id": $c.id, "name": $c.name }};'''
+                company_results = list(tx.query(company_q).resolve())
+            except Exception:
+                pass
+            # Fall back to position-at-company
+            if not company_results:
+                try:
+                    company_q = f'''match
+                        $p isa jhunt-position, has id "{args.id}";
+                        (position: $p, employer: $c) isa jhunt-position-at-company;
+                    fetch {{ "id": $c.id, "name": $c.name }};'''
+                    company_results = list(tx.query(company_q).resolve())
+                except Exception:
+                    pass
 
             # Get notes
             notes_q = f'''match
