@@ -2854,6 +2854,190 @@ def cmd_scaffold_improvement_loop(args):
     })
 
 
+def cmd_validate_namespace(args):
+    """Validate that a skill's schema.tql follows namespace prefix conventions."""
+    import re
+    import yaml
+
+    skill_dir = Path(args.skill_dir).resolve()
+    violations = []
+    warnings = []
+
+    # --- Core types exempt from prefix checks ---
+    CORE_TYPES = {
+        "identifiable-entity", "domain-thing", "collection",
+        "information-content-entity", "artifact", "fragment", "note",
+        "episode", "agent", "person", "author", "organization",
+        "interaction", "tag", "vocabulary", "vocabulary-type",
+        "vocabulary-property", "user-question", "information-resource",
+        "ai-agent", "operator-user", "application-user", "memory-claim-note",
+    }
+
+    # --- Rule (a): Read skill.yaml and extract namespace ---
+    skill_yaml_path = skill_dir / "skill.yaml"
+    if not skill_yaml_path.exists():
+        out({
+            "success": True, "valid": False,
+            "violations": [{"rule": "a", "message": f"skill.yaml not found at {skill_yaml_path}"}],
+            "warnings": [], "namespace": None, "types_found": {},
+        })
+        return
+
+    with open(skill_yaml_path) as f:
+        skill_meta = yaml.safe_load(f) or {}
+
+    schema_section = skill_meta.get("schema", {}) or {}
+    namespace = schema_section.get("namespace")
+    depends_on = schema_section.get("depends_on") or []
+    if isinstance(depends_on, str):
+        depends_on = [depends_on]
+
+    if not namespace:
+        violations.append({
+            "rule": "a",
+            "message": "schema.namespace is not declared in skill.yaml",
+        })
+        out({
+            "success": True, "valid": False,
+            "violations": violations, "warnings": warnings,
+            "namespace": None, "types_found": {},
+        })
+        return
+
+    prefix = namespace + "-"
+
+    # --- Parse schema.tql ---
+    schema_path = skill_dir / "schema.tql"
+    if not schema_path.exists():
+        out({
+            "success": True, "valid": False,
+            "violations": [{"rule": "b", "message": f"schema.tql not found at {schema_path}"}],
+            "warnings": warnings, "namespace": namespace, "types_found": {},
+        })
+        return
+
+    schema_text = schema_path.read_text()
+
+    # Extract type definitions
+    entity_defs = re.findall(r'entity\s+([\w-]+)', schema_text)
+    relation_defs = re.findall(r'relation\s+([\w-]+)', schema_text)
+    attribute_defs = re.findall(r'attribute\s+([\w-]+)', schema_text)
+
+    # Identify which types are being extended (redefined) vs newly defined.
+    # A line like "entity person," followed by "    owns ..." means we are
+    # extending a core type, not defining a new one.  We detect this by
+    # checking if the type already exists in CORE_TYPES.
+    # New definitions are those NOT in CORE_TYPES.
+
+    new_entities = [t for t in entity_defs if t not in CORE_TYPES]
+    new_relations = [t for t in relation_defs if t not in CORE_TYPES]
+    new_attributes = [t for t in attribute_defs if t not in CORE_TYPES]
+
+    extended_entities = [t for t in entity_defs if t in CORE_TYPES]
+    extended_relations = [t for t in relation_defs if t in CORE_TYPES]
+    extended_attributes = [t for t in attribute_defs if t in CORE_TYPES]
+
+    types_found = {
+        "entities": sorted(set(new_entities)),
+        "relations": sorted(set(new_relations)),
+        "attributes": sorted(set(new_attributes)),
+        "extended_core_entities": sorted(set(extended_entities)),
+        "extended_core_relations": sorted(set(extended_relations)),
+        "extended_core_attributes": sorted(set(extended_attributes)),
+    }
+
+    # --- Rule (b): Entity type names must start with namespace prefix ---
+    for t in set(new_entities):
+        if not t.startswith(prefix):
+            violations.append({
+                "rule": "b",
+                "type_kind": "entity",
+                "type_name": t,
+                "message": f"Entity '{t}' does not start with namespace prefix '{prefix}'",
+            })
+
+    # --- Rule (c): Relation type names must start with namespace prefix ---
+    for t in set(new_relations):
+        if not t.startswith(prefix):
+            violations.append({
+                "rule": "c",
+                "type_kind": "relation",
+                "type_name": t,
+                "message": f"Relation '{t}' does not start with namespace prefix '{prefix}'",
+            })
+
+    # --- Rule (d): Attribute type names must start with namespace prefix ---
+    for t in set(new_attributes):
+        if not t.startswith(prefix):
+            violations.append({
+                "rule": "d",
+                "type_kind": "attribute",
+                "type_name": t,
+                "message": f"Attribute '{t}' does not start with namespace prefix '{prefix}'",
+            })
+
+    # --- Rule (e): Cross-namespace references must be covered by depends_on ---
+    # Find plays/owns clauses that reference non-core, non-self-namespace types.
+    # Pattern: "plays <relation-type>:<role>" or "owns <attribute-type>"
+    plays_refs = re.findall(r'plays\s+([\w-]+):', schema_text)
+    owns_refs = re.findall(r'owns\s+([\w-]+)', schema_text)
+
+    # Build the set of allowed prefixes: own namespace + depends_on namespaces + core
+    allowed_prefixes = {prefix}
+    for dep in depends_on:
+        allowed_prefixes.add(dep + "-")
+
+    all_cross_refs = set(plays_refs + owns_refs)
+    for ref in all_cross_refs:
+        # Skip core types and types from own namespace
+        if ref in CORE_TYPES:
+            continue
+        if ref.startswith(prefix):
+            continue
+        # Check if covered by depends_on
+        covered = False
+        for ap in allowed_prefixes:
+            if ref.startswith(ap):
+                covered = True
+                break
+        # Also skip if the ref matches a type defined in this schema
+        all_local = set(new_entities + new_relations + new_attributes)
+        if ref in all_local:
+            continue
+        if not covered:
+            # Try to extract the namespace of the foreign type
+            parts = ref.split("-")
+            foreign_ns = parts[0] if len(parts) > 1 else ref
+            violations.append({
+                "rule": "e",
+                "reference": ref,
+                "message": (
+                    f"Cross-namespace reference '{ref}' is not covered by depends_on. "
+                    f"Consider adding '{foreign_ns}' to schema.depends_on in skill.yaml"
+                ),
+            })
+
+    # --- Also warn about core types being extended (informational) ---
+    for t in set(extended_entities):
+        warnings.append({
+            "type_kind": "entity",
+            "type_name": t,
+            "message": f"Core entity '{t}' is being extended (plays/owns added) -- this is OK",
+        })
+
+    valid = len(violations) == 0
+
+    out({
+        "success": True,
+        "valid": valid,
+        "violations": violations,
+        "warnings": warnings,
+        "namespace": namespace,
+        "depends_on": depends_on,
+        "types_found": types_found,
+    })
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Domain Modeling Skill - Track knowledge domain design processes",
@@ -3115,6 +3299,9 @@ def main():
                               help="Import skill-builder KG snapshot from export-skill-data JSON")
     p.add_argument("--file", required=True, help="Path to JSON file from export-skill-data")
 
+    p = subparsers.add_parser("validate-namespace", help="Validate schema namespace rules")
+    p.add_argument("--skill-dir", required=True, help="Path to skill directory")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -3163,6 +3350,7 @@ def main():
         "generate-template": cmd_generate_template,
         "export-skill-data": cmd_export_skill_data,
         "import-skill-data": cmd_import_skill_data,
+        "validate-namespace": cmd_validate_namespace,
     }
 
     try:

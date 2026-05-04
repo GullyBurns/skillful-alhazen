@@ -89,6 +89,8 @@ build-env: ## Install Python dependencies
 
 .PHONY: build-skills
 build-skills: skills-install deploy-claude ## Resolve skills-registry.yaml → local_skills/ + wire .claude/skills/
+	@echo "$(BLUE)Compiling schema map...$(NC)"
+	@uv run python scripts/compile_schema_map.py --registry $(SKILLS_REGISTRY)
 	@echo "$(GREEN)✓ Skills built$(NC)"
 
 .PHONY: build-agents
@@ -231,6 +233,31 @@ qdrant-stop: ## Stop Qdrant vector store container
 	@echo "$(BLUE)Stopping Qdrant container...$(NC)"
 	docker compose stop qdrant
 	@echo "$(GREEN)✓ Qdrant stopped$(NC)"
+
+.PHONY: db-retire-skill
+db-retire-skill: ## Remove a skill's schema + data from TypeDB (requires SKILL=name, optional DRY_RUN=1)
+ifndef SKILL
+	@echo "$(RED)Error: SKILL variable required. Usage: make db-retire-skill SKILL=they-said-whaaa$(NC)"
+	@exit 1
+endif
+	@NS=$$(uv run python -c "import yaml; r=yaml.safe_load(open('skills-registry.yaml')); sm=r.get('schema_map',{}); ns=[n for n,i in sm.get('namespaces',{}).items() if i.get('skill')=='$(SKILL)']; print(ns[0] if ns else '')" 2>/dev/null); \
+	if [ -z "$$NS" ]; then echo "$(RED)Error: No namespace found for skill '$(SKILL)' in schema_map$(NC)"; exit 1; fi; \
+	echo "$(BLUE)Retiring namespace '$$NS' for skill '$(SKILL)'...$(NC)"; \
+	uv run python scripts/db_retire_namespace.py --namespace $$NS $(if $(DRY_RUN),--dry-run)
+
+.PHONY: db-audit
+db-audit: ## Report namespace health (types, instances, status per namespace)
+	@uv run python $(CLAUDE_SKILLS_DIR)/agentic-memory/agentic_memory.py describe-schema --audit 2>/dev/null \
+		| python3 -c "\
+import json, sys; \
+d = json.load(sys.stdin); \
+audit = d.get('namespace_audit', {}); \
+hdr = '{:<20} {:<30} {:>6} {:>10}  {}'; \
+print(hdr.format('Namespace','Skill','Types','Instances','Status')); \
+print('-'*80); \
+[print(hdr.format(ns, info['skill'], info['types'], info['instances'], info['status'])) for ns,info in sorted(audit.items(), key=lambda x: -x[1]['instances'])]; \
+empty = [ns for ns,i in audit.items() if i['status']=='empty']; \
+print(); print('Empty namespaces: ' + (', '.join(empty) if empty else 'NONE'))"
 
 .PHONY: db-export
 db-export: ## Export database to timestamped zip

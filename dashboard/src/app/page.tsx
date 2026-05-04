@@ -16,6 +16,7 @@ type SkillConfig = {
   url_path: string;
   icon: string;
   color: string;
+  enabled?: boolean;
 };
 
 const STATUS_STYLES: Record<ServiceStatus, string> = {
@@ -88,7 +89,7 @@ export default function HubPage() {
       {/* Dashboard Cards */}
       <main className="container mx-auto px-4 flex-1 relative">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-          {skills.map(skill => {
+          {skills.filter(s => s.enabled !== false).map(skill => {
             const Icon = ICON_MAP[skill.icon] ?? LayoutDashboard;
             const c = COLOR_MAP[skill.color] ?? COLOR_MAP.indigo;
             return (

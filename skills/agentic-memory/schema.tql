@@ -78,3 +78,26 @@ entity memory-claim-note sub note,
     owns fact-type,
     plays fact-evidence:derived,
     plays fact-evidence:source;
+
+# --- Enhanced episode tracking ---
+# operation-type already exists in core schema (used by provenance-record)
+# rationale captures WHY an operation was performed
+attribute rationale, value string;
+
+relation episode-mention,
+    owns operation-type,
+    owns rationale;
+
+# --- Cross-skill entity resolution ---
+# Lightweight alias for when the same real-world entity exists as multiple
+# TypeDB entities across skill namespaces (e.g., jobhunt-contact + person)
+relation entity-alias,
+    owns description,
+    owns confidence,
+    owns created-at,
+    relates primary-entity,
+    relates aliased-entity;
+
+entity identifiable-entity
+    plays entity-alias:primary-entity,
+    plays entity-alias:aliased-entity;

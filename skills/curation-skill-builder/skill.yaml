@@ -7,6 +7,11 @@ compatibility: "Meta-skill for designing other skills - requires understanding o
 script: skill_builder.py
 schema: schema.tql
 
+# Schema namespace declaration
+schema:
+  namespace: dm               # all types: dm-domain, dm-design-decision, etc.
+  depends_on: []
+
 # Dependencies
 requires:
   bins: [uv, docker]

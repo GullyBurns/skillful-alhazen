@@ -1,0 +1,35 @@
+{
+  "collections": {
+    "alhazen_papers": {
+      "entity_type": "scilit-paper",
+      "indexed_fields": ["name", "abstract-text"],
+      "id_field": "paper_id",
+      "skill": "scientific-literature"
+    },
+    "apt-notes": {
+      "entity_type": "note",
+      "indexed_fields": ["content"],
+      "id_field": "note_id",
+      "filter_fields": ["mondo_id"],
+      "skill": "alg-precision-therapeutics"
+    },
+    "apt-sections": {
+      "entity_type": "scilit-section",
+      "indexed_fields": ["content"],
+      "id_field": "section_id",
+      "skill": "scientific-literature"
+    },
+    "jobhunt-opportunities": {
+      "entity_type": "jobhunt-position",
+      "indexed_fields": ["name", "description"],
+      "id_field": "opportunity_id",
+      "skill": "jobhunt"
+    },
+    "dismech_benchmark": {
+      "entity_type": "apt-disease",
+      "indexed_fields": ["mechanism_text", "abstract"],
+      "id_field": "disease_id",
+      "skill": "dismech"
+    }
+  }
+}

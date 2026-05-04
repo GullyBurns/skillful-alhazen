@@ -7,6 +7,11 @@ compatibility: "TypeDB 3.x"
 script: template.py
 schema: schema.tql
 
+# Schema namespace — all types in schema.tql must start with this prefix
+schema:
+  namespace: DOMAIN              # e.g., jobhunt, tech-recon, scilit
+  depends_on: []                 # skill names whose schemas must load first
+
 # Dependencies
 requires:
   bins: [uv, docker]
