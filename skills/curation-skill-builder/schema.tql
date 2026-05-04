@@ -103,7 +103,7 @@ relation dm-snapshot-contains,
 
 # Groups all design artifacts for one domain.
 # Inherits id @key, name, description, created-at from collection -> identifiable-entity.
-entity dm-domain sub collection,
+entity dm-domain sub alh-collection,
     owns dm-skill-name,
     owns dm-skill-task,
     plays dm-version-of:domain,
@@ -114,7 +114,7 @@ entity dm-domain sub collection,
 # Umbrella snapshot of the full skill at one git commit.
 # Inherits content + cache-path from artifact -> information-content-entity
 # for large content stored in cache instead of inline.
-entity dm-skill-snapshot sub artifact,
+entity dm-skill-snapshot sub alh-artifact,
     owns dm-version-tag,
     owns dm-git-commit,
     owns dm-git-repo,
@@ -129,20 +129,20 @@ entity dm-skill-snapshot sub artifact,
     plays dm-snapshot-contains:snapshot;
 
 # One captured file within a snapshot (schema, script, prompt, manifest, test, plan, etc.)
-entity dm-skill-file sub artifact,
+entity dm-skill-file sub alh-artifact,
     owns dm-file-type,
     owns dm-plan-order,
     plays dm-snapshot-contains:file;
 
 # A source document ingested during Phase 1 (paper, email, image, template, spec).
 # Inherits content, cache-path, format, source-uri from artifact.
-entity dm-source-doc sub artifact,
+entity dm-source-doc sub alh-artifact,
     owns dm-source-doc-type,
     plays dm-source-for:source-doc;
 
 # A specific schema design choice (entity, relation, attribute, hierarchy, constraint).
 # dm-linked-gap-id is multi-valued: one value per linked schema-gap from skilllog.
-entity dm-design-decision sub domain-thing,
+entity dm-design-decision sub alh-domain-thing,
     owns dm-decision-type,
     owns dm-decision-summary,
     owns dm-alternatives-text,
@@ -155,11 +155,11 @@ entity dm-design-decision sub domain-thing,
 
 # Claude's reasoning for a design decision.
 # Inherits content, confidence, cache-path from note -> information-content-entity.
-entity dm-design-rationale sub note,
+entity dm-design-rationale sub alh-note,
     plays dm-rationale-for:rationale;
 
 # A test of a design hypothesis.
-entity dm-experiment sub domain-thing,
+entity dm-experiment sub alh-domain-thing,
     owns dm-hypothesis,
     owns dm-experiment-status,
     plays dm-in-domain:subject,
@@ -168,13 +168,13 @@ entity dm-experiment sub domain-thing,
 
 # Quantitative or qualitative observation from an experiment.
 # Inherits content from note -> information-content-entity.
-entity dm-experiment-result sub note,
+entity dm-experiment-result sub alh-note,
     owns dm-metric-name,
     owns dm-metric-value,
     plays dm-result-of:result;
 
 # A case where the schema failed to represent real data correctly.
-entity dm-representation-error sub domain-thing,
+entity dm-representation-error sub alh-domain-thing,
     owns dm-error-type,
     owns dm-error-severity,
     owns dm-error-status,
@@ -233,14 +233,14 @@ relation dm-phase-artifact,
 # -----------------------------------------------------------------------------
 
 # Phase 1 - Goal (what the system is for)
-entity dm-goal sub domain-thing,
+entity dm-goal sub alh-domain-thing,
     owns dm-phase-number,
     plays dm-system-goal:goal,
     plays dm-goal-evaluation:goal,
     plays dm-in-domain:subject;
 
 # Phase 1 - Evaluation criterion for a goal
-entity dm-goal-eval sub domain-thing,
+entity dm-goal-eval sub alh-domain-thing,
     owns dm-evaluation-criterion-type,
     owns dm-evaluation-success-condition,
     owns dm-evaluation-approach,
@@ -249,7 +249,7 @@ entity dm-goal-eval sub domain-thing,
     plays dm-in-domain:subject;
 
 # Phase 2 - What TypeDB entity/relation/attribute types does this domain define?
-entity dm-entity-schema sub domain-thing,
+entity dm-entity-schema sub alh-domain-thing,
     owns dm-feasibility,
     owns dm-phase-number,
     plays dm-in-domain:subject,
@@ -258,7 +258,7 @@ entity dm-entity-schema sub domain-thing,
     plays dm-phase-depends-on:dependency;
 
 # Phase 3 - What external data sources/artifact types are needed?
-entity dm-source-schema sub domain-thing,
+entity dm-source-schema sub alh-domain-thing,
     owns dm-feasibility,
     owns dm-phase-number,
     plays dm-in-domain:subject,
@@ -267,7 +267,7 @@ entity dm-source-schema sub domain-thing,
     plays dm-phase-depends-on:dependency;
 
 # Phase 4 - What skills/functions ingest artifacts into entities?
-entity dm-derivation-skill sub domain-thing,
+entity dm-derivation-skill sub alh-domain-thing,
     owns dm-feasibility,
     owns dm-phase-number,
     owns dm-input-types,
@@ -278,7 +278,7 @@ entity dm-derivation-skill sub domain-thing,
     plays dm-phase-depends-on:dependency;
 
 # Phase 5 - What skills/functions analyze the database to satisfy the goal?
-entity dm-analysis-skill sub domain-thing,
+entity dm-analysis-skill sub alh-domain-thing,
     owns dm-feasibility,
     owns dm-phase-number,
     owns dm-input-types,
@@ -289,13 +289,13 @@ entity dm-analysis-skill sub domain-thing,
     plays dm-phase-depends-on:dependency;
 
 # Spec note (forward-looking requirement - TypeQL, API spec, function signature, etc.)
-entity dm-phase-spec sub note,
+entity dm-phase-spec sub alh-note,
     owns dm-feasibility,
     owns dm-phase-number,
     plays dm-phase-artifact:phase-spec;
 
 # Design gap (something missing or unclear in any phase)
-entity dm-design-gap sub domain-thing,
+entity dm-design-gap sub alh-domain-thing,
     owns dm-phase-number,
     owns dm-error-severity,
     owns dm-error-status,
