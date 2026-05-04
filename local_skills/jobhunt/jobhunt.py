@@ -469,8 +469,8 @@ def cmd_add_company(args):
         query += f', has alh-linkedin-url "{escape_string(args.linkedin)}"'
     if args.description:
         query += f', has description "{escape_string(args.description)}"'
-    if args.location:
-        query += f', has alh-location "{escape_string(args.location)}"'
+    if args.alh-location:
+        query += f', has alh-location "{escape_string(args.alh-location)}"'
 
     query += ";"
 
@@ -494,8 +494,8 @@ def cmd_add_position(args):
 
     if args.url:
         query += f', has jhunt-job-url "{escape_string(args.url)}"'
-    if args.location:
-        query += f', has alh-location "{escape_string(args.location)}"'
+    if args.alh-location:
+        query += f', has alh-location "{escape_string(args.alh-location)}"'
     if args.remote_policy:
         query += f', has jhunt-remote-policy "{args.remote_policy}"'
     if args.salary:
@@ -504,8 +504,8 @@ def cmd_add_position(args):
         query += f', has jhunt-team-size "{escape_string(args.team_size)}"'
     if args.priority:
         query += f', has jhunt-priority-level "{args.priority}"'
-    if args.deadline:
-        query += f", has jhunt-deadline {parse_date(args.deadline)}"
+    if args.jhunt-deadline:
+        query += f", has jhunt-deadline {parse_date(args.jhunt-deadline)}"
 
     query += ";"
 
@@ -1222,8 +1222,8 @@ def cmd_add_engagement(args):
         query += f', has jhunt-opportunity-status "{args.status}"'
     if args.priority:
         query += f', has jhunt-priority-level "{args.priority}"'
-    if args.deadline:
-        query += f', has jhunt-deadline {parse_date(args.deadline)}'
+    if args.jhunt-deadline:
+        query += f', has jhunt-deadline {parse_date(args.jhunt-deadline)}'
     if args.description:
         query += f', has description "{escape_string(args.description)}"'
 
@@ -1258,8 +1258,8 @@ def cmd_add_venture(args):
         query += f', has jhunt-opportunity-status "{args.status}"'
     if args.priority:
         query += f', has jhunt-priority-level "{args.priority}"'
-    if args.deadline:
-        query += f', has jhunt-deadline {parse_date(args.deadline)}'
+    if args.jhunt-deadline:
+        query += f', has jhunt-deadline {parse_date(args.jhunt-deadline)}'
     if args.description:
         query += f', has description "{escape_string(args.description)}"'
 
@@ -1357,7 +1357,7 @@ def cmd_show_opportunity(args):
                     "description": $o.description,
                     "jhunt-opportunity-status": $o.jhunt-opportunity-status,
                     "jhunt-priority-level": $o.jhunt-priority-level,
-                    "deadline": $o.deadline
+                    "deadline": $o.jhunt-deadline
                 }};'''
                 results = list(tx.query(q).resolve())
                 if results:
@@ -1376,7 +1376,7 @@ def cmd_show_opportunity(args):
                     "jhunt-job-url": $o.jhunt-job-url,
                     "jhunt-short-name": $o.jhunt-short-name,
                     "jhunt-salary-range": $o.jhunt-salary-range,
-                    "location": $o.location,
+                    "location": $o.alh-location,
                     "jhunt-remote-policy": $o.jhunt-remote-policy
                 }};'''
                 extras = list(tx.query(extra_q).resolve())
@@ -1556,7 +1556,7 @@ def cmd_list_pipeline(args):
                     "name": $p.name,
                     "jhunt-short-name": $p.jhunt-short-name,
                     "jhunt-job-url": $p.jhunt-job-url,
-                    "location": $p.location,
+                    "location": $p.alh-location,
                     "jhunt-remote-policy": $p.jhunt-remote-policy,
                     "jhunt-salary-range": $p.jhunt-salary-range,
                     "jhunt-priority-level": $p.jhunt-priority-level,
@@ -1620,12 +1620,12 @@ def cmd_show_position(args):
                 "id": $p.id,
                 "name": $p.name,
                 "jhunt-job-url": $p.jhunt-job-url,
-                "location": $p.location,
+                "location": $p.alh-location,
                 "jhunt-remote-policy": $p.jhunt-remote-policy,
                 "jhunt-salary-range": $p.jhunt-salary-range,
                 "jhunt-team-size": $p.jhunt-team-size,
                 "jhunt-priority-level": $p.jhunt-priority-level,
-                "deadline": $p.deadline
+                "deadline": $p.jhunt-deadline
             }};'''
             pos_result = list(tx.query(pos_query).resolve())
 
@@ -1641,7 +1641,7 @@ def cmd_show_position(args):
                 "id": $c.id,
                 "name": $c.name,
                 "alh-company-url": $c.alh-company-url,
-                "location": $c.location
+                "location": $c.alh-location
             }};'''
             company_result = list(tx.query(company_query).resolve())
 
@@ -1749,7 +1749,7 @@ def cmd_show_company(args):
                 "alh-company-url": $c.alh-company-url,
                 "alh-linkedin-url": $c.alh-linkedin-url,
                 "description": $c.description,
-                "location": $c.location
+                "location": $c.alh-location
             }};'''
             company_result = list(tx.query(company_query).resolve())
 
@@ -2316,7 +2316,7 @@ def cmd_show_artifact(args):
                 "id": $p.id,
                 "name": $p.name,
                 "jhunt-job-url": $p.jhunt-job-url,
-                "location": $p.location,
+                "location": $p.alh-location,
                 "jhunt-remote-policy": $p.jhunt-remote-policy,
                 "jhunt-salary-range": $p.jhunt-salary-range,
                 "jhunt-priority-level": $p.jhunt-priority-level
@@ -2564,7 +2564,7 @@ def cmd_report_position(args):
                     "jhunt-short-name": $p.jhunt-short-name,
                     "jhunt-job-url": $p.jhunt-job-url,
                     "jhunt-salary-range": $p.jhunt-salary-range,
-                    "location": $p.location,
+                    "location": $p.alh-location,
                     "jhunt-remote-policy": $p.jhunt-remote-policy,
                     "jhunt-priority-level": $p.jhunt-priority-level
                 }};

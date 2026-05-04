@@ -1569,7 +1569,7 @@ def cmd_list_candidates(args):
                     "id": $c.id,
                     "name": $c.name,
                     "jhunt-job-url": $c.jhunt-job-url,
-                    "location": $c.location,
+                    "location": $c.alh-location,
                     "jhunt-relevance-score": $c.jhunt-relevance-score,
                     "jhunt-candidate-status": $c.jhunt-candidate-status,
                     "jhunt-external-job-id": $c.jhunt-external-job-id,
@@ -1674,7 +1674,7 @@ def cmd_promote(args):
                     "id": $c.id,
                     "name": $c.name,
                     "jhunt-job-url": $c.jhunt-job-url,
-                    "location": $c.location,
+                    "location": $c.alh-location,
                     "jhunt-candidate-status": $c.jhunt-candidate-status
                 }};'''
             results = list(tx.query(query).resolve())

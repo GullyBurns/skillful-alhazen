@@ -1029,7 +1029,7 @@ def cmd_fetch_pdf(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             results = list(tx.query(
                 f'match $p isa scilit-paper, has id "{escape_string(paper_id)}"; '
-                f'fetch {{ "name": $p.name, "doi": $p.doi, "scilit-arxiv-id": $p.scilit-arxiv-id }};'
+                f'fetch {{ "name": $p.name, "doi": $p.scilit-doi, "scilit-arxiv-id": $p.scilit-arxiv-id }};'
             ).resolve())
         if not results:
             print(json.dumps({"success": False, "error": f"Paper not found: {paper_id}"}))
@@ -1165,7 +1165,7 @@ def cmd_show(args):
             result = list(tx.query(
                 f'match $p isa scilit-paper, has id "{args.id}"; '
                 f'fetch {{ "id": $p.id, "name": $p.name, "abstract-text": $p.abstract-text, '
-                f'"doi": $p.doi, "pmid": $p.pmid, "year": $p.scilit-publication-year, '
+                f'"doi": $p.scilit-doi, "pmid": $p.scilit-pmid, "year": $p.scilit-publication-year, '
                 f'"journal": $p.scilit-journal-name, "source-uri": $p.source-uri }};'
             ).resolve())
 
@@ -1205,12 +1205,12 @@ def cmd_list(args):
                     f'match $c isa alh-collection, has id "{args.collection}"; '
                     f'(collection: $c, member: $p) isa alh-collection-membership; '
                     f'$p isa scilit-paper; '
-                    f'fetch {{ "id": $p.id, "name": $p.name, "doi": $p.doi, "year": $p.scilit-publication-year }};'
+                    f'fetch {{ "id": $p.id, "name": $p.name, "doi": $p.scilit-doi, "year": $p.scilit-publication-year }};'
                 )
             else:
                 query = (
                     'match $p isa scilit-paper; '
-                    'fetch { "id": $p.id, "name": $p.name, "doi": $p.doi, "year": $p.scilit-publication-year };'
+                    'fetch { "id": $p.id, "name": $p.name, "doi": $p.scilit-doi, "year": $p.scilit-publication-year };'
                 )
             results = list(tx.query(query).resolve())
 
@@ -1248,14 +1248,14 @@ def cmd_list_by_keyword(args):
                     f'$p isa scilit-paper, has scilit-keyword "{escape_string(keyword)}", '
                     f'has scilit-publication-year $yr; '
                     f'fetch {{ "id": $p.id, "name": $p.name, "abstract": $p.abstract-text, '
-                    f'"year": $yr, "doi": $p.doi, "journal": $p.scilit-journal-name }};'
+                    f'"year": $yr, "doi": $p.scilit-doi, "journal": $p.scilit-journal-name }};'
                 )
             else:
                 query = (
                     f'match $p isa scilit-paper, has scilit-keyword "{escape_string(keyword)}", '
                     f'has scilit-publication-year $yr; '
                     f'fetch {{ "id": $p.id, "name": $p.name, "abstract": $p.abstract-text, '
-                    f'"year": $yr, "doi": $p.doi, "journal": $p.scilit-journal-name }};'
+                    f'"year": $yr, "doi": $p.scilit-doi, "journal": $p.scilit-journal-name }};'
                 )
             results = list(tx.query(query).resolve())
 
@@ -1300,7 +1300,7 @@ def _get_collection_papers(driver, collection_id: str) -> list:
             f'$p isa scilit-paper; '
             f'fetch {{ "id": $p.id, "name": $p.name, '
             f'"abstract-text": $p.abstract-text, '
-            f'"doi": $p.doi, "year": $p.scilit-publication-year }};'
+            f'"doi": $p.scilit-doi, "year": $p.scilit-publication-year }};'
         ).resolve())
     return [{k: v for k, v in r.items() if v is not None} for r in results]
 

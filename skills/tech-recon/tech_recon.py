@@ -2252,7 +2252,7 @@ def cmd_show_note(args):
                 match $n isa trec-note, has id "{note_id}";
                 fetch {{
                     "id": $n.id,
-                    "topic": $n.topic,
+                    "trec-topic": $n.trec-topic,
                     "format": $n.format,
                     "content": $n.content,
                     "created_at": $n.created-at
