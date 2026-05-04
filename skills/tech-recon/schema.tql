@@ -1,17 +1,17 @@
 # =============================================================================
-# TECH-RECON NAMESPACE - TypeDB 3.x Schema Extension
+# TECH-RECON NAMESPACE (trec-) - TypeDB 3.x Schema Extension
 # =============================================================================
 # Goal-driven technology investigation skill.
-# A tech-recon investigation organizes systems, artifacts, notes, and analyses
+# A trec investigation organizes systems, artifacts, notes, and analyses
 # into a structured knowledge graph aligned with the Alhazen Notebook Model:
 #
-#   Collection = tech-recon-investigation (organizes everything)
-#   Thing      = tech-recon-system (the technology being investigated)
-#   Artifact   = tech-recon-artifact (raw evidence: pages, repos, PDFs)
-#              = tech-recon-analysis (Observable Plot visualizations)
-#   Note       = tech-recon-note (Claude's analysis and sensemaking)
+#   Collection = trec-investigation (organizes everything)
+#   Thing      = trec-system (the technology being investigated)
+#   Artifact   = trec-artifact (raw evidence: pages, repos, PDFs)
+#              = trec-analysis (Observable Plot visualizations)
+#   Note       = trec-note (Claude's analysis and sensemaking)
 #
-# Namespace prefix: tech-recon-*
+# Namespace prefix: trec-*
 # =============================================================================
 
 define
@@ -19,28 +19,28 @@ define
 # -----------------------------------------------------------------------------
 # ATTRIBUTE TYPES - Tech-Recon Specific
 # (license, format, content, cache-path, description, name, created-at are
-#  already defined in the core schema — not redefined here)
-# All tech-recon-specific attributes use the tech-recon- prefix to avoid
+#  already defined in the core schema -- not redefined here)
+# All trec-specific attributes use the trec- prefix to avoid
 # collisions with other namespaces.
 # -----------------------------------------------------------------------------
 
-attribute goal-description, value string;
-attribute success-criteria, value string;
-attribute artifact-type, value string;
-attribute topic, value string;
-attribute plot-code, value string;
-attribute tql-query, value string;
-attribute pipeline-script, value string;
-attribute pipeline-config, value string;
-attribute analysis-type, value string;
-attribute github-url, value string;
-attribute star-count, value integer;
-attribute tech-recon-url, value string;
-attribute tech-recon-status, value string;
-attribute tech-recon-language, value string;
-attribute tech-recon-title, value string;
-attribute tech-recon-tag, value string;
-attribute iteration-number, value integer;
+attribute trec-goal-description, value string;
+attribute trec-success-criteria, value string;
+attribute trec-artifact-type, value string;
+attribute trec-topic, value string;
+attribute trec-plot-code, value string;
+attribute trec-tql-query, value string;
+attribute trec-pipeline-script, value string;
+attribute trec-pipeline-config, value string;
+attribute trec-analysis-type, value string;
+attribute trec-github-url, value string;
+attribute trec-star-count, value integer;
+attribute trec-url, value string;
+attribute trec-status, value string;
+attribute trec-language, value string;
+attribute trec-title, value string;
+attribute trec-tag, value string;
+attribute trec-iteration-number, value integer;
 
 
 # -----------------------------------------------------------------------------
@@ -49,22 +49,22 @@ attribute iteration-number, value integer;
 # -----------------------------------------------------------------------------
 
 # INVESTIGATED-IN - A system is under investigation in an investigation
-relation investigated-in,
+relation trec-investigated-in,
     relates system,
     relates investigation;
 
 # SOURCED-FROM - An artifact was sourced from a system or investigation
-relation sourced-from,
+relation trec-sourced-from,
     relates artifact,
     relates source;
 
 # ANALYSIS-OF - An analysis belongs to an investigation
-relation analysis-of,
+relation trec-analysis-of,
     relates analysis,
     relates investigation;
 
-# SYSTEM-PAPER-REFERENCE - Links a tech-recon system to a scilit-paper that describes or evaluates it
-relation system-paper-reference,
+# SYSTEM-PAPER-REFERENCE - Links a trec system to a scilit-paper that describes or evaluates it
+relation trec-system-paper-reference,
     relates referencing-system,
     relates referenced-paper;
 
@@ -73,70 +73,70 @@ relation system-paper-reference,
 # ENTITY TYPES - Tech-Recon Collection
 # -----------------------------------------------------------------------------
 
-entity tech-recon-investigation sub collection,
-    owns goal-description,
-    owns success-criteria,
-    owns tech-recon-status,
-    owns iteration-number,
-    plays investigated-in:investigation,
-    plays sourced-from:source,
-    plays analysis-of:investigation;
-    # inherits plays aboutness:subject from identifiable-entity
+entity trec-investigation sub alh-collection,
+    owns trec-goal-description,
+    owns trec-success-criteria,
+    owns trec-status,
+    owns trec-iteration-number,
+    plays trec-investigated-in:investigation,
+    plays trec-sourced-from:source,
+    plays trec-analysis-of:investigation;
+    # inherits plays alh-aboutness:subject from alh-identifiable-entity
 
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Tech-Recon Things
 # -----------------------------------------------------------------------------
 
-entity tech-recon-system sub domain-thing,
-    owns tech-recon-url,
-    owns github-url,
-    owns tech-recon-language,
-    owns star-count,
-    owns tech-recon-status,
-    plays investigated-in:system,
-    plays sourced-from:source,
-    plays system-paper-reference:referencing-system;
-    # inherits plays aboutness:subject from identifiable-entity
+entity trec-system sub alh-domain-thing,
+    owns trec-url,
+    owns trec-github-url,
+    owns trec-language,
+    owns trec-star-count,
+    owns trec-status,
+    plays trec-investigated-in:system,
+    plays trec-sourced-from:source,
+    plays trec-system-paper-reference:referencing-system;
+    # inherits plays alh-aboutness:subject from alh-identifiable-entity
 
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Tech-Recon Artifacts
 # -----------------------------------------------------------------------------
 
-entity tech-recon-artifact sub artifact,
-    owns artifact-type,
-    owns tech-recon-url,
-    plays sourced-from:artifact;
+entity trec-artifact sub alh-artifact,
+    owns trec-artifact-type,
+    owns trec-url,
+    plays trec-sourced-from:artifact;
 
-entity tech-recon-analysis sub artifact,
-    owns tech-recon-title,
-    owns analysis-type,
-    owns plot-code,
-    owns tql-query,
-    owns pipeline-script,
-    owns pipeline-config,
-    plays analysis-of:analysis;
+entity trec-analysis sub alh-artifact,
+    owns trec-title,
+    owns trec-analysis-type,
+    owns trec-plot-code,
+    owns trec-tql-query,
+    owns trec-pipeline-script,
+    owns trec-pipeline-config,
+    plays trec-analysis-of:analysis;
 
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Tech-Recon Notes
 # -----------------------------------------------------------------------------
 
-entity tech-recon-note sub note,
-    owns topic,
-    owns tech-recon-tag,
-    owns iteration-number;
-    # inherits plays aboutness:note from note base type
+entity trec-note sub alh-note,
+    owns trec-topic,
+    owns trec-tag,
+    owns trec-iteration-number;
+    # inherits plays alh-aboutness:note from alh-note base type
 
 
 # =============================================================================
 # CROSS-NAMESPACE EXTENSION
 # scilit-paper (defined in scientific-literature/schema.tql, loads before this)
-# participates in system-paper-reference as the referenced paper.
+# participates in trec-system-paper-reference as the referenced paper.
 # =============================================================================
 
-entity scilit-paper plays system-paper-reference:referenced-paper;
+entity scilit-paper plays trec-system-paper-reference:referenced-paper;
 
 
 # =============================================================================
