@@ -25,7 +25,7 @@ TYPEDB_PORT = int(os.getenv("TYPEDB_PORT", "1729"))
 TYPEDB_DATABASE = os.getenv("TYPEDB_DATABASE", "alhazen_notebook")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
-COLLECTION = "jhunt-opportunities"
+COLLECTION = "jobhunt-opportunities"
 VECTOR_DIM = 1024  # voyage-4-large
 
 
