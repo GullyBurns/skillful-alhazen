@@ -1,14 +1,14 @@
 # =============================================================================
-# SKILLLOG NAMESPACE - TypeDB 3.x Schema
+# SKILLLOG NAMESPACE (slog-) - TypeDB 3.x Schema
 # =============================================================================
 # Tracks skill invocations and LLM calls for token observability and evaluation.
 #
 # Entity hierarchy:
-#   skilllog-session    → collection     (groups invocations in one Claude session)
-#   skilllog-invocation → domain-thing   (one skill command call, logged by Claude Code hook)
-#   skilllog-input      → artifact       (raw command + args)
-#   skilllog-output     → artifact       (raw stdout/stderr)
-#   skilllog-llm-call   → domain-thing   (one LLM API round-trip, logged by LiteLLM callback)
+#   slog-session    -> alh-collection   (groups invocations in one Claude session)
+#   slog-invocation -> alh-domain-thing (one skill command call, logged by Claude Code hook)
+#   slog-input      -> alh-artifact     (raw command + args)
+#   slog-output     -> alh-artifact     (raw stdout/stderr)
+#   slog-llm-call   -> alh-domain-thing (one LLM API round-trip, logged by LiteLLM callback)
 # =============================================================================
 
 define
@@ -17,86 +17,86 @@ define
 # ATTRIBUTES
 # -----------------------------------------------------------------------------
 
-attribute skill-name, value string;
-attribute command-name, value string;
-attribute session-id, value string;
-attribute exit-code, value integer;
-attribute duration-ms, value integer;
+attribute slog-skill-name, value string;
+attribute slog-command-name, value string;
+attribute slog-session-id, value string;
+attribute slog-exit-code, value integer;
+attribute slog-duration-ms, value integer;
 
 # Token estimates (tiktoken cl100k_base encoding)
-attribute input-tokens-estimate, value integer;
-attribute output-tokens-estimate, value integer;
-attribute total-tokens-estimate, value integer;
+attribute slog-input-tokens-estimate, value integer;
+attribute slog-output-tokens-estimate, value integer;
+attribute slog-total-tokens-estimate, value integer;
 # Estimated tokens in always-loaded static context files (CLAUDE.md, SKILL.mds, etc.)
-attribute context-tokens-estimate, value integer;
+attribute slog-context-tokens-estimate, value integer;
 # Per-file breakdown of context tokens (stored since Feb 2026)
-attribute claude-md-tokens, value integer;
-attribute memory-md-tokens, value integer;
-attribute skill-mds-tokens, value integer;
-attribute soul-md-tokens, value integer;
-attribute agents-md-tokens, value integer;
+attribute slog-claude-md-tokens, value integer;
+attribute slog-memory-md-tokens, value integer;
+attribute slog-skill-mds-tokens, value integer;
+attribute slog-soul-md-tokens, value integer;
+attribute slog-agents-md-tokens, value integer;
 
 # Evaluation label for quality tracking
 # Values: unlabeled | golden | rejected
-attribute evaluation-label, value string;
+attribute slog-evaluation-label, value string;
 
-# LLM call tracking (LiteLLM callback → OpenClaw usage)
-attribute llm-model, value string;
-attribute cost-usd, value double;
-attribute cache-creation-tokens, value integer;
-attribute cache-read-tokens, value integer;
+# LLM call tracking (LiteLLM callback -> OpenClaw usage)
+attribute slog-llm-model, value string;
+attribute slog-cost-usd, value double;
+attribute slog-cache-creation-tokens, value integer;
+attribute slog-cache-read-tokens, value integer;
 
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES
 # -----------------------------------------------------------------------------
 
-# A Claude Code session — groups related invocations together.
-# Stored as a collection for queryability across invocations.
-entity skilllog-session sub collection,
-    owns session-id;
+# A Claude Code session -- groups related invocations together.
+# Stored as a alh-collection for queryability across invocations.
+entity slog-session sub alh-collection,
+    owns slog-session-id;
 
 
 # One recorded skill command execution.
-entity skilllog-invocation sub domain-thing,
-    owns skill-name,
-    owns command-name,
-    owns session-id,
-    owns exit-code,
-    owns duration-ms,
-    owns input-tokens-estimate,
-    owns output-tokens-estimate,
-    owns total-tokens-estimate,
-    owns context-tokens-estimate,
-    owns claude-md-tokens,
-    owns memory-md-tokens,
-    owns skill-mds-tokens,
-    owns soul-md-tokens,
-    owns agents-md-tokens,
-    owns evaluation-label;
+entity slog-invocation sub alh-domain-thing,
+    owns slog-skill-name,
+    owns slog-command-name,
+    owns slog-session-id,
+    owns slog-exit-code,
+    owns slog-duration-ms,
+    owns slog-input-tokens-estimate,
+    owns slog-output-tokens-estimate,
+    owns slog-total-tokens-estimate,
+    owns slog-context-tokens-estimate,
+    owns slog-claude-md-tokens,
+    owns slog-memory-md-tokens,
+    owns slog-skill-mds-tokens,
+    owns slog-soul-md-tokens,
+    owns slog-agents-md-tokens,
+    owns slog-evaluation-label;
 
 
 # Raw command string + args captured as input artifact.
-entity skilllog-input sub artifact;
+entity slog-input sub alh-artifact;
 
 
 # Raw stdout/stderr captured as output artifact.
-entity skilllog-output sub artifact;
+entity slog-output sub alh-artifact;
 
 
 # One LLM API round-trip logged by the LiteLLM callback (OpenClaw production).
 # Written by local_resources/skilllog/litellm_callback.py via the MCP server's
 # /log-llm-call HTTP endpoint.
-entity skilllog-llm-call sub domain-thing,
-    owns llm-model,
-    owns session-id,
-    owns input-tokens-estimate,
-    owns output-tokens-estimate,
-    owns cache-creation-tokens,
-    owns cache-read-tokens,
-    owns cost-usd,
-    owns duration-ms,
-    owns exit-code;
+entity slog-llm-call sub alh-domain-thing,
+    owns slog-llm-model,
+    owns slog-session-id,
+    owns slog-input-tokens-estimate,
+    owns slog-output-tokens-estimate,
+    owns slog-cache-creation-tokens,
+    owns slog-cache-read-tokens,
+    owns slog-cost-usd,
+    owns slog-duration-ms,
+    owns slog-exit-code;
 
 
 # -----------------------------------------------------------------------------
@@ -105,33 +105,33 @@ entity skilllog-llm-call sub domain-thing,
 # Records deficiencies discovered during skill use - missing data, incorrect
 # inferences, unclear workflows. Enables systematic skill improvement.
 
-attribute gap-type, value string;
+attribute slog-gap-type, value string;
     # missing-user-context | missing-entity-type | missing-attribute
     # | unclear-workflow | incorrect-inference
-attribute gap-severity, value string;
+attribute slog-gap-severity, value string;
     # minor | moderate | significant
-attribute gap-status, value string;
+attribute slog-gap-status, value string;
     # open | addressed | wont-fix
-attribute gap-example, value string;
+attribute slog-gap-example, value string;
     # the specific triggering situation (verbatim or paraphrase)
-attribute skill-version, value string;
+attribute slog-skill-version, value string;
 
 # Skill model - represents a skill as a first-class trackable object.
 # description (inherited) = what the skill does.
-entity skill-model sub domain-thing,
-    owns skill-name,
-    owns skill-version,
-    plays skill-has-gap:skill-model;
+entity slog-skill-model sub alh-domain-thing,
+    owns slog-skill-name,
+    owns slog-skill-version,
+    plays slog-skill-has-gap:skill-model;
 
 # Schema gap - a recorded deficiency in a skill's model.
 # description (inherited) = what information is missing or wrong.
-entity schema-gap sub domain-thing,
-    owns gap-type,
-    owns gap-severity,
-    owns gap-status,
-    owns gap-example,
-    plays skill-has-gap:schema-gap;
+entity slog-schema-gap sub alh-domain-thing,
+    owns slog-gap-type,
+    owns slog-gap-severity,
+    owns slog-gap-status,
+    owns slog-gap-example,
+    plays slog-skill-has-gap:schema-gap;
 
-relation skill-has-gap,
+relation slog-skill-has-gap,
     relates skill-model,
     relates schema-gap;
