@@ -17,7 +17,7 @@ relation nbmem-tool-familiarity,
     relates tool;
 
 # Role bindings: declare which core entity types play these roles
-# (nbmem-operator-user and nbmem-application-user inherit participant/practitioner via alh-person)
+# (nbmem-operator-user inherits participant/practitioner via alh-person)
 entity alh-collection plays nbmem-project-involvement:project;
 entity alh-domain-thing plays nbmem-tool-familiarity:tool;
 
@@ -47,7 +47,7 @@ attribute nbmem-domain-expertise, value string;
 
 # Entities
 
-# Person specializations (alh-agent -> alh-person -> nbmem-operator-user / nbmem-application-user)
+# Person specialization (alh-agent -> alh-person -> nbmem-operator-user)
 
 entity nbmem-operator-user sub alh-person,
     owns nbmem-identity-summary,
@@ -58,9 +58,6 @@ entity nbmem-operator-user sub alh-person,
     owns nbmem-domain-expertise,
     plays nbmem-project-involvement:participant,
     plays nbmem-tool-familiarity:practitioner;
-
-entity nbmem-application-user sub alh-person,
-    plays nbmem-project-involvement:participant;
 
 # alh-collection plays project role in nbmem-project-involvement
 # alh-domain-thing plays tool role in nbmem-tool-familiarity

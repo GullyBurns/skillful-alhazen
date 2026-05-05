@@ -2,7 +2,7 @@
 """
 Agentic Memory CLI - TypeDB-backed two-tier memory architecture.
 
-Manages persons (nbmem-operator-users + application-users) with personal context,
+Manages persons (nbmem-operator-users) with personal context,
 nbmem-memory-claim-notes (crystallized semantic propositions), and session episodes.
 
 Usage:
@@ -793,9 +793,9 @@ def describe_schema(args):
             "alh-identifiable-entity", "alh-domain-thing", "alh-collection",
             "alh-information-content-entity", "alh-artifact", "alh-fragment", "alh-note",
             "alh-episode", "alh-user-question", "alh-information-resource",
-            "alh-agent", "alh-person", "alh-author", "alh-organization", "alh-interaction",
+            "alh-agent", "alh-person", "alh-role", "alh-organization", "alh-interaction",
             "alh-tag", "alh-vocabulary", "alh-vocabulary-type", "alh-vocabulary-property",
-            "nbmem-operator-user", "nbmem-application-user", "nbmem-memory-claim-note",
+            "nbmem-operator-user", "nbmem-memory-claim-note",
         }
         core_rels = {
             "alh-aboutness", "alh-representation", "alh-collection-membership",
@@ -911,7 +911,7 @@ def _run_namespace_audit(entities, relations):
         "alh-identifiable-entity", "alh-domain-thing", "alh-collection",
         "alh-information-content-entity", "alh-artifact", "alh-fragment", "alh-note",
         "nbmem-memory-claim-note", "alh-episode", "alh-agent", "alh-ai-agent", "alh-person",
-        "nbmem-operator-user", "alh-author", "alh-organization", "alh-interaction",
+        "nbmem-operator-user", "alh-organization", "alh-interaction",
     }
     KNOWN_PREFIXES = [
         "trec",    # was tech-recon

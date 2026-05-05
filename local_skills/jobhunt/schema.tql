@@ -55,6 +55,13 @@ attribute jhunt-completion-status, value string;
 attribute jhunt-contact-role, value string;
 attribute jhunt-contact-email, value string;
 
+# Job-seeker role attributes
+attribute jhunt-target-role, value string;
+attribute jhunt-target-industries, value string;
+attribute jhunt-salary-expectations, value string;
+attribute jhunt-location-preference, value string;
+attribute jhunt-search-focus, value string;
+
 # Fit analysis
 attribute jhunt-fit-score, value double;
 attribute jhunt-fit-summary, value string;
@@ -107,6 +114,23 @@ relation jhunt-source-provides,
     relates source,
     relates candidate;
 
+# SEEKER-PIPELINE - Links a job-seeker role to opportunities in their pipeline
+relation jhunt-seeker-pipeline,
+    relates seeker,
+    relates opportunity;
+
+# SEEKER-HAS-SKILL - Links a job-seeker role to their personal skills
+relation jhunt-seeker-has-skill,
+    relates seeker,
+    relates skill;
+
+# CONTACT-FOR-OPPORTUNITY - A person serving as contact for an opportunity
+# Replaces the jhunt-contact entity type with a relation
+relation jhunt-contact-for-opportunity,
+    owns jhunt-contact-role,
+    relates contact,
+    relates opportunity;
+
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Job Hunting Collections
 # -----------------------------------------------------------------------------
@@ -119,11 +143,23 @@ entity jhunt-search sub alh-collection;
 # ENTITY TYPES - Your Profile
 # -----------------------------------------------------------------------------
 
-# JHUNT-YOUR-SKILL - Your personal skill/capability for gap analysis
+# JHUNT-JOB-SEEKER-ROLE - The role a person plays as an active job seeker
+# BFO/UFO pattern: anti-rigid, externally grounded, bearer-dependent on alh-person
+entity jhunt-job-seeker-role sub alh-role,
+    owns jhunt-target-role,
+    owns jhunt-target-industries,
+    owns jhunt-salary-expectations,
+    owns jhunt-location-preference,
+    owns jhunt-search-focus,
+    plays jhunt-seeker-pipeline:seeker,
+    plays jhunt-seeker-has-skill:seeker;
+
+# JHUNT-YOUR-SKILL - Personal skill/capability for gap analysis
 entity jhunt-your-skill sub alh-domain-thing,
     owns jhunt-skill-name,
     owns jhunt-skill-level,
-    owns jhunt-last-updated;
+    owns jhunt-last-updated,
+    plays jhunt-seeker-has-skill:skill;
 
 
 # -----------------------------------------------------------------------------
@@ -160,7 +196,9 @@ entity jhunt-opportunity sub alh-domain-thing,
     owns jhunt-opportunity-status,
     owns jhunt-priority-level,
     owns jhunt-deadline,
-    plays jhunt-opportunity-at-organization:opportunity;
+    plays jhunt-opportunity-at-organization:opportunity,
+    plays jhunt-seeker-pipeline:opportunity,
+    plays jhunt-contact-for-opportunity:opportunity;
 
 # JHUNT-POSITION - A specific role/job posting (formal employment application)
 entity jhunt-position sub jhunt-opportunity,
@@ -289,6 +327,9 @@ relation jhunt-background-reading,
 
 jhunt-opportunity plays jhunt-background-reading:opportunity;
 alh-collection plays jhunt-background-reading:reading-material;
+
+# Person plays contact role in job search context
+entity alh-person plays jhunt-contact-for-opportunity:contact;
 
 
 # =============================================================================

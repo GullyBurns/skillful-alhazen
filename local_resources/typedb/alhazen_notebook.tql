@@ -98,6 +98,18 @@ attribute alh-source-skill, value string;
 # Memory claim notes
 attribute alh-fact-type, value string;
 
+# Role lifecycle (BFO/UFO role pattern)
+attribute alh-role-status, value string;
+attribute alh-role-started-on, value datetime;
+attribute alh-role-ended-on, value datetime;
+
+
+# ROLE-BEARING - A person bears a role (BFO inherence relation)
+# Defined before entities so role names resolve in plays clauses.
+relation alh-role-bearing,
+    relates bearer,
+    relates borne-role;
+
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - Core Ontology (Alhazen's Notebook Model)
@@ -135,6 +147,15 @@ entity alh-domain-thing sub alh-identifiable-entity,
     plays alh-representation:referent,
     plays alh-citation-reference:citing-item,
     plays alh-citation-reference:cited-item;
+
+
+# ROLE - Anti-rigid, externally-grounded entity that inheres in a person (BFO/UFO pattern)
+# Role-specific data lives on the role, not on the person. Subtypes in skill schemas.
+entity alh-role sub alh-domain-thing,
+    owns alh-role-status,
+    owns alh-role-started-on,
+    owns alh-role-ended-on,
+    plays alh-role-bearing:borne-role;
 
 
 # COLLECTION - Organized groupings of Things
@@ -230,11 +251,8 @@ entity alh-person sub alh-agent,
     owns alh-phone-number,
     owns alh-bio,
     plays alh-interaction-participation:participant,
-    plays alh-works-at:employee;
-
-
-# AUTHOR - Human who authors publications (sub person, not bare agent)
-entity alh-author sub alh-person,
+    plays alh-works-at:employee,
+    plays alh-role-bearing:bearer,
     plays alh-authorship:publication-author,
     plays alh-affiliation:affiliated-agent;
 

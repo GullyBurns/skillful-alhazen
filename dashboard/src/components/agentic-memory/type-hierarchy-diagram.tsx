@@ -65,7 +65,13 @@ export default function TypeHierarchyDiagram({ typeName, schema, onSelectType }:
       };
     }
 
-    const childNodes: TypeNode[] = (info.subtypes ?? []).map(st => {
+    // Filter to immediate children only (parent === typeName)
+    const immediateChildren = (info.subtypes ?? []).filter(st => {
+      const cInfo = schema.entities[st];
+      return cInfo?.parent === typeName;
+    });
+
+    const childNodes: TypeNode[] = immediateChildren.map(st => {
       const cInfo = schema.entities[st];
       const ns = getNamespace(st);
       return {

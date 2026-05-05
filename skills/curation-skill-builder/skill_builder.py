@@ -2870,7 +2870,7 @@ def cmd_validate_namespace(args):
         "episode", "agent", "person", "author", "organization",
         "interaction", "tag", "vocabulary", "alh-vocabulary-type",
         "alh-vocabulary-property", "alh-user-question", "alh-information-resource",
-        "alh-ai-agent", "nbmem-operator-user", "nbmem-application-user", "nbmem-memory-claim-note",
+        "alh-ai-agent", "nbmem-operator-user", "nbmem-memory-claim-note",
     }
 
     # --- Rule (a): Read skill.yaml and extract namespace ---
