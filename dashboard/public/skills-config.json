@@ -10,7 +10,7 @@
   },
   {
     "slug": "curation-skill-builder",
-    "enabled": true,
+    "enabled": false,
     "name": "Domain Modeling",
     "description": "Track skill design processes, decisions, gaps, and experiments across all knowledge domains.",
     "url_path": "/curation-skill-builder",
@@ -46,7 +46,7 @@
   },
   {
     "slug": "bioskills-index",
-    "enabled": true,
+    "enabled": false,
     "name": "Bioskills Index",
     "description": "Permanent, updatable EDAM-annotated index of bioskills available online.",
     "url_path": "/bioskills-index",
@@ -55,7 +55,7 @@
   },
   {
     "slug": "they-said-whaaa",
-    "enabled": true,
+    "enabled": false,
     "name": "They Said Whaaa?",
     "description": "Track public statements, detect contradictions, build credibility timelines.",
     "url_path": "/they-said-whaaa",

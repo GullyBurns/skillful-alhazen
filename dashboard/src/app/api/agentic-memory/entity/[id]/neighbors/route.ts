@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryTypeQL } from '@/lib/agentic-memory';
+import { queryTypeQL, describeSchema } from '@/lib/agentic-memory';
 
 interface NeighborNode {
   id: string;
@@ -15,31 +15,6 @@ interface NeighborEdge {
   targetRole: string;
 }
 
-// Each relation type definition: [relationType, role1, role2]
-// role1 is the role the center entity plays; role2 is the neighbor's role
-const RELATION_DEFS: [string, string, string][] = [
-  ['aboutness', 'subject', 'note'],
-  ['aboutness', 'note', 'subject'],
-  ['alh-works-at', 'employee', 'employer'],
-  ['alh-works-at', 'employer', 'employee'],
-  ['alh-collection-membership', 'member', 'collection'],
-  ['alh-collection-membership', 'collection', 'member'],
-  ['alh-episode-mention', 'mentioned-entity', 'episode'],
-  ['alh-episode-mention', 'episode', 'mentioned-entity'],
-  ['authorship', 'author', 'authored-work'],
-  ['authorship', 'authored-work', 'author'],
-  ['affiliation', 'affiliated-person', 'affiliated-org'],
-  ['affiliation', 'affiliated-org', 'affiliated-person'],
-  ['nbmem-entity-alias', 'primary-entity', 'aliased-entity'],
-  ['nbmem-entity-alias', 'aliased-entity', 'primary-entity'],
-  ['nbmem-relationship-context', 'context-subject', 'context-object'],
-  ['nbmem-relationship-context', 'context-object', 'context-subject'],
-  ['nbmem-project-involvement', 'involved-person', 'project'],
-  ['nbmem-project-involvement', 'project', 'involved-person'],
-  ['nbmem-tool-familiarity', 'tool-user', 'tool'],
-  ['nbmem-tool-familiarity', 'tool', 'tool-user'],
-];
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -53,7 +28,7 @@ export async function GET(
   try {
     const safeId = id.replace(/'/g, "\\'");
 
-    // First, get the center entity info
+    // Get the center entity info
     const centerResult = await queryTypeQL(
       `match $e isa alh-identifiable-entity, has id '${safeId}'; fetch { "id": $e.id, "name": $e.name };`
     );
@@ -69,14 +44,43 @@ export async function GET(
       type: 'entity',
     };
 
-    // Query each relation type in parallel
-    const queryPromises = RELATION_DEFS.map(([relationType, centerRole, neighborRole]) => {
-      const typeql = `match $e isa alh-identifiable-entity, has id '${safeId}'; (${centerRole}: $e, ${neighborRole}: $other) isa ${relationType}; $other has id $oid, has name $oname; fetch { "id": $oid, "name": $oname };`;
-      return queryTypeQL(typeql)
-        .then((result) => ({ relationType, centerRole, neighborRole, result }))
-        .catch(() => ({ relationType, centerRole, neighborRole, result: null }));
-    });
+    // Dynamically discover all relations from the schema
+    const schema = await describeSchema(undefined, false);
+    const allRelations = schema.relations ?? {};
 
+    // Build query pairs: for each relation, for each pair of roles, try the entity in each role
+    const queryPromises: Promise<{
+      relationType: string;
+      centerRole: string;
+      neighborRole: string;
+      result: { success: boolean; count: number; results: unknown[] } | null;
+    }>[] = [];
+
+    for (const [relName, relInfo] of Object.entries(allRelations)) {
+      const roles = (relInfo.roles ?? []).map((r: string) => {
+        // roles come as "relationType:roleName" — extract just the role name
+        const parts = r.split(':');
+        return parts.length > 1 ? parts[1] : r;
+      });
+
+      // For each pair of distinct roles, try the entity in each position
+      for (let i = 0; i < roles.length; i++) {
+        for (let j = 0; j < roles.length; j++) {
+          if (i === j) continue;
+          const centerRole = roles[i];
+          const neighborRole = roles[j];
+          const typeql = `match $e isa alh-identifiable-entity, has id '${safeId}'; (${centerRole}: $e, ${neighborRole}: $other) isa ${relName}; $other has id $oid, has name $oname; fetch { "id": $oid, "name": $oname };`;
+          queryPromises.push(
+            queryTypeQL(typeql)
+              .then((result) => ({ relationType: relName, centerRole, neighborRole, result }))
+              .catch(() => ({ relationType: relName, centerRole, neighborRole, result: null }))
+          );
+        }
+      }
+    }
+
+    // Execute all queries in parallel (with concurrency — Promise.all is fine since
+    // each query is lightweight and the TypeDB driver handles connection pooling)
     const relationResults = await Promise.all(queryPromises);
 
     // Deduplicate nodes by ID, collect edges
@@ -100,13 +104,24 @@ export async function GET(
           });
         }
 
-        edges.push({
-          source: id,
-          target: neighborId,
-          relationType,
-          sourceRole: centerRole,
-          targetRole: neighborRole,
-        });
+        // Avoid duplicate edges (same relation + same neighbor)
+        const edgeKey = `${relationType}:${centerRole}:${neighborRole}:${neighborId}`;
+        const existing = edges.find(
+          (e) =>
+            e.relationType === relationType &&
+            e.sourceRole === centerRole &&
+            e.targetRole === neighborRole &&
+            e.target === neighborId
+        );
+        if (!existing) {
+          edges.push({
+            source: id,
+            target: neighborId,
+            relationType,
+            sourceRole: centerRole,
+            targetRole: neighborRole,
+          });
+        }
       }
     }
 
