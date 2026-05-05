@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { EmbeddingMap, MapItem } from '@/components/jobhunt/embedding-map';
 import { OpportunityList } from '@/components/jobhunt/opportunity-list';
-import { SchemaTag, SchemaInspector } from '@/components/jobhunt/schema-inspector';
+// SchemaInspector removed — use Alhazen Notebook for schema browsing
 
 export default function MissionControl() {
   const [items, setItems] = useState<MapItem[]>([]);
@@ -13,9 +13,9 @@ export default function MissionControl() {
   const [filteredIds, setFilteredIds] = useState<Set<string> | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [schemaOpen, setSchemaOpen] = useState(false);
-  const [schemaFocus, setSchemaFocus] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [seekers, setSeekers] = useState<Array<{ role_id: string; role_name: string; status: string; person_id: string; person_name: string }>>([]);
+  const [selectedSeeker, setSelectedSeeker] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'opportunities' | 'search' | 'learning'>('opportunities');
 
   const fetchItems = useCallback(async (exclude?: Set<string>) => {
@@ -40,7 +40,18 @@ export default function MissionControl() {
 
   useEffect(() => {
     fetchItems();
-  }, [fetchItems]);
+    // Fetch seeker profiles
+    fetch('/api/jobhunt/seekers')
+      .then(r => r.json())
+      .then(data => {
+        const list = data.seekers ?? [];
+        setSeekers(list);
+        // Auto-select first active seeker
+        const active = list.find((s: { status: string }) => s.status === 'active');
+        if (active && !selectedSeeker) setSelectedSeeker(active.person_id);
+      })
+      .catch(() => {});
+  }, [fetchItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Terminal statuses hidden by default in "All" mode
   const TERMINAL_STATUSES: Record<string, Set<string>> = {
@@ -168,9 +179,45 @@ export default function MissionControl() {
             margin: 0,
             lineHeight: 1.2,
           }}>
-            Mission Control
+            Jobhunt Mission Control
           </h1>
-          <SchemaTag type="jobhunt" onOpen={() => { setSchemaFocus(null); setSchemaOpen(true); }} />
+
+          {/* Person selector */}
+          {seekers.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '10px',
+                color: '#5e7387',
+                textTransform: 'uppercase',
+                letterSpacing: '0.8px',
+              }}>
+                Seeker
+              </span>
+              <select
+                value={selectedSeeker ?? ''}
+                onChange={(e) => setSelectedSeeker(e.target.value || null)}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: '12px',
+                  color: '#c8dde8',
+                  background: 'rgba(12, 22, 40, 0.72)',
+                  border: '1px solid rgba(90, 173, 175, 0.18)',
+                  borderRadius: '3px',
+                  padding: '4px 10px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value="" style={{ background: '#0c1628' }}>All seekers</option>
+                {seekers.map(s => (
+                  <option key={s.person_id} value={s.person_id} style={{ background: '#0c1628' }}>
+                    {s.person_name} — {s.role_name} {s.status !== 'active' ? `(${s.status})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* ── Tab bar ── */}
@@ -425,19 +472,7 @@ export default function MissionControl() {
       )}
 
       {/* Search for Jobs tab */}
-      {activeTab === 'search' && (
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#5e7387',
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '13px',
-        }}>
-          Search missions will appear here. Use Claude to create a search mission.
-        </div>
-      )}
+      {activeTab === 'search' && <SearchTab />}
 
       {/* Learning Plan tab */}
       {activeTab === 'learning' && (
@@ -454,7 +489,282 @@ export default function MissionControl() {
         </div>
       )}
 
-      <SchemaInspector open={schemaOpen} onClose={() => setSchemaOpen(false)} focus={schemaFocus} />
+      {/* SchemaInspector removed — use Alhazen Notebook for schema browsing */}
+    </div>
+  );
+}
+
+
+// =============================================================================
+// Search Tab — shows configured sources and discovered candidates
+// =============================================================================
+
+interface Source {
+  id: string;
+  name: string;
+  platform: string;
+  board_token: string | null;
+  search_query: string | null;
+  search_location: string | null;
+  company_url: string | null;
+}
+
+interface Candidate {
+  id: string;
+  title: string;
+  url: string;
+  location: string | null;
+  relevance: number;
+  status: string;
+  discovered_at: string | null;
+  triage_reason: string | null;  // agent's fit rationale
+}
+
+const PLATFORM_COLORS: Record<string, string> = {
+  greenhouse: '#5aadaf',
+  lever: '#5b8ab8',
+  linkedin: '#5b8ab8',
+  remotive: '#b8c84a',
+  adzuna: '#62c4bc',
+};
+
+function SearchTab() {
+  const [sources, setSources] = useState<Source[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [loadingSources, setLoadingSources] = useState(true);
+  const [loadingCandidates, setLoadingCandidates] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/jobhunt/sources')
+      .then(r => r.json())
+      .then(data => setSources(data.sources ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingSources(false));
+
+    fetch('/api/jobhunt/candidates')
+      .then(r => r.json())
+      .then(data => setCandidates(data.candidates ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingCandidates(false));
+  }, []);
+
+  return (
+    <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Sources section */}
+      <div>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '10px',
+          color: '#5e7387',
+          textTransform: 'uppercase',
+          letterSpacing: '1.4px',
+          marginBottom: '10px',
+        }}>
+          Search Sources ({sources.length})
+        </div>
+
+        {loadingSources ? (
+          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Loading...</div>
+        ) : sources.length === 0 ? (
+          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px' }}>
+            No sources configured. Use <code style={{ color: '#5aadaf' }}>job_forager.py add-source</code> to add company boards or aggregators.
+          </div>
+        ) : (
+          <SourceGroups sources={sources} />
+        )}
+      </div>
+
+      {/* Candidates section */}
+      <div>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '10px',
+          color: '#5e7387',
+          textTransform: 'uppercase',
+          letterSpacing: '1.4px',
+          marginBottom: '10px',
+        }}>
+          Discovered Candidates ({candidates.length})
+        </div>
+
+        {loadingCandidates ? (
+          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Loading...</div>
+        ) : candidates.length === 0 ? (
+          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px' }}>
+            No candidates discovered yet. Run <code style={{ color: '#5aadaf' }}>job_forager.py heartbeat</code> to search all sources.
+          </div>
+        ) : (
+          <div style={{
+            border: '1px solid rgba(200, 221, 232, 0.08)',
+            borderRadius: '3px',
+            overflow: 'hidden',
+          }}>
+            {/* Table header */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 1fr 80px 80px',
+              padding: '6px 12px',
+              background: 'rgba(12, 22, 40, 0.72)',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '10px',
+              textTransform: 'uppercase',
+              color: '#5e7387',
+              letterSpacing: '0.5px',
+            }}>
+              <span>Title</span>
+              <span>Location</span>
+              <span>Relevance</span>
+              <span>Status</span>
+            </div>
+
+            {candidates.map(c => (
+              <div key={c.id} style={{
+                borderTop: '1px solid rgba(200, 221, 232, 0.08)',
+              }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1fr 80px 80px',
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  alignItems: 'baseline',
+                }}>
+                  <div>
+                    {c.url ? (
+                      <a href={c.url} target="_blank" rel="noopener noreferrer" style={{
+                        color: '#5aadaf',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: '2px',
+                      }}>{c.title}</a>
+                    ) : (
+                      <span style={{ color: '#c8dde8' }}>{c.title}</span>
+                    )}
+                  </div>
+                  <span style={{ color: '#8ba4b8', fontSize: '11px' }}>{c.location ?? ''}</span>
+                  <span style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '10px',
+                    color: c.relevance >= 0.5 ? '#b8c84a' : c.relevance >= 0.2 ? '#8ba4b8' : '#5e7387',
+                  }}>
+                    {(c.relevance * 100).toFixed(0)}%
+                  </span>
+                  <span style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '9px',
+                    color: c.status === 'new' ? '#62c4bc' : c.status === 'reviewed' ? '#b8c84a' : '#5e7387',
+                    textTransform: 'uppercase',
+                  }}>
+                    {c.status}
+                  </span>
+                </div>
+                {c.triage_reason && (
+                  <div style={{
+                    padding: '0 12px 8px',
+                    fontSize: '11px',
+                    color: '#8ba4b8',
+                    lineHeight: 1.4,
+                    fontStyle: 'italic',
+                  }}>
+                    {c.triage_reason}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const COMPANY_BOARDS = new Set(['greenhouse', 'lever']);
+
+function SourceGroups({ sources }: { sources: Source[] }) {
+  const companyBoards = sources.filter(s => COMPANY_BOARDS.has(s.platform));
+  const aggregators = sources.filter(s => !COMPANY_BOARDS.has(s.platform));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {companyBoards.length > 0 && (
+        <div>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '9px',
+            color: '#8ba4b8',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            marginBottom: '6px',
+          }}>
+            Company Recruiting Pages
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
+            {companyBoards.map(source => <SourceCard key={source.id} source={source} />)}
+          </div>
+        </div>
+      )}
+      {aggregators.length > 0 && (
+        <div>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '9px',
+            color: '#8ba4b8',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            marginBottom: '6px',
+          }}>
+            Job Board Aggregators
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
+            {aggregators.map(source => <SourceCard key={source.id} source={source} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SourceCard({ source }: { source: Source }) {
+  const color = PLATFORM_COLORS[source.platform] ?? '#8ba4b8';
+  const isBoard = COMPANY_BOARDS.has(source.platform);
+
+  return (
+    <div style={{
+      background: 'rgba(12, 22, 40, 0.72)',
+      border: '1px solid rgba(200, 221, 232, 0.08)',
+      borderRadius: '3px',
+      padding: '12px 14px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+        <span style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '9px',
+          color,
+          background: `${color}15`,
+          borderRadius: '2px',
+          padding: '1px 6px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+        }}>
+          {source.platform}
+        </span>
+        <span style={{ fontSize: '13px', color: '#c8dde8' }}>{source.name}</span>
+      </div>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387' }}>
+        {isBoard && source.board_token && (
+          <div>
+            <a
+              href={`https://boards.${source.platform}.io/${source.board_token}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#5aadaf', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+            >
+              boards.{source.platform}.io/{source.board_token}
+            </a>
+          </div>
+        )}
+        {source.search_query && <div>query: {source.search_query}</div>}
+        {source.search_location && <div>location: {source.search_location}</div>}
+      </div>
     </div>
   );
 }

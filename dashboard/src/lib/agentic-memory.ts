@@ -168,11 +168,24 @@ export interface SearchResult {
 // Schema, Query, and Search functions
 // ---------------------------------------------------------------------------
 
+// Schema cache — shared across all API routes in the same server process
+let _schemaCache: { data: SchemaResult; timestamp: number; key: string } | null = null;
+const SCHEMA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export async function describeSchema(skill?: string, full?: boolean): Promise<SchemaResult> {
+  const cacheKey = `${skill ?? ''}:${full ?? false}`;
+
+  if (_schemaCache && _schemaCache.key === cacheKey && Date.now() - _schemaCache.timestamp < SCHEMA_CACHE_TTL) {
+    return _schemaCache.data;
+  }
+
   const args = ['describe-schema'];
   if (skill) args.push('--skill', skill);
   if (full) args.push('--full');
-  return await runAgenticMemory(args) as SchemaResult;
+  const data = await runAgenticMemory(args) as SchemaResult;
+
+  _schemaCache = { data, timestamp: Date.now(), key: cacheKey };
+  return data;
 }
 
 export async function queryTypeQL(typeql: string, limit?: number): Promise<QueryResult> {

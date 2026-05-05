@@ -69,10 +69,9 @@ export default function EntityDetail({ entityId, onSelectEntity, onBack }: Entit
     setNeighborsLoading(true);
     try {
       // Fetch entity info and claims (fast), neighbors separately (slow — queries all relation types)
-      const [entityRes, claimsRes, contextRes] = await Promise.allSettled([
+      const [entityRes, claimsRes] = await Promise.allSettled([
         fetch(`/api/agentic-memory/entity/${entityId}`),
         fetch(`/api/agentic-memory/facts?person=${entityId}`),
-        fetch(`/api/agentic-memory/context?person=${entityId}`),
       ]);
 
       // Entity info
@@ -94,15 +93,8 @@ export default function EntityDetail({ entityId, onSelectEntity, onBack }: Entit
         setClaims(Array.isArray(data.claims) ? data.claims : []);
       }
 
-      // If context succeeds, it's likely a person/operator-user
-      if (contextRes.status === 'fulfilled' && contextRes.value.ok) {
-        const data = await contextRes.value.json();
-        if (data.success && data.context) {
-          if (entityType === 'unknown') {
-            setEntityType('nbmem-operator-user');
-          }
-        }
-      }
+      // Context fetch is used by AttributesTab to show context domains if available
+      // No type inference needed — entity API now returns the correct type
     } catch (err) {
       console.error('Failed to fetch entity detail:', err);
     } finally {
@@ -298,7 +290,7 @@ export default function EntityDetail({ entityId, onSelectEntity, onBack }: Entit
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
         {activeTab === 'data' && (
           <>
-            <AttributesTab entityId={entityId} entityData={entity as unknown as Record<string, unknown>} />
+            <AttributesTab entityData={entity as unknown as Record<string, unknown>} />
             <div style={{ marginTop: 24 }}>
               <RelationsTab
                 entityId={entityId}

@@ -49,70 +49,87 @@ interface RelColumn {
 
 type ExtraColumn = AttrColumn | RelColumn;
 
-// Map of type name patterns to extra columns
-const TYPE_EXTRA_COLUMNS: Record<string, ExtraColumn[]> = {
-  'jhunt-position': [
-    { kind: 'rel', relation: 'jhunt-position-at-company', entityRole: 'position', targetRole: 'employer', label: 'Company' },
-    { kind: 'attr', attr: 'jhunt-opportunity-status', label: 'Status' },
-    { kind: 'attr', attr: 'alh-location', label: 'Location' },
-  ],
-  'jhunt-opportunity': [
-    { kind: 'rel', relation: 'jhunt-opportunity-at-organization', entityRole: 'opportunity', targetRole: 'organization', label: 'Organization' },
-    { kind: 'attr', attr: 'jhunt-opportunity-status', label: 'Status' },
-  ],
-  'jhunt-engagement': [
-    { kind: 'rel', relation: 'jhunt-opportunity-at-organization', entityRole: 'opportunity', targetRole: 'organization', label: 'Organization' },
-    { kind: 'attr', attr: 'jhunt-opportunity-status', label: 'Status' },
-  ],
-  'jhunt-venture': [
-    { kind: 'rel', relation: 'jhunt-opportunity-at-organization', entityRole: 'opportunity', targetRole: 'organization', label: 'Organization' },
-    { kind: 'attr', attr: 'jhunt-opportunity-status', label: 'Status' },
-  ],
-  'jhunt-lead': [
-    { kind: 'rel', relation: 'jhunt-opportunity-at-organization', entityRole: 'opportunity', targetRole: 'organization', label: 'Organization' },
-    { kind: 'attr', attr: 'jhunt-opportunity-status', label: 'Status' },
-  ],
-  'trec-system': [
-    { kind: 'attr', attr: 'description', label: 'Description' },
-  ],
-  'trec-investigation': [
-    { kind: 'attr', attr: 'description', label: 'Description' },
-  ],
-  'trec-artifact': [
-    { kind: 'attr', attr: 'source-uri', label: 'Source' },
-  ],
-  'alh-person': [
-    { kind: 'attr', attr: 'description', label: 'Description' },
-  ],
-  'alh-organization': [
-    { kind: 'attr', attr: 'description', label: 'Description' },
-    { kind: 'attr', attr: 'alh-location', label: 'Location' },
-  ],
-  'alh-collection': [
-    { kind: 'attr', attr: 'description', label: 'Description' },
-  ],
-  'alh-tag': [
-    { kind: 'attr', attr: 'description', label: 'Description' },
-  ],
-};
-
-// For note subtypes, show a description snippet
-const NOTE_TYPES = new Set([
-  'alh-note', 'jhunt-application-note', 'jhunt-fit-analysis-note',
-  'jhunt-interaction-note', 'jhunt-interview-note', 'jhunt-research-note',
-  'jhunt-skill-gap-note', 'jhunt-strategy-note', 'jhunt-opp-summary-note',
-  'trec-note', 'trec-analysis', 'nbmem-memory-claim-note',
+// Attributes that are generic/inherited and not interesting as extra columns
+const SKIP_ATTRS = new Set([
+  'id', 'name', 'description', 'created-at', 'updated-at',
+  'provenance', 'source-uri', 'iri', 'license',
+  'valid-from', 'valid-until',
+  // ICE attributes
+  'content', 'content-hash', 'cache-path', 'format',
+  'mime-type', 'file-size', 'token-count',
 ]);
 
-function getExtraColumns(typeName: string): ExtraColumn[] {
-  // Direct match
-  if (TYPE_EXTRA_COLUMNS[typeName]) return TYPE_EXTRA_COLUMNS[typeName];
-  // Note types get a content snippet
-  if (NOTE_TYPES.has(typeName)) {
-    return [{ kind: 'attr', attr: 'content', label: 'Content' }];
+// Derive extra columns from schema: pick namespace-specific attributes
+// and any relations where this type plays a role pointing to another entity
+function getExtraColumnsFromSchema(
+  typeName: string,
+  owns: string[],
+  plays: string[],
+  relations: Record<string, { roles?: string[]; owns?: string[] }>,
+): ExtraColumn[] {
+  const cols: ExtraColumn[] = [];
+  const ns = getNamespace(typeName);
+  const nsPrefix = ns !== 'unknown' ? ns + '-' : '';
+
+  // Check if this is a note type (owns 'content')
+  const isNote = owns.includes('content');
+
+  if (isNote) {
+    cols.push({ kind: 'attr', attr: 'content', label: 'Content' });
+    return cols;
   }
-  // Default: try description
-  return [{ kind: 'attr', attr: 'description', label: 'Description' }];
+
+  // Pick namespace-specific attributes (skip generic ones)
+  const interestingAttrs = owns.filter(a =>
+    !SKIP_ATTRS.has(a) &&
+    (nsPrefix ? a.startsWith(nsPrefix) || a.startsWith('alh-') : true)
+  );
+
+  // Add up to 2 interesting attributes
+  for (const attr of interestingAttrs.slice(0, 2)) {
+    const label = attr
+      .replace(nsPrefix, '')
+      .replace('alh-', '')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+    cols.push({ kind: 'attr', attr, label });
+  }
+
+  // Find relations where this type plays a role pointing to another named entity
+  // (e.g., position-at-company, opportunity-at-organization)
+  for (const playStr of plays) {
+    const colonIdx = playStr.indexOf(':');
+    if (colonIdx < 0) continue;
+    const relName = playStr.slice(0, colonIdx);
+    const myRole = playStr.slice(colonIdx + 1);
+
+    const relInfo = relations[relName];
+    if (!relInfo) continue;
+
+    const allRoles = (relInfo.roles ?? []).map(r => {
+      const ci = r.indexOf(':');
+      return ci >= 0 ? r.slice(ci + 1) : r;
+    });
+    const otherRoles = allRoles.filter(r => r !== myRole);
+
+    // Only add if relation name contains a meaningful keyword
+    // and the other role suggests a named entity (employer, organization, etc.)
+    for (const otherRole of otherRoles) {
+      if (['employer', 'organization', 'company', 'collection', 'project'].includes(otherRole)) {
+        const label = otherRole.replace(/\b\w/g, c => c.toUpperCase());
+        cols.push({ kind: 'rel', relation: relName, entityRole: myRole, targetRole: otherRole, label });
+      }
+    }
+
+    if (cols.length >= 3) break;
+  }
+
+  // Fallback: show description if nothing else found
+  if (cols.length === 0 && owns.includes('description')) {
+    cols.push({ kind: 'attr', attr: 'description', label: 'Description' });
+  }
+
+  return cols.slice(0, 3);
 }
 
 type SortKey = string;
@@ -131,7 +148,7 @@ export default function TypeBrowser({ typeName, onSelectEntity, onSelectType }: 
   const [showOutgoing, setShowOutgoing] = useState(false);
   const [showIncoming, setShowIncoming] = useState(false);
 
-  const extraColumns = useMemo(() => getExtraColumns(typeName), [typeName]);
+  const [extraColumns, setExtraColumns] = useState<ExtraColumn[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -146,7 +163,11 @@ export default function TypeBrowser({ typeName, onSelectEntity, onSelectType }: 
       if (schemaRes.ok) {
         schemaData = await schemaRes.json();
         setFullSchema(schemaData as typeof fullSchema);
-        const info = (schemaData as { entities?: Record<string, { subtypes?: string[]; instance_count?: number; owns?: string[] }> }).entities?.[typeName];
+        const typedSchema = schemaData as {
+          entities?: Record<string, { subtypes?: string[]; instance_count?: number; owns?: string[]; plays?: string[] }>;
+          relations?: Record<string, { roles?: string[]; owns?: string[] }>;
+        };
+        const info = typedSchema.entities?.[typeName];
         if (info) {
           setSchemaInfo({
             name: typeName,
@@ -157,11 +178,26 @@ export default function TypeBrowser({ typeName, onSelectEntity, onSelectType }: 
           owns = info.owns ?? [];
           subtypesList = info.subtypes ?? [];
         }
+
+        // Derive extra columns from schema (no hardcoded type maps)
+        const plays = info?.plays ?? [];
+        const derivedColumns = getExtraColumnsFromSchema(
+          typeName, owns, plays, typedSchema.relations ?? {}
+        );
+        setExtraColumns(derivedColumns);
       }
 
       // Build the main query with extra attribute columns
-      const attrCols = extraColumns.filter((c): c is AttrColumn => c.kind === 'attr');
-      const relCols = extraColumns.filter((c): c is RelColumn => c.kind === 'rel');
+      // Use derivedColumns directly since setExtraColumns is async
+      const typedSchema = schemaData as {
+        entities?: Record<string, { plays?: string[] }>;
+        relations?: Record<string, { roles?: string[]; owns?: string[] }>;
+      };
+      const currentColumns = getExtraColumnsFromSchema(
+        typeName, owns, typedSchema.entities?.[typeName]?.plays ?? [], typedSchema.relations ?? {}
+      );
+      const attrCols = currentColumns.filter((c): c is AttrColumn => c.kind === 'attr');
+      const relCols = currentColumns.filter((c): c is RelColumn => c.kind === 'rel');
 
       // Only include attr columns that the type actually owns
       const validAttrCols = attrCols.filter(c => owns.includes(c.attr));
@@ -293,7 +329,7 @@ export default function TypeBrowser({ typeName, onSelectEntity, onSelectType }: 
     } finally {
       setLoading(false);
     }
-  }, [typeName, extraColumns]);
+  }, [typeName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchData();

@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryTypeQL, describeSchema } from '@/lib/agentic-memory';
 
+// Common attributes present on most entities — always try to fetch these
+const COMMON_ATTRS = [
+  'id', 'name', 'description', 'created-at', 'updated-at',
+  'provenance', 'source-uri', 'iri',
+];
+
+// Attributes to skip (inherited but rarely useful for display)
+const SKIP_ATTRS = new Set([
+  'license', 'valid-from', 'valid-until',
+  'content-hash', 'mime-type', 'file-size', 'token-count',
+]);
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,11 +26,10 @@ export async function GET(
   try {
     const safeId = id.replace(/'/g, "\\'");
 
-    // Step 1: Get the schema so we know the type hierarchy
+    // Step 1: Get the schema
     const schema = await describeSchema(undefined, true);
-    const allEntityTypes = new Set(Object.keys(schema.entities ?? {}));
 
-    // Step 2: Get all types for this entity
+    // Step 2: Get entity type
     const typeResult = await queryTypeQL(
       `match $e has id '${safeId}'; $e isa $t; fetch { "type": $t };`
     );
@@ -40,67 +51,75 @@ export async function GET(
         }
       }
 
-      // Pick the most specific type: the one that has no subtypes that are also in entityTypes
-      // i.e., no other type in the list is a subtype of it
       const typeSet = new Set(entityTypes);
       for (const t of entityTypes) {
         const info = schema.entities?.[t];
         const subtypes = info?.subtypes ?? [];
-        const hasChildInList = subtypes.some((s: string) => typeSet.has(s));
-        if (!hasChildInList) {
+        if (!subtypes.some((s: string) => typeSet.has(s))) {
           entityType = t;
           break;
         }
       }
     }
 
-    // Step 3: Get attributes this type owns
+    // Step 3: Build a focused attribute list
+    // Start with common attrs, add type-specific ones (skip noise)
     const typeInfo = schema.entities?.[entityType];
-    const ownedAttrs = typeInfo?.owns ?? ['id', 'name', 'description', 'created-at'];
+    const ownedAttrs = typeInfo?.owns ?? COMMON_ATTRS;
+    const attrsToFetch = ownedAttrs.filter((a: string) => !SKIP_ATTRS.has(a));
 
-    // Step 4: Fetch all attributes for this entity
-    // Build fetch clause with all owned attributes
-    const fetchFields = ownedAttrs.map((attr: string) => `"${attr}": $e.${attr}`);
+    // Step 4: Fetch in a SINGLE query using $e.attr syntax
+    // Build small batches to avoid query failures from missing optional attrs
     const entity: Record<string, unknown> = { _type: entityType };
 
-    // Try fetching all at once
+    // Try the full fetch first (fast path — works if entity has all attrs)
+    const fetchFields = attrsToFetch.map((attr: string) => `"${attr}": $e.${attr}`);
     try {
-      const allResult = await queryTypeQL(
+      const result = await queryTypeQL(
         `match $e isa ${entityType}, has id '${safeId}'; fetch { ${fetchFields.join(', ')} };`
       );
-      if (allResult?.success && allResult.count > 0) {
-        const row = allResult.results[0] as Record<string, unknown>;
-        Object.assign(entity, row);
+      if (result?.success && result.count > 0) {
+        Object.assign(entity, result.results[0] as Record<string, unknown>);
+        return NextResponse.json({ success: true, entity, entityType });
       }
     } catch {
-      // Bulk fetch failed (some attributes may not exist on this instance)
-      // Fallback: fetch each attribute individually
-      const attrPromises = ownedAttrs.map(async (attr: string) => {
-        try {
-          const r = await queryTypeQL(
-            `match $e isa alh-identifiable-entity, has id '${safeId}', has ${attr} $v; fetch { "${attr}": $v };`
-          );
-          if (r.success && r.count > 0) {
-            const row = r.results[0] as Record<string, unknown>;
-            return { [attr]: row[attr] };
-          }
-        } catch {
-          // attribute not present on this instance
-        }
-        return null;
-      });
-
-      const attrResults = await Promise.all(attrPromises);
-      for (const r of attrResults) {
-        if (r) Object.assign(entity, r);
-      }
+      // Full fetch failed — some attrs don't exist on this instance
     }
 
-    return NextResponse.json({
-      success: true,
-      entity,
-      entityType,
-    });
+    // Fallback: fetch in small batches of 5 (much faster than 1-by-1)
+    const BATCH_SIZE = 5;
+    const batches: string[][] = [];
+    for (let i = 0; i < attrsToFetch.length; i += BATCH_SIZE) {
+      batches.push(attrsToFetch.slice(i, i + BATCH_SIZE));
+    }
+
+    await Promise.all(batches.map(async (batch) => {
+      const fields = batch.map((attr: string) => `"${attr}": $e.${attr}`);
+      try {
+        const r = await queryTypeQL(
+          `match $e isa alh-identifiable-entity, has id '${safeId}'; fetch { ${fields.join(', ')} };`
+        );
+        if (r?.success && r.count > 0) {
+          Object.assign(entity, r.results[0] as Record<string, unknown>);
+        }
+      } catch {
+        // Batch failed — try individual attrs from this batch
+        for (const attr of batch) {
+          try {
+            const r = await queryTypeQL(
+              `match $e isa alh-identifiable-entity, has id '${safeId}'; fetch { "${attr}": $e.${attr} };`
+            );
+            if (r?.success && r.count > 0) {
+              Object.assign(entity, r.results[0] as Record<string, unknown>);
+            }
+          } catch {
+            // attr doesn't exist on this instance
+          }
+        }
+      }
+    }));
+
+    return NextResponse.json({ success: true, entity, entityType });
   } catch (error) {
     console.error('entity detail error:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });

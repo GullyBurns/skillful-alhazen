@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { colors, formatRelativeDate } from './tokens';
 import MarkdownContent from './markdown';
 
 interface AttributesTabProps {
-  entityId: string;
   entityData: Record<string, unknown> | null;
 }
 
@@ -15,14 +14,30 @@ interface ContextDomain {
   attrName: string;
 }
 
-const CONTEXT_DOMAINS: ContextDomain[] = [
-  { key: 'identity', label: 'Identity', attrName: 'nbmem-identity-summary' },
-  { key: 'role', label: 'Role', attrName: 'nbmem-role-description' },
-  { key: 'goals', label: 'Goals', attrName: 'nbmem-goals-summary' },
-  { key: 'preferences', label: 'Preferences', attrName: 'nbmem-preferences-summary' },
-  { key: 'expertise', label: 'Expertise', attrName: 'nbmem-domain-expertise' },
-  { key: 'communication', label: 'Communication Style', attrName: 'nbmem-communication-style' },
-];
+// Attributes that are short/structural and should stay in the key-value table
+const SHORT_ATTRS = new Set([
+  'id', 'name', 'created-at', 'updated-at', 'provenance', 'source-uri',
+  'iri', 'license', 'valid-from', 'valid-until', '_type',
+  'content-hash', 'cache-path', 'format', 'mime-type', 'file-size', 'token-count',
+]);
+
+// Detect "context domain" attributes dynamically: any string attribute
+// whose value is long (>100 chars) and whose name suggests prose content
+function detectContextDomains(data: Record<string, unknown>): ContextDomain[] {
+  const domains: ContextDomain[] = [];
+  for (const [key, value] of Object.entries(data)) {
+    if (SHORT_ATTRS.has(key)) continue;
+    if (typeof value !== 'string') continue;
+    if (value.length < 80) continue;
+    // This is a long text attribute — show as a collapsible card
+    const label = key
+      .replace(/^(nbmem-|jhunt-|trec-|alh-|scilit-|slog-|sltrend-|dm-)/, '')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+    domains.push({ key, label, attrName: key });
+  }
+  return domains;
+}
 
 function isUrl(value: string): boolean {
   try {
@@ -38,31 +53,8 @@ function isDateLike(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?/.test(value);
 }
 
-export default function AttributesTab({ entityId, entityData }: AttributesTabProps) {
-  const [contextData, setContextData] = useState<Record<string, string> | null>(null);
+export default function AttributesTab({ entityData }: AttributesTabProps) {
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set());
-  const [loadingContext, setLoadingContext] = useState(true);
-
-  const fetchContext = useCallback(async () => {
-    setLoadingContext(true);
-    try {
-      const res = await fetch(`/api/agentic-memory/context?person=${entityId}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.context && typeof data.context === 'object') {
-          setContextData(data.context);
-        }
-      }
-    } catch {
-      // Not a person entity or context unavailable -- that's fine
-    } finally {
-      setLoadingContext(false);
-    }
-  }, [entityId]);
-
-  useEffect(() => {
-    fetchContext();
-  }, [fetchContext]);
 
   const toggleDomain = (key: string) => {
     setExpandedDomains((prev) => {
@@ -76,21 +68,26 @@ export default function AttributesTab({ entityId, entityData }: AttributesTabPro
     });
   };
 
-  // Filter out standard display fields from raw attributes
+  // Detect long text attributes to show as collapsible domain cards
+  const contextDomains = entityData ? detectContextDomains(entityData) : [];
+  const domainKeys = new Set(contextDomains.map(d => d.attrName));
+
+  // Filter out standard display fields and domain fields from raw attributes table
   const attributeEntries = entityData
     ? Object.entries(entityData).filter(
-        ([key]) => !['id', 'name', 'description'].includes(key) && entityData[key] != null
+        ([key, value]) =>
+          !['id', 'name', 'description', '_type'].includes(key) &&
+          !domainKeys.has(key) &&
+          value != null
       )
     : [];
 
-  const hasContextDomains =
-    contextData &&
-    CONTEXT_DOMAINS.some((d) => contextData[d.attrName] && contextData[d.attrName].trim());
+  const hasContextDomains = contextDomains.length > 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Context Domain Cards (person/operator-user only) */}
-      {!loadingContext && hasContextDomains && (
+      {hasContextDomains && (
         <div>
           <div
             style={{
@@ -103,11 +100,11 @@ export default function AttributesTab({ entityId, entityData }: AttributesTabPro
               marginBottom: 10,
             }}
           >
-            CONTEXT DOMAINS
+            DETAIL FIELDS
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {CONTEXT_DOMAINS.map((domain) => {
-              const value = contextData?.[domain.attrName];
+            {contextDomains.map((domain) => {
+              const value = entityData?.[domain.attrName] as string | undefined;
               if (!value || !value.trim()) return null;
               const isExpanded = expandedDomains.has(domain.key);
               const preview = value.length > 60 ? value.slice(0, 60) + '...' : value;
@@ -285,7 +282,7 @@ export default function AttributesTab({ entityId, entityData }: AttributesTabPro
       )}
 
       {/* Empty state */}
-      {attributeEntries.length === 0 && !hasContextDomains && !loadingContext && (
+      {attributeEntries.length === 0 && !hasContextDomains && (
         <div
           style={{
             color: colors.fgFaint,

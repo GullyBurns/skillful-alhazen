@@ -1,19 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryTypeQL, describeSchema } from '@/lib/agentic-memory';
-
-interface NeighborNode {
-  id: string;
-  label: string;
-  type: string;
-}
-
-interface NeighborEdge {
-  source: string;
-  target: string;
-  relationType: string;
-  sourceRole: string;
-  targetRole: string;
-}
+import { queryTypeQL } from '@/lib/agentic-memory';
 
 export async function GET(
   _request: NextRequest,
@@ -28,105 +14,49 @@ export async function GET(
   try {
     const safeId = id.replace(/'/g, "\\'");
 
-    // Get the center entity info
-    const centerResult = await queryTypeQL(
-      `match $e isa alh-identifiable-entity, has id '${safeId}'; fetch { "id": $e.id, "name": $e.name };`
+    // Single query: find ALL relations this entity participates in
+    const result = await queryTypeQL(
+      `match $e has id '${safeId}'; ($role: $e, $other_role: $other) isa $rel; $other has id $oid, has name $oname; fetch { "id": $oid, "name": $oname, "rel": $rel };`,
+      200
     );
 
-    if (!centerResult.success || centerResult.count === 0) {
-      return NextResponse.json({ error: `Entity not found: ${id}` }, { status: 404 });
+    if (!result.success) {
+      return NextResponse.json({ center: { id, name: id, type: 'entity' }, nodes: [], edges: [] });
     }
 
-    const centerData = centerResult.results[0] as Record<string, string>;
-    const center = {
-      id: centerData.id ?? id,
-      name: centerData.name ?? id,
-      type: 'entity',
-    };
+    // Build nodes and edges from results
+    const nodesMap = new Map<string, { id: string; label: string; type: string }>();
+    const edgeSet = new Set<string>();
+    const edges: { source: string; target: string; relationType: string; sourceRole: string; targetRole: string }[] = [];
 
-    // Dynamically discover all relations from the schema
-    const schema = await describeSchema(undefined, false);
-    const allRelations = schema.relations ?? {};
+    for (const row of result.results as Array<Record<string, unknown>>) {
+      const neighborId = row.id as string;
+      const neighborName = (row.name as string) ?? neighborId;
+      const relInfo = row.rel as { label?: string; kind?: string } | string;
+      const relType = typeof relInfo === 'string' ? relInfo : relInfo?.label ?? 'unknown';
 
-    // Build query pairs: for each relation, for each pair of roles, try the entity in each role
-    const queryPromises: Promise<{
-      relationType: string;
-      centerRole: string;
-      neighborRole: string;
-      result: { success: boolean; count: number; results: unknown[] } | null;
-    }>[] = [];
+      if (!neighborId || neighborId === id) continue;
 
-    for (const [relName, relInfo] of Object.entries(allRelations)) {
-      const roles = (relInfo.roles ?? []).map((r: string) => {
-        // roles come as "relationType:roleName" — extract just the role name
-        const parts = r.split(':');
-        return parts.length > 1 ? parts[1] : r;
-      });
-
-      // For each pair of distinct roles, try the entity in each position
-      for (let i = 0; i < roles.length; i++) {
-        for (let j = 0; j < roles.length; j++) {
-          if (i === j) continue;
-          const centerRole = roles[i];
-          const neighborRole = roles[j];
-          const typeql = `match $e isa alh-identifiable-entity, has id '${safeId}'; (${centerRole}: $e, ${neighborRole}: $other) isa ${relName}; $other has id $oid, has name $oname; fetch { "id": $oid, "name": $oname };`;
-          queryPromises.push(
-            queryTypeQL(typeql)
-              .then((result) => ({ relationType: relName, centerRole, neighborRole, result }))
-              .catch(() => ({ relationType: relName, centerRole, neighborRole, result: null }))
-          );
-        }
+      if (!nodesMap.has(neighborId)) {
+        nodesMap.set(neighborId, { id: neighborId, label: neighborName, type: 'entity' });
       }
-    }
 
-    // Execute all queries in parallel (with concurrency — Promise.all is fine since
-    // each query is lightweight and the TypeDB driver handles connection pooling)
-    const relationResults = await Promise.all(queryPromises);
-
-    // Deduplicate nodes by ID, collect edges
-    const nodesMap = new Map<string, NeighborNode>();
-    const edges: NeighborEdge[] = [];
-
-    for (const { relationType, centerRole, neighborRole, result } of relationResults) {
-      if (!result?.success || result.count === 0) continue;
-
-      for (const row of result.results as Array<Record<string, string>>) {
-        const neighborId = row.id;
-        const neighborName = row.name ?? neighborId;
-
-        if (!neighborId || neighborId === id) continue;
-
-        if (!nodesMap.has(neighborId)) {
-          nodesMap.set(neighborId, {
-            id: neighborId,
-            label: neighborName,
-            type: 'entity',
-          });
-        }
-
-        // Avoid duplicate edges (same relation + same neighbor)
-        const edgeKey = `${relationType}:${centerRole}:${neighborRole}:${neighborId}`;
-        const existing = edges.find(
-          (e) =>
-            e.relationType === relationType &&
-            e.sourceRole === centerRole &&
-            e.targetRole === neighborRole &&
-            e.target === neighborId
-        );
-        if (!existing) {
-          edges.push({
-            source: id,
-            target: neighborId,
-            relationType,
-            sourceRole: centerRole,
-            targetRole: neighborRole,
-          });
-        }
+      // Deduplicate edges
+      const edgeKey = `${relType}:${neighborId}`;
+      if (!edgeSet.has(edgeKey)) {
+        edgeSet.add(edgeKey);
+        edges.push({
+          source: id,
+          target: neighborId,
+          relationType: relType,
+          sourceRole: 'participant',
+          targetRole: 'participant',
+        });
       }
     }
 
     return NextResponse.json({
-      center,
+      center: { id, name: id, type: 'entity' },
       nodes: Array.from(nodesMap.values()),
       edges,
     });

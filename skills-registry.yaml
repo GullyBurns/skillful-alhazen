@@ -23,8 +23,8 @@ skills:
     core_os: true
     dashboard:
       enabled: true
-      name: "Agentic Memory"
-      description: "TypeDB-backed two-tier memory — persons, memory claims, and session episodes."
+      name: "Alhazen Notebook"
+      description: "Browse the knowledge graph — schema, entities, roles, relations, and agent session history."
       url_path: "/agentic-memory"
       icon: Brain
       color: teal
@@ -55,8 +55,8 @@ skills:
     subdir: skills/demo/jobhunt
     dashboard:
       enabled: true
-      name: "Job Hunt Dashboard"
-      description: "Track job applications, analyze skill gaps, and manage your learning plan."
+      name: "Jobhunt"
+      description: "Track job applications, analyze skill gaps, and manage your career search."
       url_path: "/jobhunt"
       icon: Briefcase
       color: indigo
@@ -65,7 +65,7 @@ skills:
     path: skills/tech-recon
     dashboard:
       enabled: true
-      name: "Tech Recon (v2)"
+      name: "Tech Recon"
       description: "Goal-driven technology investigation with dynamic Observable Plot analysis."
       url_path: "/tech-recon"
       icon: Search
