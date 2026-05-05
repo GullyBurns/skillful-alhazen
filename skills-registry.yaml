@@ -40,7 +40,7 @@ skills:
   - name: curation-skill-builder
     path: skills/curation-skill-builder
     dashboard:
-      enabled: true
+      enabled: false
       name: "Domain Modeling"
       description: "Track skill design processes, decisions, gaps, and experiments across all knowledge domains."
       url_path: "/curation-skill-builder"
