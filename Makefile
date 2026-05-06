@@ -179,10 +179,7 @@ print(f'  {len(configs)} skill dashboards registered') \
 import yaml, json, os; \
 registry = yaml.safe_load(open('skills-registry.yaml')); \
 schema_map = registry.get('schema_map', {}).get('namespaces', {}); \
-ns_config = {'alh': {'badge': 'CORE', 'color': 'teal'}, 'nbmem': {'badge': 'OS', 'color': 'mint'}, 'slog': {'badge': 'OS', 'color': 'rust'}}; \
-for ns, info in schema_map.items(): \
-    if ns not in ns_config: ns_config[ns] = {'badge': 'SKILL', 'color': 'blue'}; \
-    ns_config[ns]['skill'] = info.get('skill', ''); \
+ns_config = {**{'alh': {'badge': 'CORE', 'color': 'teal'}, 'nbmem': {'badge': 'OS', 'color': 'mint'}, 'slog': {'badge': 'OS', 'color': 'rust'}}, **{ns: {'badge': 'SKILL', 'color': 'blue', 'skill': info.get('skill', '')} for ns, info in schema_map.items()}}; \
 os.makedirs('dashboard/public', exist_ok=True); \
 json.dump(ns_config, open('dashboard/public/namespace-config.json', 'w'), indent=2); \
 print(f'  {len(ns_config)} namespaces registered') \
