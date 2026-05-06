@@ -173,7 +173,7 @@ entity jhunt-job-seeker-role sub alh-role,
 # Canonical concept with preferred label (name), alt-labels, and hierarchy.
 # Both seeker skills and position requirements link to concepts via jhunt-skill-definition.
 entity jhunt-skill-concept sub alh-domain-thing,
-    owns jhunt-alt-label,
+    owns jhunt-alt-label @card(0..),
     plays jhunt-skill-definition:concept,
     plays jhunt-skill-hierarchy:broader-skill,
     plays jhunt-skill-hierarchy:narrower-skill;

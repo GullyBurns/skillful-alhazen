@@ -844,20 +844,41 @@ const RESOURCE_TYPE_COLORS: Record<string, string> = {
   project: '#5aadaf', video: '#8ba4b8',
 };
 
+interface PositionFit {
+  id: string;
+  name: string;
+  fit_score: number;
+  total_requirements: number;
+  covered: number;
+  gaps: number;
+}
+
+interface LearningPriority {
+  skill: string;
+  current_level: string;
+  gap_impact: number;
+  needed_for: number;
+  positions: string[];
+}
+
 function LearningTab() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [gaps, setGaps] = useState<SkillGap[]>([]);
   const [resources, setResources] = useState<LearningResource[]>([]);
+  const [positionFits, setPositionFits] = useState<PositionFit[]>([]);
+  const [learningPriorities, setLearningPriorities] = useState<LearningPriority[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/jobhunt/skills').then(r => r.json()),
-      fetch('/api/jobhunt/gaps').then(r => r.json()),
+      fetch('/api/jobhunt/fit').then(r => r.json()),
       fetch('/api/jobhunt/learning').then(r => r.json()),
-    ]).then(([skillsData, gapsData, resourcesData]) => {
+    ]).then(([skillsData, fitData, resourcesData]) => {
       setSkills(skillsData.skills ?? []);
-      setGaps(gapsData.skill_gaps ?? []);
+      setPositionFits(fitData.positions ?? []);
+      setLearningPriorities(fitData.learning_priorities ?? []);
+      setGaps(fitData.skill_gaps ?? []);
       setResources(resourcesData.learning_plan ?? []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -872,6 +893,79 @@ function LearningTab() {
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Position Skill Coverage */}
+      {positionFits.length > 0 && (
+        <div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
+            Position Skill Coverage ({positionFits.length} positions)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {positionFits.map(pf => (
+              <div key={pf.id} style={{
+                background: 'rgba(12, 22, 40, 0.72)',
+                border: `1px solid ${pf.gaps === 0 ? 'rgba(90,173,175,0.3)' : 'rgba(200,221,232,0.08)'}`,
+                borderRadius: '3px', padding: '10px 14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '12px', color: '#c8dde8' }}>{pf.name.substring(0, 50)}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: pf.gaps === 0 ? '#5aadaf' : '#c87a4a', marginLeft: 'auto' }}>
+                    {pf.gaps === 0 ? 'ALL MET' : `${pf.gaps} GAP${pf.gaps > 1 ? 'S' : ''}`}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {(pf as unknown as { requirements: Array<{ skill: string; required_level: string; my_level: string; coverage: number }> }).requirements?.map((req: { skill: string; required_level: string; my_level: string; coverage: number }) => {
+                    const met = req.coverage >= 1.0;
+                    const color = met ? '#5aadaf' : '#c87a4a';
+                    return (
+                      <span key={req.skill} style={{
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
+                        color, background: `${color}10`,
+                        border: `1px solid ${color}30`,
+                        borderRadius: '2px', padding: '1px 6px',
+                      }}>
+                        {met ? '\u2713' : '\u2717'} {req.skill} ({req.required_level})
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Learning Priorities */}
+      {learningPriorities.length > 0 && (
+        <div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
+            Learning Priorities (by gap impact)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {learningPriorities.map(lp => {
+              const levelColor = LEVEL_COLORS[lp.current_level] ?? '#c87a4a';
+              return (
+                <div key={lp.skill} style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '6px 12px',
+                  background: 'rgba(12, 22, 40, 0.72)',
+                  border: '1px solid rgba(200, 221, 232, 0.08)',
+                  borderLeft: `3px solid ${levelColor}`,
+                  borderRadius: '3px',
+                }}>
+                  <span style={{ fontSize: '12px', color: '#c8dde8', flex: '1' }}>{lp.skill}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: levelColor }}>
+                    {(LEVEL_LABELS[lp.current_level] ?? 'NONE')}
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#5e7387' }}>
+                    impact: {lp.gap_impact} | {lp.needed_for} positions
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Your Skills */}
       <div>
