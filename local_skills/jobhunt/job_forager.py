@@ -81,6 +81,7 @@ from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from html import escape as html_escape
+from urllib.parse import urlparse
 
 try:
     import requests
@@ -1353,9 +1354,11 @@ def cmd_suggest_sources(args):
     for r in results:
         url = r.get("jhunt-job-url", "") or ""
         name = r.get("name", "") or ""
+        parsed = urlparse(url)
+        hostname = (parsed.hostname or "").lower()
 
         # Try to detect platform and slug from URL
-        if "greenhouse.io" in url:
+        if hostname == "greenhouse.io" or hostname.endswith(".greenhouse.io"):
             # boards.greenhouse.io/{slug}/jobs/...
             match = re.search(r"greenhouse\.io/(\w+)/", url)
             if match:
@@ -1368,7 +1371,7 @@ def cmd_suggest_sources(args):
                         "token": slug,
                         "reason": f"Found in existing position: {name[:50]}",
                     })
-        elif "lever.co" in url:
+        elif hostname == "lever.co" or hostname.endswith(".lever.co"):
             # jobs.lever.co/{slug}/...
             match = re.search(r"lever\.co/(\w+)/", url)
             if match:
