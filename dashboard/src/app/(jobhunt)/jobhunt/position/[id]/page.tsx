@@ -95,9 +95,27 @@ export default function PositionPage({ params }: PositionPageProps) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/jobhunt/position/${id}`);
-        if (!res.ok) throw new Error('Failed to fetch position');
-        const json = await res.json();
+        const [posRes, skillsRes] = await Promise.all([
+          fetch(`/api/jobhunt/position/${id}`),
+          fetch('/api/jobhunt/skills'),
+        ]);
+        if (!posRes.ok) throw new Error('Failed to fetch position');
+        const json = await posRes.json();
+        // Enrich requirements with seeker skill levels
+        if (skillsRes.ok) {
+          const skillsData = await skillsRes.json();
+          const mySkills: Record<string, string> = {};
+          for (const s of (skillsData.skills ?? [])) {
+            mySkills[s.name.toLowerCase()] = s.level;
+          }
+          // Attach seeker level to each requirement
+          if (json.requirements) {
+            for (const req of json.requirements) {
+              const skillName = req['jhunt-skill-name'] || req['slog-skill-name'] || '';
+              req['_seeker_level'] = mySkills[skillName.toLowerCase()] || 'none';
+            }
+          }
+        }
         setData(json);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -337,17 +355,16 @@ export default function PositionPage({ params }: PositionPageProps) {
                   <div className="space-y-3">
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {requirements.map((req: any, idx: number) => {
-                      const skill = getValue(req['slog-skill-name']);
+                      const skill = getValue(req['jhunt-skill-name']) || getValue(req['slog-skill-name']);
                       const level = getValue(req['jhunt-skill-level']) || getValue(req['requirement-level']);
-                      const yourLevel = getValue(req['jhunt-your-level']);
+                      const yourLevel = req['_seeker_level'] || getValue(req['jhunt-your-level']) || 'none';
                       const content = getValue(req.content);
 
-                      const match =
-                        yourLevel === 'strong'
-                          ? 'match'
-                          : yourLevel === 'some' || yourLevel === 'learning'
-                          ? 'partial'
-                          : 'gap';
+                      const levelValue: Record<string, number> = { none: 0, aware: 1, learning: 1, practiced: 2, some: 2, expert: 3, strong: 3 };
+                      const threshold: Record<string, number> = { required: 2, preferred: 1, 'nice-to-have': 0 };
+                      const myVal = levelValue[yourLevel] ?? 0;
+                      const reqVal = threshold[level ?? 'required'] ?? 1;
+                      const match = myVal >= reqVal ? 'match' : myVal > 0 ? 'partial' : 'gap';
 
                       return (
                         <div
