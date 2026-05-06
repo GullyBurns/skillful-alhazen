@@ -179,7 +179,7 @@ def check_attribute_orphaned(driver, database, attr_label):
 
 def retire_namespace(driver, database, prefix, dry_run=False):
     """Main retirement logic. Returns summary dict."""
-    print(f"Discovering types with prefix '{prefix}-' in database '{database}'...",
+    print("Discovering types for the requested namespace...",
           file=sys.stderr)
     types = discover_types(driver, database, prefix)
 
