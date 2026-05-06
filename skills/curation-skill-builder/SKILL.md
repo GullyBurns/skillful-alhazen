@@ -75,6 +75,28 @@ Export the full structured report with `export-design-phases`.
 
 **Read USAGE.md section "5-Phase System Design Workflow" before using these commands.**
 
+## Namespace Rules
+
+Every skill with a `schema.tql` must follow these namespace conventions:
+
+1. **Declare a namespace prefix** in `skill.yaml` under `schema.namespace` (e.g., `jobhunt`, `tech-recon`, `scilit`)
+2. **Use lowercase hyphenated tokens** — no dots, underscores, or camelCase
+3. **All types must start with the prefix** — `jobhunt-position`, `jobhunt-company`, etc. Exception: skills that only extend core types use `namespace: null`
+4. **No prefix reuse** — each namespace prefix belongs to exactly one skill
+5. **Cross-namespace references require `depends_on`** — if your schema adds a `plays` clause to a type from another skill, declare that skill in `schema.depends_on`
+6. **Core types are always available** — `domain-thing`, `collection`, `note`, `artifact`, `fragment`, `person`, etc. need no `depends_on`
+
+**Validate a skill's namespace compliance:**
+```bash
+uv run python .claude/skills/curation-skill-builder/skill_builder.py validate-namespace \
+  --skill-dir local_skills/<skill-name> 2>/dev/null
+```
+
+**Audit all namespaces in the running database:**
+```bash
+make db-audit
+```
+
 ## Command Output Pattern
 
 `uv run` emits a `VIRTUAL_ENV` warning to stderr. Always use `2>/dev/null` when piping output to a JSON parser — never `2>&1`, which merges the warning into stdout and breaks JSON parsing.

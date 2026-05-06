@@ -1,0 +1,36 @@
+define
+
+# ---------------------------------------------------------------------------
+# Attributes (sltrend- namespace)
+# ---------------------------------------------------------------------------
+
+attribute sltrend-window, value string;
+attribute sltrend-keyword, value string;
+attribute sltrend-abductive-role, value string;
+attribute sltrend-genealogy-type, value string;
+
+# ---------------------------------------------------------------------------
+# Relations (defined BEFORE entities so role names resolve in plays clauses)
+# ---------------------------------------------------------------------------
+
+relation sltrend-hypothesis-genealogy,
+    owns sltrend-genealogy-type,
+    owns confidence,
+    owns provenance,
+    owns description,
+    relates predecessor,
+    relates successor;
+
+# ---------------------------------------------------------------------------
+# Entities
+# ---------------------------------------------------------------------------
+
+entity sltrend-thread sub alh-collection,
+    owns sltrend-window,
+    owns sltrend-keyword;
+
+entity sltrend-hypothesis-note sub alh-note,
+    owns sltrend-abductive-role,
+    owns sltrend-window,
+    plays sltrend-hypothesis-genealogy:predecessor,
+    plays sltrend-hypothesis-genealogy:successor;

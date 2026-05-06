@@ -1,0 +1,150 @@
+name: jobhunt
+description: "Track job applications, analyze positions, identify skill gaps, and plan your job search strategy"
+license: Apache-2.0
+compatibility: "Requires uv, docker, TypeDB 2.x running, and internet access for job posting URLs"
+
+# Core files
+scripts:
+  - jobhunt.py
+  - job_forager.py
+schema: jobhunt.tql
+
+# Dependencies
+requires:
+  bins: [uv, docker]
+  env: [TYPEDB_HOST, TYPEDB_PORT, TYPEDB_DATABASE]
+  optional_env: [ALHAZEN_CACHE_DIR, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, DIGEST_TO, DIGEST_FROM]
+
+# TypeDB namespaces
+namespaces:
+  - jobhunt.tql
+schema:
+  namespace: jhunt             # all types: jhunt-position, jhunt-company, etc.
+  depends_on: []
+
+# Design pattern
+pattern: curation
+phases:
+  - foraging: "Discover job postings"
+  - ingestion: "Fetch and store raw job descriptions"
+  - sensemaking: "Claude analyzes content and extracts structured data"
+  - analysis: "Query across notes for insights"
+  - reporting: "Dashboard views and recommendations"
+
+# Core operations
+operations:
+  # Skill profile management
+  - add-skill
+  - list-skills
+  
+  # Job ingestion
+  - ingest-job
+  - list-artifacts
+  - show-artifact
+  
+  # Entity management
+  - add-company
+  - add-position
+  - add-requirement
+  - add-note
+  - add-resource
+  
+  # Application tracking
+  - update-status
+  - list-pipeline
+  - show-position
+  - show-company
+  - show-gaps
+  - learning-plan
+  
+  # Search and tagging
+  - tag
+  - search-tag
+
+  # Automated foraging (job_forager.py)
+  - add-source
+  - list-sources
+  - remove-source
+  - suggest-sources
+  - search-source
+  - heartbeat
+  - list-candidates
+  - triage
+  - promote
+
+# Entity types
+entities:
+  things:
+    - your-skill
+    - jobhunt-company
+    - jobhunt-position
+    - jobhunt-learning-resource
+    - jobhunt-contact
+    - jobhunt-search-source
+    - jobhunt-candidate
+  artifacts:
+    - jobhunt-job-description
+    - jobhunt-resume
+    - jobhunt-cover-letter
+  fragments:
+    - jobhunt-requirement
+    - jobhunt-responsibility
+    - jobhunt-qualification
+  notes:
+    - jobhunt-application-note
+    - jobhunt-research-note
+    - jobhunt-interview-note
+    - jobhunt-strategy-note
+    - jobhunt-skill-gap-note
+    - jobhunt-fit-analysis-note
+    - jobhunt-interaction-note
+
+# Status values
+status_values:
+  - researching
+  - applied
+  - phone-screen
+  - interviewing
+  - offer
+  - rejected
+  - withdrawn
+
+# Priority levels
+priority_levels:
+  - high
+  - medium
+  - low
+
+# Skill levels
+skill_levels:
+  - strong
+  - some
+  - learning
+  - none
+
+# Dashboard
+dashboard:
+  enabled: true
+  name: "Job Hunt Dashboard"
+  url_path: "/jobhunt"
+  port: 3001
+  description: "Pipeline kanban, skills matrix, learning plan, and candidates triage"
+  views:
+    - name: Pipeline Board
+      path: /jobhunt
+      description: "Kanban view of applications by status"
+    - name: Position Detail
+      path: /jobhunt/position/{id}
+      description: "Full detail page for a single position"
+    - name: Collection Detail
+      path: /jobhunt/collection/{id}
+      description: "Notes and resources in a collection"
+  internal:
+    pages: dashboard/src/app/(jobhunt)/jobhunt/
+    components: dashboard/src/components/jobhunt/
+    api_routes: dashboard/src/app/api/jobhunt/
+    lib: dashboard/src/lib/jobhunt.ts
+
+# Integration with other skills
+integrates_with:
+  - typedb-notebook

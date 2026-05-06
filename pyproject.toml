@@ -65,6 +65,9 @@ skilllog = [
 they-said-whaaa = [
     "youtube-transcript-api>=0.6",
 ]
+qdrant = [
+    "qdrant-client>=1.14.0",
+]
 semantic = [
     "voyageai>=0.3.0",
     "qdrant-client>=1.14.0",

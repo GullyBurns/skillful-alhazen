@@ -2,56 +2,29 @@
 # ========================
 # Single source of truth for all skills -- core (path-based) and external (git-based).
 #
-# Build all skills locally:
-#   make build-skills
-#
-# Update installed skills:
-#   make skills-update
-#
-# Override the skill library URL at build time:
-#   make build-skills SKILL_LIBRARY=https://github.com/MyOrg/my-skill-fork
-#   ALHAZEN_SKILL_LIBRARY=https://github.com/MyOrg/my-skill-fork make build-skills
-#
-# Skills resolve to local_skills/ (gitignored build artifact).
-#
-# Entry formats:
-#
-#   Core skills (from this repo, symlinked into local_skills/):
-#     - name: my-skill
-#       path: skills/my-skill       # path relative to repo root
-#
-#   External skills from the default skill library (inherits defaults.git + defaults.ref):
-#     - name: my-skill
-#       subdir: skills/category/my-skill
-#
-#   External skills from a custom git repository:
-#     - name: my-skill
-#       git: https://...            # overrides defaults.git
-#       ref: main                   # overrides defaults.ref (default: main)
-#       subdir: .                   # subdirectory within the repo (default: .)
+# Build all skills locally:  make build-skills
+# Update installed skills:   make skills-update
 #
 # Each skill directory must contain:
 #   - SKILL.md     (required: Claude Code skill definition)
-#   - skill.yaml   (recommended: structured metadata)
+#   - skill.yaml   (recommended: structured metadata, including schema.namespace)
 #   - {name}.py    (recommended: CLI entry point)
 #   - schema.tql   (optional: TypeDB schema extension -- loaded by make build-db)
-#   - dashboard/   (optional: Next.js dashboard components)
 
-# Default skill library -- override with ALHAZEN_SKILL_LIBRARY env var or SKILL_LIBRARY make var
+# Default skill library
 defaults:
   git: https://github.com/sciknow-io/alhazen-skill-examples
   ref: main
 
 skills:
-  # -- Core OS components (promoted from skills — managed by CLAUDE.md coordinator) --
-  # Code stays in skills/ but these are OS-level, not domain skills.
+  # -- Core OS components --
   - name: agentic-memory
     path: skills/agentic-memory
     core_os: true
     dashboard:
       enabled: true
-      name: "Agentic Memory"
-      description: "TypeDB-backed two-tier memory — persons, memory claims, and session episodes."
+      name: "Alhazen Notebook"
+      description: "Browse the knowledge graph — schema, entities, roles, relations, and agent session history."
       url_path: "/agentic-memory"
       icon: Brain
       color: teal
@@ -60,14 +33,14 @@ skills:
     path: skills/typedb-notebook
     core_os: true
 
-  # -- Domain skills (path-based: symlinked from skills/ in this repo) --------
+  # -- Domain skills (path-based) --
   - name: web-search
     path: skills/web-search
 
   - name: curation-skill-builder
     path: skills/curation-skill-builder
     dashboard:
-      enabled: true
+      enabled: false
       name: "Domain Modeling"
       description: "Track skill design processes, decisions, gaps, and experiments across all knowledge domains."
       url_path: "/curation-skill-builder"
@@ -77,13 +50,13 @@ skills:
   - name: scientific-literature
     subdir: skills/biomed/scientific-literature
 
-  # -- External skills (git-based: cloned from defaults.git) ------------------
+  # -- External skills (git-based) --
   - name: jobhunt
     subdir: skills/demo/jobhunt
     dashboard:
       enabled: true
-      name: "Job Hunt Dashboard"
-      description: "Track job applications, analyze skill gaps, and manage your learning plan."
+      name: "Jobhunt"
+      description: "Track job applications, analyze skill gaps, and manage your career search."
       url_path: "/jobhunt"
       icon: Briefcase
       color: indigo
@@ -92,7 +65,7 @@ skills:
     path: skills/tech-recon
     dashboard:
       enabled: true
-      name: "Tech Recon (v2)"
+      name: "Tech Recon"
       description: "Goal-driven technology investigation with dynamic Observable Plot analysis."
       url_path: "/tech-recon"
       icon: Search
@@ -110,38 +83,56 @@ skills:
       icon: Dna
       color: teal
 
-  - name: bioskills-index
-    git: https://github.com/sciknow-io/bioskills-index
-    ref: main
-    subdir: .
-    dashboard:
-      enabled: true
-      name: "Bioskills Index"
-      description: "Permanent, updatable EDAM-annotated index of bioskills available online."
-      url_path: "/bioskills-index"
-      icon: Network
-      color: emerald
-
   - name: literature-trends
     subdir: skills/biomed/literature-trends
 
-  - name: they-said-whaaa
-    subdir: skills/journalism/they-said-whaaa
+  - name: coach
+    subdir: skills/health/coach
     dashboard:
       enabled: true
-      name: "They Said Whaaa?"
-      description: "Track public statements, detect contradictions, build credibility timelines."
-      url_path: "/they-said-whaaa"
-      icon: Megaphone
-      color: amber
+      name: "Health Coach"
+      description: "Personal health & fitness monitoring — metrics, sleep, workouts, goals, appointments."
+      url_path: "/coach"
+      icon: Heart
+      color: teal
 
-
-# To add more skills from the default library:
-# - name: my-skill
-#   subdir: skills/category/my-skill
-#
-# To add a skill from a custom repository:
-# - name: semantic-scholar
-#   git: https://github.com/example/alhazen-semantic-scholar
-#   ref: main
-#   subdir: .
+# -- Compiled schema map (auto-generated by scripts/compile_schema_map.py) ----
+# Regenerate with: uv run python scripts/compile_schema_map.py
+schema_map:
+  load_order:
+    - agentic-memory
+    - curation-skill-builder
+    - jobhunt
+    - literature-trends
+    - scientific-literature
+    - tech-recon
+  namespaces:
+    nbmem:
+      skill: agentic-memory
+      schema: skills/agentic-memory/schema.tql
+      depends_on: []
+    dm:
+      skill: curation-skill-builder
+      schema: skills/curation-skill-builder/schema.tql
+      depends_on: []
+    jhunt:
+      skill: jobhunt
+      schema: local_skills/jobhunt/schema.tql
+      depends_on: []
+    sltrend:
+      skill: literature-trends
+      schema: local_skills/literature-trends/schema.tql
+      depends_on: []
+    scilit:
+      skill: scientific-literature
+      schema: local_skills/scientific-literature/schema.tql
+      depends_on: []
+    trec:
+      skill: tech-recon
+      schema: skills/tech-recon/schema.tql
+      depends_on:
+        - scientific-literature
+    coach:
+      skill: coach
+      schema: local_skills/coach/schema.tql
+      depends_on: []

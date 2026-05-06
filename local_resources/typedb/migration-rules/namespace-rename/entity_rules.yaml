@@ -1,0 +1,453 @@
+- name: migrate-artifact
+  description: Migrate artifact -> alh-artifact (61 instances)
+  source_match: 'match $x isa! artifact, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa alh-artifact, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-collection
+  description: Migrate collection -> alh-collection (83 instances)
+  source_match: 'match $x isa! collection, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa alh-collection, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-analysis-skill
+  description: Migrate dm-analysis-skill -> dm-analysis-skill (6 instances)
+  source_match: 'match $x isa! dm-analysis-skill, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-analysis-skill, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-causal-edge
+  description: Migrate dm-causal-edge -> dm-causal-edge (2858 instances)
+  source_match: 'match $x isa! dm-causal-edge, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-causal-edge, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-celltype-descriptor
+  description: Migrate dm-celltype-descriptor -> dm-celltype-descriptor (473 instances)
+  source_match: 'match $x isa! dm-celltype-descriptor, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa dm-celltype-descriptor, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-derivation-skill
+  description: Migrate dm-derivation-skill -> dm-derivation-skill (6 instances)
+  source_match: 'match $x isa! dm-derivation-skill, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa dm-derivation-skill, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-design-decision
+  description: Migrate dm-design-decision -> dm-design-decision (6 instances)
+  source_match: 'match $x isa! dm-design-decision, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-design-decision, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-design-gap
+  description: Migrate dm-design-gap -> dm-design-gap (14 instances)
+  source_match: 'match $x isa! dm-design-gap, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-design-gap, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-design-rationale
+  description: Migrate dm-design-rationale -> dm-design-rationale (9 instances)
+  source_match: 'match $x isa! dm-design-rationale, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa dm-design-rationale, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-disease
+  description: Migrate dm-disease -> dm-disease (798 instances)
+  source_match: 'match $x isa! dm-disease, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-disease, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-disease-descriptor
+  description: Migrate dm-disease-descriptor -> dm-disease-descriptor (777 instances)
+  source_match: 'match $x isa! dm-disease-descriptor, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa dm-disease-descriptor, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-domain
+  description: Migrate dm-domain -> dm-domain (4 instances)
+  source_match: 'match $x isa! dm-domain, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-domain, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-entity-schema
+  description: Migrate dm-entity-schema -> dm-entity-schema (13 instances)
+  source_match: 'match $x isa! dm-entity-schema, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-entity-schema, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-evidence-note
+  description: Migrate dm-evidence-note -> dm-evidence-note (4457 instances)
+  source_match: 'match $x isa! dm-evidence-note, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-evidence-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-gene-descriptor
+  description: Migrate dm-gene-descriptor -> dm-gene-descriptor (699 instances)
+  source_match: 'match $x isa! dm-gene-descriptor, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-gene-descriptor, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-genetic
+  description: Migrate dm-genetic -> dm-genetic (1953 instances)
+  source_match: 'match $x isa! dm-genetic, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-genetic, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-goal
+  description: Migrate dm-goal -> dm-goal (5 instances)
+  source_match: 'match $x isa! dm-goal, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-goal, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-goal-eval
+  description: Migrate dm-goal-eval -> dm-goal-eval (5 instances)
+  source_match: 'match $x isa! dm-goal-eval, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-goal-eval, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-mechanism
+  description: Migrate dm-mechanism -> dm-mechanism (3709 instances)
+  source_match: 'match $x isa! dm-mechanism, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-mechanism, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-phase-spec
+  description: Migrate dm-phase-spec -> dm-phase-spec (1 instances)
+  source_match: 'match $x isa! dm-phase-spec, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-phase-spec, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-phenotype
+  description: Migrate dm-phenotype -> dm-phenotype (5936 instances)
+  source_match: 'match $x isa! dm-phenotype, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-phenotype, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-phenotype-descriptor
+  description: Migrate dm-phenotype-descriptor -> dm-phenotype-descriptor (2173 instances)
+  source_match: 'match $x isa! dm-phenotype-descriptor, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa dm-phenotype-descriptor, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-process-descriptor
+  description: Migrate dm-process-descriptor -> dm-process-descriptor (1433 instances)
+  source_match: 'match $x isa! dm-process-descriptor, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa dm-process-descriptor, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-skill-file
+  description: Migrate dm-skill-file -> dm-skill-file (14 instances)
+  source_match: 'match $x isa! dm-skill-file, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-skill-file, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-source-doc
+  description: Migrate dm-source-doc -> dm-source-doc (13 instances)
+  source_match: 'match $x isa! dm-source-doc, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-source-doc, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-source-schema
+  description: Migrate dm-source-schema -> dm-source-schema (7 instances)
+  source_match: 'match $x isa! dm-source-schema, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-source-schema, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-dm-treatment
+  description: Migrate dm-treatment -> dm-treatment (2953 instances)
+  source_match: 'match $x isa! dm-treatment, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa dm-treatment, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-episode
+  description: Migrate episode -> alh-episode (1 instances)
+  source_match: 'match $x isa! episode, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa alh-episode, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-interaction
+  description: Migrate interaction -> alh-interaction (11 instances)
+  source_match: 'match $x isa! interaction, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa alh-interaction, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-application-note
+  description: Migrate jobhunt-application-note -> jhunt-application-note (64 instances)
+  source_match: 'match $x isa! jobhunt-application-note, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa jhunt-application-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-candidate
+  description: Migrate jobhunt-candidate -> jhunt-candidate (1 instances)
+  source_match: 'match $x isa! jobhunt-candidate, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa jhunt-candidate, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-company
+  description: Migrate jobhunt-company -> jhunt-company (33 instances)
+  source_match: 'match $x isa! jobhunt-company, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa jhunt-company, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-contact
+  description: Migrate jobhunt-contact -> jhunt-contact (3 instances)
+  source_match: 'match $x isa! jobhunt-contact, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa jhunt-contact, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-dashboard-state-note
+  description: Migrate jobhunt-dashboard-state-note -> jhunt-dashboard-state-note
+    (1 instances)
+  source_match: 'match $x isa! jobhunt-dashboard-state-note, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa jhunt-dashboard-state-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-fit-analysis-note
+  description: Migrate jobhunt-fit-analysis-note -> jhunt-fit-analysis-note (44 instances)
+  source_match: 'match $x isa! jobhunt-fit-analysis-note, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa jhunt-fit-analysis-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-interaction-note
+  description: Migrate jobhunt-interaction-note -> jhunt-interaction-note (35 instances)
+  source_match: 'match $x isa! jobhunt-interaction-note, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa jhunt-interaction-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-interview-note
+  description: Migrate jobhunt-interview-note -> jhunt-interview-note (4 instances)
+  source_match: 'match $x isa! jobhunt-interview-note, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa jhunt-interview-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-job-description
+  description: Migrate jobhunt-job-description -> jhunt-job-description (43 instances)
+  source_match: 'match $x isa! jobhunt-job-description, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa jhunt-job-description, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-lead
+  description: Migrate jobhunt-lead -> jhunt-lead (6 instances)
+  source_match: 'match $x isa! jobhunt-lead, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa jhunt-lead, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-learning-resource
+  description: Migrate jobhunt-learning-resource -> jhunt-learning-resource (20 instances)
+  source_match: 'match $x isa! jobhunt-learning-resource, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa jhunt-learning-resource, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-opp-summary-note
+  description: Migrate jobhunt-opp-summary-note -> jhunt-opp-summary-note (58 instances)
+  source_match: 'match $x isa! jobhunt-opp-summary-note, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa jhunt-opp-summary-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-position
+  description: Migrate jobhunt-position -> jhunt-position (49 instances)
+  source_match: 'match $x isa! jobhunt-position, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa jhunt-position, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-requirement
+  description: Migrate jobhunt-requirement -> jhunt-requirement (271 instances)
+  source_match: 'match $x isa! jobhunt-requirement, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa jhunt-requirement, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-research-note
+  description: Migrate jobhunt-research-note -> jhunt-research-note (38 instances)
+  source_match: 'match $x isa! jobhunt-research-note, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa jhunt-research-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-search-source
+  description: Migrate jobhunt-search-source -> jhunt-search-source (6 instances)
+  source_match: 'match $x isa! jobhunt-search-source, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa jhunt-search-source, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-skill-gap-note
+  description: Migrate jobhunt-skill-gap-note -> jhunt-skill-gap-note (16 instances)
+  source_match: 'match $x isa! jobhunt-skill-gap-note, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa jhunt-skill-gap-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-strategy-note
+  description: Migrate jobhunt-strategy-note -> jhunt-strategy-note (24 instances)
+  source_match: 'match $x isa! jobhunt-strategy-note, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa jhunt-strategy-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-jobhunt-venture
+  description: Migrate jobhunt-venture -> jhunt-venture (3 instances)
+  source_match: 'match $x isa! jobhunt-venture, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa jhunt-venture, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-memory-claim-note
+  description: Migrate memory-claim-note -> nbmem-memory-claim-note (2 instances)
+  source_match: 'match $x isa! memory-claim-note, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa nbmem-memory-claim-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-note
+  description: Migrate note -> alh-note (113 instances)
+  source_match: 'match $x isa! note, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa alh-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-operator-user
+  description: Migrate operator-user -> nbmem-operator-user (1 instances)
+  source_match: 'match $x isa! operator-user, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa nbmem-operator-user, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-person
+  description: Migrate person -> alh-person (103 instances)
+  source_match: 'match $x isa! person, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa alh-person, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-scilit-citation-record
+  description: Migrate scilit-citation-record -> scilit-citation-record (3882 instances)
+  source_match: 'match $x isa! scilit-citation-record, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa scilit-citation-record, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-scilit-paper
+  description: Migrate scilit-paper -> scilit-paper (14797 instances)
+  source_match: 'match $x isa! scilit-paper, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa scilit-paper, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-scilit-pdf-fulltext
+  description: Migrate scilit-pdf-fulltext -> scilit-pdf-fulltext (3 instances)
+  source_match: 'match $x isa! scilit-pdf-fulltext, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa scilit-pdf-fulltext, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-scilit-preprint
+  description: Migrate scilit-preprint -> scilit-preprint (51 instances)
+  source_match: 'match $x isa! scilit-preprint, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa scilit-preprint, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-scilit-review
+  description: Migrate scilit-review -> scilit-review (1504 instances)
+  source_match: 'match $x isa! scilit-review, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa scilit-review, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-scilit-section
+  description: Migrate scilit-section -> scilit-section (7666 instances)
+  source_match: 'match $x isa! scilit-section, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa scilit-section, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-skilllog-input
+  description: Migrate skilllog-input -> slog-input (1868 instances)
+  source_match: 'match $x isa! skilllog-input, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa slog-input, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-skilllog-invocation
+  description: Migrate skilllog-invocation -> slog-invocation (1868 instances)
+  source_match: 'match $x isa! skilllog-invocation, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa slog-invocation, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-skilllog-llm-call
+  description: Migrate skilllog-llm-call -> slog-llm-call (647 instances)
+  source_match: 'match $x isa! skilllog-llm-call, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa slog-llm-call, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-skilllog-output
+  description: Migrate skilllog-output -> slog-output (1868 instances)
+  source_match: 'match $x isa! skilllog-output, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa slog-output, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-tag
+  description: Migrate tag -> alh-tag (299 instances)
+  source_match: 'match $x isa! tag, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa alh-tag, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-tech-recon-analysis
+  description: Migrate tech-recon-analysis -> trec-analysis (9 instances)
+  source_match: 'match $x isa! tech-recon-analysis, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa trec-analysis, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-tech-recon-artifact
+  description: Migrate tech-recon-artifact -> trec-artifact (471 instances)
+  source_match: 'match $x isa! tech-recon-artifact, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa trec-artifact, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-tech-recon-investigation
+  description: Migrate tech-recon-investigation -> trec-investigation (5 instances)
+  source_match: 'match $x isa! tech-recon-investigation, has id $id; fetch { "id":
+    $id };'
+  target_insert: insert $x isa trec-investigation, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-tech-recon-note
+  description: Migrate tech-recon-note -> trec-note (197 instances)
+  source_match: 'match $x isa! tech-recon-note, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa trec-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-tech-recon-system
+  description: Migrate tech-recon-system -> trec-system (43 instances)
+  source_match: 'match $x isa! tech-recon-system, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa trec-system, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-trend-hypothesis-note
+  description: Migrate trend-hypothesis-note -> sltrend-hypothesis-note (39 instances)
+  source_match: 'match $x isa! trend-hypothesis-note, has id $id; fetch { "id": $id
+    };'
+  target_insert: insert $x isa sltrend-hypothesis-note, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-trend-thread
+  description: Migrate trend-thread -> sltrend-thread (9 instances)
+  source_match: 'match $x isa! trend-thread, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa sltrend-thread, has id $id;
+  skolem_keys:
+  - id
+- name: migrate-your-skill
+  description: Migrate your-skill -> jhunt-your-skill (19 instances)
+  source_match: 'match $x isa! your-skill, has id $id; fetch { "id": $id };'
+  target_insert: insert $x isa jhunt-your-skill, has id $id;
+  skolem_keys:
+  - id

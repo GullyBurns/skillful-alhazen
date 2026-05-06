@@ -3487,6 +3487,9 @@ mcp = [
 pipeline = [
     { name = "sf-hamilton" },
 ]
+qdrant = [
+    { name = "qdrant-client" },
+]
 semantic = [
     { name = "hdbscan" },
     { name = "matplotlib" },
@@ -3540,6 +3543,7 @@ requires-dist = [
     { name = "pyyaml", marker = "extra == 'all'", specifier = ">=6.0.0" },
     { name = "pyyaml", marker = "extra == 'skilllog'", specifier = ">=6.0.0" },
     { name = "qdrant-client", marker = "extra == 'all'", specifier = ">=1.14.0" },
+    { name = "qdrant-client", marker = "extra == 'qdrant'", specifier = ">=1.14.0" },
     { name = "qdrant-client", marker = "extra == 'semantic'", specifier = ">=1.14.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", marker = "extra == 'all'", specifier = ">=0.4.0" },
@@ -3560,7 +3564,7 @@ requires-dist = [
     { name = "voyageai", marker = "extra == 'semantic'", specifier = ">=0.3.0" },
     { name = "youtube-transcript-api", marker = "extra == 'they-said-whaaa'", specifier = ">=0.6" },
 ]
-provides-extras = ["all", "dev", "mcp", "pipeline", "semantic", "skilllog", "skills", "they-said-whaaa", "typedb"]
+provides-extras = ["all", "dev", "mcp", "pipeline", "qdrant", "semantic", "skilllog", "skills", "they-said-whaaa", "typedb"]
 
 [[package]]
 name = "sniffio"

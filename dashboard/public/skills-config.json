@@ -2,26 +2,17 @@
   {
     "slug": "agentic-memory",
     "enabled": true,
-    "name": "Agentic Memory",
-    "description": "TypeDB-backed two-tier memory \u2014 persons, memory claims, and session episodes.",
+    "name": "Alhazen Notebook",
+    "description": "Browse the knowledge graph \u2014 schema, entities, roles, relations, and agent session history.",
     "url_path": "/agentic-memory",
     "icon": "Brain",
     "color": "teal"
   },
   {
-    "slug": "curation-skill-builder",
-    "enabled": true,
-    "name": "Domain Modeling",
-    "description": "Track skill design processes, decisions, gaps, and experiments across all knowledge domains.",
-    "url_path": "/curation-skill-builder",
-    "icon": "Layers",
-    "color": "violet"
-  },
-  {
     "slug": "jobhunt",
     "enabled": true,
-    "name": "Job Hunt Dashboard",
-    "description": "Track job applications, analyze skill gaps, and manage your learning plan.",
+    "name": "Jobhunt",
+    "description": "Track job applications, analyze skill gaps, and manage your career search.",
     "url_path": "/jobhunt",
     "icon": "Briefcase",
     "color": "indigo"
@@ -29,7 +20,7 @@
   {
     "slug": "tech-recon",
     "enabled": true,
-    "name": "Tech Recon (v2)",
+    "name": "Tech Recon",
     "description": "Goal-driven technology investigation with dynamic Observable Plot analysis.",
     "url_path": "/tech-recon",
     "icon": "Search",
@@ -45,17 +36,17 @@
     "color": "teal"
   },
   {
-    "slug": "bioskills-index",
+    "slug": "coach",
     "enabled": true,
-    "name": "Bioskills Index",
-    "description": "Permanent, updatable EDAM-annotated index of bioskills available online.",
-    "url_path": "/bioskills-index",
-    "icon": "Network",
-    "color": "emerald"
+    "name": "Health Coach",
+    "description": "Personal health & fitness monitoring \u2014 metrics, sleep, workouts, goals, appointments.",
+    "url_path": "/coach",
+    "icon": "Heart",
+    "color": "teal"
   },
   {
     "slug": "they-said-whaaa",
-    "enabled": true,
+    "enabled": false,
     "name": "They Said Whaaa?",
     "description": "Track public statements, detect contradictions, build credibility timelines.",
     "url_path": "/they-said-whaaa",

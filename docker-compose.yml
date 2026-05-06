@@ -76,6 +76,8 @@ services:
       - TYPEDB_PORT=1729
       - TYPEDB_DATABASE=alhazen_notebook
       - PROJECT_ROOT=/app
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
     volumes:
       - ${HOME}/.alhazen/cache:/root/.alhazen/cache:ro
     ports:

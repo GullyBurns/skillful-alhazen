@@ -7,6 +7,9 @@ typedb_schema: schema.tql
 cli: agentic_memory.py
 dependencies:
   - typedb-notebook
+schema:
+  namespace: nbmem  # all types: nbmem-operator-user, nbmem-memory-claim-note, etc.
+  depends_on: []
 tags:
   - memory
   - agents

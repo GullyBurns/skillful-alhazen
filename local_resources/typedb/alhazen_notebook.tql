@@ -18,14 +18,14 @@ attribute description, value string;
 attribute iri, value string;
 attribute abstract-text, value string;
 
-# Content and representation
+# Content and alh-representation
 attribute content, value string;
 attribute content-hash, value string;
 attribute format, value string;
 attribute token-count, value integer;
 
-# Cache storage (for large artifacts stored externally)
-attribute cache-path, value string;      # Relative path in cache: "html/artifact-abc123.html"
+# Cache storage (for large alh-artifacts stored externally)
+attribute cache-path, value string;      # Relative path in cache: "html/alh-artifact-abc123.html"
 attribute mime-type, value string;       # MIME type: "text/html", "application/pdf"
 attribute file-size, value integer;      # Size in bytes
 
@@ -47,56 +47,68 @@ attribute offset, value integer;
 attribute length, value integer;
 
 # Collection semantics
-attribute logical-query, value string;
-attribute is-extensional, value boolean;
+attribute alh-logical-query, value string;
+attribute alh-is-extensional, value boolean;
 
 # Classification metadata
-attribute schema-org-uri, value string;
-attribute wikidata-qid, value string;
-attribute vocabulary-source, value string;
+attribute alh-schema-org-uri, value string;
+attribute alh-wikidata-qid, value string;
+attribute alh-vocabulary-source, value string;
 
 # Agent/provenance tracking
-attribute agent-id, value string;
-attribute agent-type, value string;
-attribute model-name, value string;
-attribute operation-type, value string;
-attribute operation-timestamp, value datetime;
-attribute operation-parameters, value string;
+attribute alh-agent-id, value string;
+attribute alh-agent-type, value string;
+attribute alh-model-name, value string;
+attribute alh-operation-type, value string;
+attribute alh-operation-timestamp, value datetime;
+attribute alh-operation-parameters, value string;
 
 # Additional attributes
-attribute value-string, value string;
-attribute evidence-type-attr, value string;
+attribute alh-value-string, value string;
+attribute alh-evidence-type-attr, value string;
 
 # Person identity
-attribute given-name, value string;
-attribute family-name, value string;
-attribute email-address, value string;
+attribute alh-given-name, value string;
+attribute alh-family-name, value string;
+attribute alh-email-address, value string;
 
 # Person enrichment
-attribute linkedin-url, value string;
-attribute title, value string;
-attribute phone-number, value string;
-attribute bio, value string;
+attribute alh-linkedin-url, value string;
+attribute alh-title, value string;
+attribute alh-phone-number, value string;
+attribute alh-bio, value string;
 
 # Interaction tracking
-attribute interaction-type, value string;
-attribute interaction-date, value datetime;
-attribute outcome, value string;
-attribute follow-up-by, value datetime;
-attribute follow-up-status, value string;
-attribute participant-role, value string;
+attribute alh-interaction-type, value string;
+attribute alh-interaction-date, value datetime;
+attribute alh-outcome, value string;
+attribute alh-follow-up-by, value datetime;
+attribute alh-follow-up-status, value string;
+attribute alh-participant-role, value string;
 
 # Organization enrichment
-attribute company-url, value string;
-attribute location, value string;
-attribute industry, value string;
+attribute alh-company-url, value string;
+attribute alh-location, value string;
+attribute alh-industry, value string;
 
 # Episode / session tracking
-attribute session-id, value string;
-attribute source-skill, value string;
+attribute alh-session-id, value string;
+attribute alh-source-skill, value string;
 
 # Memory claim notes
-attribute fact-type, value string;
+attribute alh-fact-type, value string;
+
+# Role lifecycle (BFO/UFO role pattern)
+attribute alh-role-status, value string;
+attribute alh-role-started-on, value datetime;
+attribute alh-role-ended-on, value datetime;
+
+
+# ROLE-BEARING - A person bears a role (BFO inherence relation)
+# Defined before entities so role names resolve in plays clauses.
+relation alh-role-bearing,
+    relates bearer,
+    relates borne-role;
 
 
 # -----------------------------------------------------------------------------
@@ -104,8 +116,8 @@ attribute fact-type, value string;
 # -----------------------------------------------------------------------------
 
 # Shared abstract root for all identifiable entities
-# Provides identity, metadata, and cross-cutting concerns (tagging, classification, provenance)
-entity identifiable-entity @abstract,
+# Provides identity, metadata, and cross-cutting concerns (alh-tagging, alh-classification, provenance)
+entity alh-identifiable-entity @abstract,
     owns id @key,
     owns name,
     owns description,
@@ -117,39 +129,48 @@ entity identifiable-entity @abstract,
     owns license,
     owns valid-from,
     owns valid-until,
-    plays classification:classified-entity,
-    plays tagging:tagged-entity,
-    plays aboutness:subject,
-    plays collection-membership:member,
-    plays provenance-record:produced-entity,
-    plays provenance-record:source-entity,
-    plays property-assertion:subject-entity,
-    plays semantic-triple:triple-subject,
-    plays semantic-triple:triple-object,
-    plays episode-mention:subject;
+    plays alh-classification:classified-entity,
+    plays alh-tagging:tagged-entity,
+    plays alh-aboutness:subject,
+    plays alh-collection-membership:member,
+    plays alh-provenance-record:produced-entity,
+    plays alh-provenance-record:source-entity,
+    plays alh-property-assertion:subject-entity,
+    plays alh-semantic-triple:triple-subject,
+    plays alh-semantic-triple:triple-object,
+    plays alh-episode-mention:subject;
 
 
 # THING - Domain objects (papers, genes, diseases, jobs, agents, etc.)
 # Concrete base type for real-world entities that are NOT information content
-entity domain-thing sub identifiable-entity,
-    plays representation:referent,
-    plays citation-reference:citing-item,
-    plays citation-reference:cited-item;
+entity alh-domain-thing sub alh-identifiable-entity,
+    plays alh-representation:referent,
+    plays alh-citation-reference:citing-item,
+    plays alh-citation-reference:cited-item;
+
+
+# ROLE - Anti-rigid, externally-grounded entity that inheres in a person (BFO/UFO pattern)
+# Role-specific data lives on the role, not on the person. Subtypes in skill schemas.
+entity alh-role sub alh-domain-thing,
+    owns alh-role-status,
+    owns alh-role-started-on,
+    owns alh-role-ended-on,
+    plays alh-role-bearing:borne-role;
 
 
 # COLLECTION - Organized groupings of Things
 # Typed per domain namespace (scilit-corpus, jobhunt-search, apm-case-file, etc.)
-entity collection sub identifiable-entity,
-    owns logical-query,
-    owns is-extensional,
-    plays collection-membership:collection,
-    plays collection-nesting:parent-collection,
-    plays collection-nesting:child-collection;
+entity alh-collection sub alh-identifiable-entity,
+    owns alh-logical-query,
+    owns alh-is-extensional,
+    plays alh-collection-membership:collection,
+    plays alh-collection-nesting:parent-collection,
+    plays alh-collection-nesting:child-collection;
 
 
-# INFORMATION-CONTENT-ENTITY - Content-bearing entities (artifacts, fragments, notes)
+# INFORMATION-CONTENT-ENTITY - Content-bearing entities (alh-artifacts, alh-fragments, notes)
 # Only ICEs carry actual content, cache paths, formats, etc.
-entity information-content-entity @abstract, sub identifiable-entity,
+entity alh-information-content-entity @abstract, sub alh-identifiable-entity,
     owns content,
     owns content-hash,
     owns format,
@@ -157,51 +178,51 @@ entity information-content-entity @abstract, sub identifiable-entity,
     owns cache-path,
     owns mime-type,
     owns file-size,
-    plays authorship:work,
-    plays derivation:derived-from-source,
-    plays derivation:derivative;
+    plays alh-authorship:work,
+    plays alh-derivation:derived-from-source,
+    plays alh-derivation:derivative;
 
 
-# ARTIFACT - Specific representations of Things
-entity artifact sub information-content-entity,
-    plays representation:artifact,
-    plays fragmentation:whole;
+# ARTIFACT - Specific alh-representations of Things
+entity alh-artifact sub alh-information-content-entity,
+    plays alh-representation:alh-artifact,
+    plays alh-fragmentation:whole;
 
 
-# FRAGMENT - Parts of artifacts
-entity fragment sub information-content-entity,
+# FRAGMENT - Parts of alh-artifacts
+entity alh-fragment sub alh-information-content-entity,
     owns offset,
     owns length,
-    plays fragmentation:part,
-    plays quotation:quoted-fragment,
-    plays quotation:quoting-fragment;
+    plays alh-fragmentation:part,
+    plays alh-quotation:quoted-alh-fragment,
+    plays alh-quotation:quoting-alh-fragment;
 
 
 # NOTE - Agent-generated annotations
-entity note sub information-content-entity,
+entity alh-note sub alh-information-content-entity,
     owns confidence,
-    plays aboutness:note,
-    plays note-threading:parent-note,
-    plays note-threading:child-note,
-    plays evidence-chain:claim,
-    plays evidence-chain:evidence;
+    plays alh-aboutness:note,
+    plays alh-note-threading:parent-note,
+    plays alh-note-threading:child-note,
+    plays alh-evidence-chain:claim,
+    plays alh-evidence-chain:evidence;
 
 
 # EPISODE - Process account of a work session (4th ICE sibling)
 # Distinct from note (semantic interpretation): records WHAT HAPPENED and WHICH ENTITIES were touched.
-# Linked to entities via episode-mention; linked to skilllog-session by shared session-id.
-entity episode sub information-content-entity,
-    owns session-id,
-    owns source-skill,
-    plays episode-mention:session;
+# Linked to entities via alh-episode-mention; linked to skilllog-session by shared alh-session-id.
+entity alh-episode sub alh-information-content-entity,
+    owns alh-session-id,
+    owns alh-source-skill,
+    plays alh-episode-mention:session;
 
 
 # USER-QUESTION - Questions/instructions from users
-entity user-question sub identifiable-entity;
+entity alh-user-question sub alh-identifiable-entity;
 
 
 # INFORMATION-RESOURCE - Databases, knowledgebases, APIs
-entity information-resource sub identifiable-entity;
+entity alh-information-resource sub alh-identifiable-entity;
 
 
 # -----------------------------------------------------------------------------
@@ -209,102 +230,99 @@ entity information-resource sub identifiable-entity;
 # -----------------------------------------------------------------------------
 
 # AGENT - Operational actor base (human or AI); creator of notes and content
-entity agent sub domain-thing,
-    owns agent-type,
-    owns model-name,
-    plays authorship:author,
-    plays provenance-record:performing-agent;
+entity alh-agent sub alh-domain-thing,
+    owns alh-agent-type,
+    owns alh-model-name,
+    plays alh-authorship:author,
+    plays alh-provenance-record:performing-agent;
 
 
 # AI-AGENT - AI model instances (Claude, GPT-4, etc.)
-entity ai-agent sub agent;
+entity alh-ai-agent sub alh-agent;
 
 
 # PERSON - Real-world human actor (sub agent: can create notes, perform operations)
-entity person sub agent,
-    owns given-name,
-    owns family-name,
-    owns email-address,
-    owns linkedin-url,
-    owns title,
-    owns phone-number,
-    owns bio,
-    plays interaction-participation:participant,
-    plays works-at:employee;
+entity alh-person sub alh-agent,
+    owns alh-given-name,
+    owns alh-family-name,
+    owns alh-email-address,
+    owns alh-linkedin-url,
+    owns alh-title,
+    owns alh-phone-number,
+    owns alh-bio,
+    plays alh-interaction-participation:participant,
+    plays alh-works-at:employee,
+    plays alh-role-bearing:bearer,
+    plays alh-authorship:publication-author,
+    plays alh-affiliation:affiliated-agent;
 
 
-# AUTHOR - Human who authors publications (sub person, not bare agent)
-entity author sub person,
-    plays authorship:publication-author,
-    plays affiliation:affiliated-agent;
+# ORGANIZATION - Groups of persons/agents (sub alh-domain-thing for full alh-identifiable-entity hierarchy)
+entity alh-organization sub alh-domain-thing,
+    owns alh-linkedin-url,
+    owns alh-company-url,
+    owns alh-location,
+    owns alh-industry,
+    plays alh-affiliation:alh-organization,
+    plays alh-works-at:employer;
 
 
-# ORGANIZATION - Groups of persons/agents (sub domain-thing for full identifiable-entity hierarchy)
-entity organization sub domain-thing,
-    owns linkedin-url,
-    owns company-url,
-    owns location,
-    owns industry,
-    plays affiliation:organization,
-    plays works-at:employer;
-
-
-# INTERACTION - A tracked interaction between persons (meeting, call, email, interview)
-entity interaction sub domain-thing,
-    owns interaction-type,
-    owns interaction-date,
-    owns outcome,
-    owns follow-up-by,
-    owns follow-up-status,
-    plays interaction-participation:interaction;
+# INTERACTION - A tracked alh-interaction between persons (meeting, call, email, interview)
+entity alh-interaction sub alh-domain-thing,
+    owns alh-interaction-type,
+    owns alh-interaction-date,
+    owns alh-outcome,
+    owns alh-follow-up-by,
+    owns alh-follow-up-status,
+    plays alh-interaction-participation:alh-interaction;
 
 
 # -----------------------------------------------------------------------------
 # ENTITY TYPES - External Vocabulary Classification
 # -----------------------------------------------------------------------------
 
-# VOCABULARY - A classification system (schema.org, Wikidata, UMLS, etc.)
-entity vocabulary,
+# VOCABULARY - A alh-classification system (schema.org, Wikidata, UMLS, etc.)
+entity alh-vocabulary,
     owns id @key,
     owns name,
     owns iri,
     owns description,
-    plays vocabulary-membership:vocab;
+    plays alh-vocabulary-membership:vocab;
 
 
 # VOCABULARY-TYPE - A type from an external vocabulary
-entity vocabulary-type,
+entity alh-vocabulary-type,
     owns id @key,
     owns name,
-    owns schema-org-uri,
-    owns wikidata-qid,
+    owns alh-schema-org-uri,
+    owns alh-wikidata-qid,
     owns description,
-    plays vocabulary-membership:vocab-type,
-    plays type-hierarchy:subtype,
-    plays type-hierarchy:supertype,
-    plays classification:type-facet;
+    plays alh-vocabulary-membership:vocab-type,
+    plays alh-type-hierarchy:subtype,
+    plays alh-type-hierarchy:supertype,
+    plays alh-classification:type-facet;
 
 
 # VOCABULARY-PROPERTY - A property from an external vocabulary
-entity vocabulary-property,
+entity alh-vocabulary-property,
     owns id @key,
     owns name,
-    owns schema-org-uri,
+    owns alh-schema-org-uri,
     owns description,
-    plays vocabulary-membership:vocab-type,
-    plays property-assertion:property-definition,
-    plays domain-range:property-def,
-    plays domain-range:domain-type,
-    plays domain-range:range-type,
-    plays semantic-triple:triple-predicate;
+    plays alh-vocabulary-membership:vocab-type,
+    plays alh-property-assertion:property-definition,
+    plays alh-domain-range:property-def,
+    plays alh-domain-range:domain-type,
+    plays alh-domain-range:range-type,
+    plays alh-semantic-triple:triple-predicate;
 
 
-# TAG - Lightweight classification without full vocabulary structure
-entity tag,
+# TAG - Lightweight alh-classification without full vocabulary structure
+entity alh-tag,
     owns id @key,
     owns name,
     owns description,
-    plays tagging:tag;
+    plays alh-tagging:tag;
 
 
 # -----------------------------------------------------------------------------
@@ -312,110 +330,110 @@ entity tag,
 # -----------------------------------------------------------------------------
 
 # ABOUTNESS - The fundamental "is about" relation (IAO:0000136)
-relation aboutness,
+relation alh-aboutness,
     relates note,
     relates subject;
 
 
-# REPRESENTATION - Connects artifacts to the things they represent
-relation representation,
-    relates artifact,
+# REPRESENTATION - Connects alh-artifacts to the things they represent
+relation alh-representation,
+    relates alh-artifact,
     relates referent;
 
 
 # COLLECTION-MEMBERSHIP - Things belonging to collections
-relation collection-membership,
+relation alh-collection-membership,
     owns created-at,
     owns provenance,
     relates collection,
     relates member;
 
 
-# COLLECTION-NESTING - Hierarchical collection organization
-relation collection-nesting,
+# COLLECTION-NESTING - Hierarchical collection alh-organization
+relation alh-collection-nesting,
     relates parent-collection,
     relates child-collection;
 
 
-# FRAGMENTATION - Parts of artifacts
-relation fragmentation,
+# FRAGMENTATION - Parts of alh-artifacts
+relation alh-fragmentation,
     relates whole,
     relates part;
 
 
 # AUTHORSHIP - Who created what (general)
-relation authorship,
+relation alh-authorship,
     owns created-at,
     relates author,
     relates work,
     relates publication-author;
 
 
-# AFFILIATION - Agent/Author membership in organizations
-relation affiliation,
+# AFFILIATION - Agent/Author membership in alh-organizations
+relation alh-affiliation,
     owns valid-from,
     owns valid-until,
     relates affiliated-agent,
-    relates organization;
+    relates alh-organization;
 
 
-# WORKS-AT - Person employed at / associated with an organization
-relation works-at,
+# WORKS-AT - Person employed at / associated with an alh-organization
+relation alh-works-at,
     owns valid-from,
     owns valid-until,
     relates employee,
     relates employer;
 
 
-# INTERACTION-PARTICIPATION - Links persons to interactions with roles
-relation interaction-participation,
-    owns participant-role,
-    relates interaction,
+# INTERACTION-PARTICIPATION - Links persons to alh-interactions with roles
+relation alh-interaction-participation,
+    owns alh-participant-role,
+    relates alh-interaction,
     relates participant;
 
 
 # CITATION-REFERENCE - References between Things (paper cites paper)
-relation citation-reference,
+relation alh-citation-reference,
     owns provenance,
     owns created-at,
     relates citing-item,
     relates cited-item;
 
 
-# QUOTATION - When a fragment quotes another
-relation quotation,
-    relates quoting-fragment,
-    relates quoted-fragment;
+# QUOTATION - When a alh-fragment quotes another
+relation alh-quotation,
+    relates quoting-alh-fragment,
+    relates quoted-alh-fragment;
 
 
 # DERIVATION - Provenance chain for derived content
-relation derivation,
+relation alh-derivation,
     owns provenance,
     owns created-at,
     relates derivative,
     relates derived-from-source;
 
 
-# NOTE-THREADING - Hierarchical note organization (replies, follow-ups)
-relation note-threading,
+# NOTE-THREADING - Hierarchical note alh-organization (replies, follow-ups)
+relation alh-note-threading,
     relates parent-note,
     relates child-note;
 
 
-# EPISODE-MENTION - Links an episode to graph entities touched during the session
-relation episode-mention,
+# EPISODE-MENTION - Links an alh-episode to graph entities touched during the session
+relation alh-episode-mention,
     relates session,
     relates subject;
 
 
 # PROVENANCE-RECORD - Detailed tracking of who/what created entities
-relation provenance-record,
-    owns agent-id,
-    owns agent-type,
-    owns model-name,
-    owns operation-type,
-    owns operation-timestamp,
-    owns operation-parameters,
+relation alh-provenance-record,
+    owns alh-agent-id,
+    owns alh-agent-type,
+    owns alh-model-name,
+    owns alh-operation-type,
+    owns alh-operation-timestamp,
+    owns alh-operation-parameters,
     relates produced-entity,
     relates source-entity,
     relates performing-agent;
@@ -426,7 +444,7 @@ relation provenance-record,
 # -----------------------------------------------------------------------------
 
 # CLASSIFICATION - Assigning vocabulary types to entities
-relation classification,
+relation alh-classification,
     owns confidence,
     owns provenance,
     owns created-at,
@@ -435,26 +453,26 @@ relation classification,
 
 
 # VOCABULARY-MEMBERSHIP - Types belonging to vocabularies
-relation vocabulary-membership,
+relation alh-vocabulary-membership,
     relates vocab,
     relates vocab-type;
 
 
 # TYPE-HIERARCHY - Subtype relationships within vocabularies
-relation type-hierarchy,
+relation alh-type-hierarchy,
     relates subtype,
     relates supertype;
 
 
 # DOMAIN-RANGE - Property constraints from vocabularies
-relation domain-range,
+relation alh-domain-range,
     relates property-def,
     relates domain-type,
     relates range-type;
 
 
-# TAGGING - Lightweight classification
-relation tagging,
+# TAGGING - Lightweight alh-classification
+relation alh-tagging,
     owns created-at,
     owns provenance,
     relates tagged-entity,
@@ -462,10 +480,10 @@ relation tagging,
 
 
 # PROPERTY-ASSERTION - Dynamic property assignment
-relation property-assertion,
+relation alh-property-assertion,
     owns created-at,
     owns provenance,
-    owns value-string,
+    owns alh-value-string,
     relates subject-entity,
     relates property-definition;
 
@@ -475,7 +493,7 @@ relation property-assertion,
 # -----------------------------------------------------------------------------
 
 # SEMANTIC-TRIPLE - For RDF-style assertions with provenance
-relation semantic-triple,
+relation alh-semantic-triple,
     owns confidence,
     owns provenance,
     owns created-at,
@@ -486,9 +504,9 @@ relation semantic-triple,
 
 
 # EVIDENCE-CHAIN - Linking claims to supporting evidence
-relation evidence-chain,
+relation alh-evidence-chain,
     owns confidence,
-    owns evidence-type-attr,
+    owns alh-evidence-type-attr,
     relates claim,
     relates evidence;
 

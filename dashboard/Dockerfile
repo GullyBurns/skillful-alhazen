@@ -17,7 +17,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 # Copy source for version detection (pyproject.toml uses dynamic version from __init__.py)
 COPY src/skillful_alhazen/__init__.py ./src/skillful_alhazen/
-RUN uv sync --extra typedb --extra skills --extra skilllog --no-dev
+RUN uv sync --extra typedb --extra skills --extra skilllog --extra qdrant --no-dev
 
 # ==============================================================================
 # Stage 2b: Generate skills-config.json from skills-registry.yaml

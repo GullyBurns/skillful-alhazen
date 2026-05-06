@@ -1,36 +1,36 @@
 define
 
 # =============================================================================
-# agentic-memory namespace schema
+# agentic-memory namespace schema (nbmem-)
 # Extends alhazen_notebook.tql with person specializations,
 # memory-claim-notes, and personal context relations
 # =============================================================================
 
 # Relations FIRST so role names resolve when entities use plays clauses
 
-relation project-involvement,
+relation nbmem-project-involvement,
     relates participant,
     relates project;
 
-relation tool-familiarity,
+relation nbmem-tool-familiarity,
     relates practitioner,
     relates tool;
 
 # Role bindings: declare which core entity types play these roles
-# (operator-user and application-user inherit participant/practitioner via person)
-entity collection plays project-involvement:project;
-entity domain-thing plays tool-familiarity:tool;
+# (nbmem-operator-user inherits participant/practitioner via alh-person)
+entity alh-collection plays nbmem-project-involvement:project;
+entity alh-domain-thing plays nbmem-tool-familiarity:tool;
 
-relation relationship-context,
+relation nbmem-relationship-context,
     owns description,
     relates from-person,
     relates to-person;
 
-entity person
-    plays relationship-context:from-person,
-    plays relationship-context:to-person;
+entity alh-person
+    plays nbmem-relationship-context:from-person,
+    plays nbmem-relationship-context:to-person;
 
-relation fact-evidence,
+relation nbmem-fact-evidence,
     relates derived,
     relates source;
 
@@ -38,43 +38,59 @@ relation fact-evidence,
 # Already in core schema -- DO NOT redefine:
 # content, confidence, valid-from, valid-until, created-at, name, description
 
-attribute identity-summary, value string;
-attribute role-description, value string;
-attribute communication-style, value string;
-attribute goals-summary, value string;
-attribute preferences-summary, value string;
-attribute domain-expertise, value string;
+attribute nbmem-identity-summary, value string;
+attribute nbmem-role-description, value string;
+attribute nbmem-communication-style, value string;
+attribute nbmem-goals-summary, value string;
+attribute nbmem-preferences-summary, value string;
+attribute nbmem-domain-expertise, value string;
 
 # Entities
 
-# Person specializations (agent -> person -> operator-user / application-user)
+# Person specialization (alh-agent -> alh-person -> nbmem-operator-user)
 
-entity operator-user sub person,
-    owns identity-summary,
-    owns role-description,
-    owns communication-style,
-    owns goals-summary,
-    owns preferences-summary,
-    owns domain-expertise,
-    plays project-involvement:participant,
-    plays tool-familiarity:practitioner;
+entity nbmem-operator-user sub alh-person,
+    owns nbmem-identity-summary,
+    owns nbmem-role-description,
+    owns nbmem-communication-style,
+    owns nbmem-goals-summary,
+    owns nbmem-preferences-summary,
+    owns nbmem-domain-expertise,
+    plays nbmem-project-involvement:participant,
+    plays nbmem-tool-familiarity:practitioner;
 
-entity application-user sub person,
-    plays project-involvement:participant;
+# alh-collection plays project role in nbmem-project-involvement
+# alh-domain-thing plays tool role in nbmem-tool-familiarity
 
-# collection plays project role in project-involvement
-# domain-thing plays tool role in tool-familiarity
-# (both are declared via identifiable-entity plays collection-membership:member pattern --
-#  we use existing types; no redefine needed since collection and domain-thing
-#  already play many roles and TypeDB lets any entity play roles at insert time
-#  as long as the relation is compatible)
+# nbmem-memory-claim-note sub alh-note (ICE, product of system operations, NOT alh-domain-thing)
+# Inherits from alh-note: content, confidence, all ICE infrastructure
+# Inherits from alh-identifiable-entity: valid-from, valid-until, created-at
+# Subject link:  (note: $n, subject: $e)  isa alh-aboutness    -- existing core relation
+# Provenance:    (derived: $n, source: $src) isa nbmem-fact-evidence -- new relation above
+entity nbmem-memory-claim-note sub alh-note,
+    owns alh-fact-type,
+    plays nbmem-fact-evidence:derived,
+    plays nbmem-fact-evidence:source;
 
-# memory-claim-note sub note (ICE, product of system operations, NOT domain-thing)
-# Inherits from note: content, confidence, all ICE infrastructure
-# Inherits from identifiable-entity: valid-from, valid-until, created-at
-# Subject link:  (note: $n, subject: $e)  isa aboutness    -- existing core relation
-# Provenance:    (derived: $n, source: $src) isa fact-evidence -- new relation above
-entity memory-claim-note sub note,
-    owns fact-type,
-    plays fact-evidence:derived,
-    plays fact-evidence:source;
+# --- Enhanced episode tracking ---
+# alh-operation-type already exists in core schema (used by alh-provenance-record)
+# nbmem-rationale captures WHY an operation was performed
+attribute nbmem-rationale, value string;
+
+relation alh-episode-mention,
+    owns alh-operation-type,
+    owns nbmem-rationale;
+
+# --- Cross-skill entity resolution ---
+# Lightweight alias for when the same real-world entity exists as multiple
+# TypeDB entities across skill namespaces (e.g., jhunt-contact + alh-person)
+relation nbmem-entity-alias,
+    owns description,
+    owns confidence,
+    owns created-at,
+    relates primary-entity,
+    relates aliased-entity;
+
+entity alh-identifiable-entity
+    plays nbmem-entity-alias:primary-entity,
+    plays nbmem-entity-alias:aliased-entity;

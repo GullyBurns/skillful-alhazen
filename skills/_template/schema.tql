@@ -1,9 +1,10 @@
 # =============================================================================
-# [DOMAIN NAME] NAMESPACE - TypeDB 2.x Schema Extension
+# [DOMAIN NAME] NAMESPACE - TypeDB 3.x Schema Extension
 # =============================================================================
 # Domain-specific subtypes for [description].
-# TypeDB as Claude's "world model" for reasoning about [domain entities].
 # Namespace prefix: DOMAIN-*
+# ALL entity, relation, and attribute types below MUST start with "DOMAIN-"
+# This prefix is declared in skill.yaml -> schema.namespace
 # =============================================================================
 
 define
@@ -13,7 +14,7 @@ define
 # -----------------------------------------------------------------------------
 
 # TODO: Define your domain-specific attributes
-# Pattern: attribute-name sub attribute, value [string|long|double|boolean|datetime];
+# Pattern: attribute DOMAIN-attr-name, value [string|integer|double|boolean|datetime];
 
 # URL attributes
 # domain-url sub attribute, value string;

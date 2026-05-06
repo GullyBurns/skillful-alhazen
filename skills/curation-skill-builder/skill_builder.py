@@ -23,7 +23,7 @@ Commands:
     Design decisions:
         add-decision        Record a schema design decision
         add-rationale       Add reasoning for a decision
-        link-gap            Link a schema-gap as motivation for a decision
+        link-gap            Link a slog-schema-gap as motivation for a decision
         list-decisions      List decisions for a domain
 
     Experiments:
@@ -476,7 +476,7 @@ def cmd_init_domain(args):
     if args.description:
         clauses.append(s("description", args.description))
     if args.skill:
-        clauses.append(s("dm-skill-name", args.skill))
+        clauses.append(s("dm-slog-skill-name", args.skill))
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
@@ -494,7 +494,7 @@ def cmd_list_domains(args):
     q = """
         match $d isa dm-domain;
         fetch { "id": $d.id, "name": $d.name, "description": $d.description,
-                "skill": $d.dm-skill-name, "created": $d.created-at };
+                "skill": $d.dm-slog-skill-name, "created": $d.created-at };
     """
     with get_driver() as driver:
         results = fetch_query(driver, q)
@@ -525,7 +525,7 @@ def cmd_show_domain(args):
         d_q = f"""
             match $d isa dm-domain, has id "{eid}";
             fetch {{ "id": $d.id, "name": $d.name, "description": $d.description,
-                    "skill": $d.dm-skill-name, "task": $d.dm-skill-task, "created": $d.created-at }};
+                    "skill": $d.dm-slog-skill-name, "task": $d.dm-skill-task, "created": $d.created-at }};
         """
         d_res = fetch_query(driver, d_q)
         if not d_res:
@@ -1115,7 +1115,7 @@ def cmd_add_rationale(args):
 
 
 def cmd_link_gap(args):
-    """Link a schema-gap ID to a design decision (stored as dm-linked-gap-id attribute)."""
+    """Link a slog-schema-gap ID to a design decision (stored as dm-linked-gap-id attribute)."""
     if not TYPEDB_AVAILABLE:
         out({"success": False, "error": "typedb-driver not installed"})
         return
@@ -1382,7 +1382,7 @@ def cmd_export_design(args):
         # Domain info
         d_q = f"""
             match $d isa dm-domain, has id "{eid}";
-            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-skill-name, "task": $d.dm-skill-task }};
+            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-slog-skill-name, "task": $d.dm-skill-task }};
         """
         d_res = fetch_query(driver, d_q)
         if not d_res:
@@ -1985,7 +1985,7 @@ def cmd_export_design_phases(args):
         # Domain info
         d_q = f"""
             match $d isa dm-domain, has id "{eid}";
-            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-skill-name }};
+            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-slog-skill-name }};
         """
         d_res = fetch_query(driver, d_q)
         if not d_res:
@@ -2152,7 +2152,7 @@ def cmd_generate_evals(args):
         # Domain info
         d_q = f"""
             match $d isa dm-domain, has id "{eid}";
-            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-skill-name }};
+            fetch {{ "id": $d.id, "name": $d.name, "skill": $d.dm-slog-skill-name }};
         """
         d_res = fetch_query(driver, d_q)
         if not d_res:
@@ -2523,7 +2523,7 @@ def cmd_export_skill_data(args):
     """
     Export all skill-builder KG data for a skill as a structured JSON snapshot.
 
-    Queries domains whose dm-skill-name matches --skill, plus their phase items
+    Queries domains whose dm-slog-skill-name matches --skill, plus their phase items
     (entity schemas, source schemas, derivation skills, analysis skills) and all
     design gaps linked to those phase items.
     """
@@ -2537,15 +2537,15 @@ def cmd_export_skill_data(args):
     with get_driver() as driver:
         # Find domains with matching skill name
         domain_q = f"""
-            match $d isa dm-domain, has dm-skill-name "{escape_string(skill_name)}";
+            match $d isa dm-domain, has dm-slog-skill-name "{escape_string(skill_name)}";
             fetch {{ "id": $d.id, "name": $d.name, "description": $d.description,
-                    "skill": $d.dm-skill-name, "created": $d.created-at }};
+                    "skill": $d.dm-slog-skill-name, "created": $d.created-at }};
         """
         domains_raw = fetch_query(driver, domain_q)
 
         if not domains_raw:
             out({"success": True, "skill": skill_name, "exported_at": ts, "domains": [],
-                 "message": f"No domains found with dm-skill-name='{skill_name}'"})
+                 "message": f"No domains found with dm-slog-skill-name='{skill_name}'"})
             return
 
         domains_out = []
@@ -2668,7 +2668,7 @@ def cmd_import_skill_data(args):
                 if domain.get("description"):
                     clauses.append(s("description", domain["description"]))
                 if domain.get("skill"):
-                    clauses.append(s("dm-skill-name", domain["skill"]))
+                    clauses.append(s("dm-slog-skill-name", domain["skill"]))
                 with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
                     insert_entity(tx, "dm-domain", clauses)
                     tx.commit()
@@ -2854,6 +2854,190 @@ def cmd_scaffold_improvement_loop(args):
     })
 
 
+def cmd_validate_namespace(args):
+    """Validate that a skill's schema.tql follows namespace prefix conventions."""
+    import re
+    import yaml
+
+    skill_dir = Path(args.skill_dir).resolve()
+    violations = []
+    warnings = []
+
+    # --- Core types exempt from prefix checks ---
+    CORE_TYPES = {
+        "alh-identifiable-entity", "alh-domain-thing", "collection",
+        "alh-information-content-entity", "artifact", "fragment", "note",
+        "episode", "agent", "person", "author", "organization",
+        "interaction", "tag", "vocabulary", "alh-vocabulary-type",
+        "alh-vocabulary-property", "alh-user-question", "alh-information-resource",
+        "alh-ai-agent", "nbmem-operator-user", "nbmem-memory-claim-note",
+    }
+
+    # --- Rule (a): Read skill.yaml and extract namespace ---
+    skill_yaml_path = skill_dir / "skill.yaml"
+    if not skill_yaml_path.exists():
+        out({
+            "success": True, "valid": False,
+            "violations": [{"rule": "a", "message": f"skill.yaml not found at {skill_yaml_path}"}],
+            "warnings": [], "namespace": None, "types_found": {},
+        })
+        return
+
+    with open(skill_yaml_path) as f:
+        skill_meta = yaml.safe_load(f) or {}
+
+    schema_section = skill_meta.get("schema", {}) or {}
+    namespace = schema_section.get("namespace")
+    depends_on = schema_section.get("depends_on") or []
+    if isinstance(depends_on, str):
+        depends_on = [depends_on]
+
+    if not namespace:
+        violations.append({
+            "rule": "a",
+            "message": "schema.namespace is not declared in skill.yaml",
+        })
+        out({
+            "success": True, "valid": False,
+            "violations": violations, "warnings": warnings,
+            "namespace": None, "types_found": {},
+        })
+        return
+
+    prefix = namespace + "-"
+
+    # --- Parse schema.tql ---
+    schema_path = skill_dir / "schema.tql"
+    if not schema_path.exists():
+        out({
+            "success": True, "valid": False,
+            "violations": [{"rule": "b", "message": f"schema.tql not found at {schema_path}"}],
+            "warnings": warnings, "namespace": namespace, "types_found": {},
+        })
+        return
+
+    schema_text = schema_path.read_text()
+
+    # Extract type definitions
+    entity_defs = re.findall(r'entity\s+([\w-]+)', schema_text)
+    relation_defs = re.findall(r'relation\s+([\w-]+)', schema_text)
+    attribute_defs = re.findall(r'attribute\s+([\w-]+)', schema_text)
+
+    # Identify which types are being extended (redefined) vs newly defined.
+    # A line like "entity person," followed by "    owns ..." means we are
+    # extending a core type, not defining a new one.  We detect this by
+    # checking if the type already exists in CORE_TYPES.
+    # New definitions are those NOT in CORE_TYPES.
+
+    new_entities = [t for t in entity_defs if t not in CORE_TYPES]
+    new_relations = [t for t in relation_defs if t not in CORE_TYPES]
+    new_attributes = [t for t in attribute_defs if t not in CORE_TYPES]
+
+    extended_entities = [t for t in entity_defs if t in CORE_TYPES]
+    extended_relations = [t for t in relation_defs if t in CORE_TYPES]
+    extended_attributes = [t for t in attribute_defs if t in CORE_TYPES]
+
+    types_found = {
+        "entities": sorted(set(new_entities)),
+        "relations": sorted(set(new_relations)),
+        "attributes": sorted(set(new_attributes)),
+        "extended_core_entities": sorted(set(extended_entities)),
+        "extended_core_relations": sorted(set(extended_relations)),
+        "extended_core_attributes": sorted(set(extended_attributes)),
+    }
+
+    # --- Rule (b): Entity type names must start with namespace prefix ---
+    for t in set(new_entities):
+        if not t.startswith(prefix):
+            violations.append({
+                "rule": "b",
+                "type_kind": "entity",
+                "type_name": t,
+                "message": f"Entity '{t}' does not start with namespace prefix '{prefix}'",
+            })
+
+    # --- Rule (c): Relation type names must start with namespace prefix ---
+    for t in set(new_relations):
+        if not t.startswith(prefix):
+            violations.append({
+                "rule": "c",
+                "type_kind": "relation",
+                "type_name": t,
+                "message": f"Relation '{t}' does not start with namespace prefix '{prefix}'",
+            })
+
+    # --- Rule (d): Attribute type names must start with namespace prefix ---
+    for t in set(new_attributes):
+        if not t.startswith(prefix):
+            violations.append({
+                "rule": "d",
+                "type_kind": "attribute",
+                "type_name": t,
+                "message": f"Attribute '{t}' does not start with namespace prefix '{prefix}'",
+            })
+
+    # --- Rule (e): Cross-namespace references must be covered by depends_on ---
+    # Find plays/owns clauses that reference non-core, non-self-namespace types.
+    # Pattern: "plays <relation-type>:<role>" or "owns <attribute-type>"
+    plays_refs = re.findall(r'plays\s+([\w-]+):', schema_text)
+    owns_refs = re.findall(r'owns\s+([\w-]+)', schema_text)
+
+    # Build the set of allowed prefixes: own namespace + depends_on namespaces + core
+    allowed_prefixes = {prefix}
+    for dep in depends_on:
+        allowed_prefixes.add(dep + "-")
+
+    all_cross_refs = set(plays_refs + owns_refs)
+    for ref in all_cross_refs:
+        # Skip core types and types from own namespace
+        if ref in CORE_TYPES:
+            continue
+        if ref.startswith(prefix):
+            continue
+        # Check if covered by depends_on
+        covered = False
+        for ap in allowed_prefixes:
+            if ref.startswith(ap):
+                covered = True
+                break
+        # Also skip if the ref matches a type defined in this schema
+        all_local = set(new_entities + new_relations + new_attributes)
+        if ref in all_local:
+            continue
+        if not covered:
+            # Try to extract the namespace of the foreign type
+            parts = ref.split("-")
+            foreign_ns = parts[0] if len(parts) > 1 else ref
+            violations.append({
+                "rule": "e",
+                "reference": ref,
+                "message": (
+                    f"Cross-namespace reference '{ref}' is not covered by depends_on. "
+                    f"Consider adding '{foreign_ns}' to schema.depends_on in skill.yaml"
+                ),
+            })
+
+    # --- Also warn about core types being extended (informational) ---
+    for t in set(extended_entities):
+        warnings.append({
+            "type_kind": "entity",
+            "type_name": t,
+            "message": f"Core entity '{t}' is being extended (plays/owns added) -- this is OK",
+        })
+
+    valid = len(violations) == 0
+
+    out({
+        "success": True,
+        "valid": valid,
+        "violations": violations,
+        "warnings": warnings,
+        "namespace": namespace,
+        "depends_on": depends_on,
+        "types_found": types_found,
+    })
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Domain Modeling Skill - Track knowledge domain design processes",
@@ -2921,7 +3105,7 @@ def main():
     p.add_argument("--rationale", required=True, help="Reasoning text")
     p.add_argument("--alternatives", help="Why alternatives were rejected")
 
-    p = subparsers.add_parser("link-gap", help="Link a schema-gap as motivation for a decision")
+    p = subparsers.add_parser("link-gap", help="Link a slog-schema-gap as motivation for a decision")
     p.add_argument("--decision-id", required=True, help="Decision ID")
     p.add_argument("--gap-id", required=True, help="Schema-gap ID from skilllog")
 
@@ -3109,11 +3293,14 @@ def main():
     # --- Skill data export/import ---
     p = subparsers.add_parser("export-skill-data",
                               help="Export skill-builder KG snapshot for a skill (for zip bundles)")
-    p.add_argument("--skill", required=True, help="Skill name to export (matches dm-skill-name)")
+    p.add_argument("--skill", required=True, help="Skill name to export (matches dm-slog-skill-name)")
 
     p = subparsers.add_parser("import-skill-data",
                               help="Import skill-builder KG snapshot from export-skill-data JSON")
     p.add_argument("--file", required=True, help="Path to JSON file from export-skill-data")
+
+    p = subparsers.add_parser("validate-namespace", help="Validate schema namespace rules")
+    p.add_argument("--skill-dir", required=True, help="Path to skill directory")
 
     args = parser.parse_args()
 
@@ -3163,6 +3350,7 @@ def main():
         "generate-template": cmd_generate_template,
         "export-skill-data": cmd_export_skill_data,
         "import-skill-data": cmd_import_skill_data,
+        "validate-namespace": cmd_validate_namespace,
     }
 
     try:

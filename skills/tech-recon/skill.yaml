@@ -4,6 +4,10 @@ description: Goal-driven technology investigation with dynamic Observable Plot a
 author: skillful-alhazen
 license: MIT
 typedb_schema: schema.tql
+schema:
+  namespace: trec              # all types: trec-investigation, trec-system, trec-note, etc.
+  depends_on:
+    - scientific-literature     # schema references scilit-paper (adds plays clause)
 dashboard:
   enabled: true
   lib: dashboard/lib.ts
