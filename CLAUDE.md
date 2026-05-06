@@ -269,34 +269,33 @@ uv run python .claude/skills/typedb-notebook/typedb_notebook.py import-db \
 # "
 ```
 
-**Backups — Qdrant vector store (`dismech_benchmark`, `apt-notes`, `alhazen_papers`):**
+**Backups — Qdrant vector store:**
 
 Snapshots are created online (no downtime) and stored inside the container at `/qdrant/snapshots/<collection>/`.
 Copy them out immediately — they do not persist across container recreation.
 
 ```bash
-# Create snapshots (run for each collection)
-curl -X POST http://localhost:6333/collections/dismech_benchmark/snapshots
-curl -X POST http://localhost:6333/collections/apt-notes/snapshots
-curl -X POST http://localhost:6333/collections/alhazen_papers/snapshots
+# Discover all collections and snapshot each one
+collections=$(curl -s http://localhost:6333/collections | python3 -c "import json,sys; [print(c['name']) for c in json.load(sys.stdin)['result']['collections']]")
+for coll in $collections; do
+  curl -s -X POST "http://localhost:6333/collections/${coll}/snapshots" 2>/dev/null && echo "${coll}: OK"
+done
 
-# Copy out of container
+# Copy all snapshots out of container
 mkdir -p ~/.alhazen/cache/qdrant-snapshots
-docker cp alhazen-qdrant:/qdrant/snapshots/dismech_benchmark/. ~/.alhazen/cache/qdrant-snapshots/
-docker cp alhazen-qdrant:/qdrant/snapshots/apt-notes/. ~/.alhazen/cache/qdrant-snapshots/
-docker cp alhazen-qdrant:/qdrant/snapshots/alhazen_papers/. ~/.alhazen/cache/qdrant-snapshots/
+for coll in $collections; do
+  docker cp alhazen-qdrant:/qdrant/snapshots/${coll}/. ~/.alhazen/cache/qdrant-snapshots/ 2>/dev/null
+done
 
 # Restore a collection from snapshot
-curl -X POST "http://localhost:6333/collections/dismech_benchmark/snapshots/recover" \
+curl -X POST "http://localhost:6333/collections/<collection>/snapshots/recover" \
   -H "Content-Type: application/json" \
-  -d '{"location": "file:///path/to/dismech_benchmark-<id>.snapshot"}'
+  -d '{"location": "file:///path/to/<snapshot-file>.snapshot"}'
 ```
 
 **What to back up and when:**
-- `alhazen_notebook` — contains all tech-recon, jobhunt, APT, and notebook data. Back up after significant work sessions. Most recent backup: `alhazen_notebook_export_20260425_*.zip`.
-- `dismech` — the DisMech 797-disorder knowledge graph. Can be fully rebuilt from `git pull` + `make ingest` in the `alhazen-skill-dismech` repo, but a backup saves ~1 hour of ingest time. Most recent backup: `dismech_export_20260425_*.zip`.
-- Qdrant `dismech_benchmark` — 25K embedded points (Voyage AI). Expensive to rebuild (API cost + time). Back up after any corpus update. Most recent snapshot: `dismech_benchmark-*-2026-04-26-*.snapshot`.
-- Qdrant `alhazen_papers` / `apt-notes` — lower priority; rebuildable from source.
+- **TypeDB databases** — back up after significant work sessions with `make db-export`. Each database in the system can be exported independently via `typedb_notebook.py export-db --database <name>`.
+- **Qdrant collections** — back up after any embedding update. Rebuilding requires Voyage AI API credits and time. Use the discovery-based script above to catch all collections regardless of which skills created them.
 
 **Development:**
 ```bash

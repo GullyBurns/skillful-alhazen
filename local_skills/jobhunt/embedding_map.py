@@ -108,11 +108,13 @@ def fetch_opportunities():
                 # Get company
                 company = None
                 try:
-                    for rel in ["jhunt-position-at-company", "jhunt-opportunity-at-organization"]:
-                        role = "employer" if "position" in rel else "organization"
+                    for rel, my_role, co_role in [
+                        ("jhunt-position-at-company", "position", "employer"),
+                        ("jhunt-opportunity-at-organization", "opportunity", "organization"),
+                    ]:
                         co_r = list(tx.query(f'''match
                             $o isa {otype}, has id "{oid}";
-                            ({rel.split("-")[0]}: $o, {role}: $c) isa {rel};
+                            ({my_role}: $o, {co_role}: $c) isa {rel};
                         fetch {{ "company": $c.name }};''').resolve())
                         if co_r:
                             company = co_r[0]["company"]
@@ -354,10 +356,12 @@ def cmd_map(args):
                     pass
                 # Company
                 try:
-                    for rel in ["jhunt-position-at-company", "jhunt-opportunity-at-organization"]:
-                        role = "employer" if "position" in rel else "organization"
+                    for rel, my_role, co_role in [
+                        ("jhunt-position-at-company", "position", "employer"),
+                        ("jhunt-opportunity-at-organization", "opportunity", "organization"),
+                    ]:
                         co = list(tx_m.query(f'''match $o isa {otype}, has id "{oid}";
-                            ({rel.split("-")[0]}: $o, {role}: $c) isa {rel};
+                            ({my_role}: $o, {co_role}: $c) isa {rel};
                         fetch {{ "c": $c.name }};''').resolve())
                         if co:
                             meta["company"] = co[0]["c"]

@@ -3,7 +3,7 @@ import { getSkillGaps } from '@/lib/jobhunt';
 
 export async function GET() {
   try {
-    const data = await getSkillGaps();
+    const data = await getSkillGaps(undefined, true);
     return NextResponse.json(data);
   } catch (error) {
     console.error('fit computation error:', error);

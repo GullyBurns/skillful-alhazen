@@ -8,6 +8,7 @@ import {
   getNamespaceColor,
   getNamespaceColorRgba,
   stripPrefix,
+  loadNamespaceConfig,
 } from './tokens';
 
 interface SchemaEntity {
@@ -49,21 +50,23 @@ export default function SchemaTree({
   const [expandedNamespaces, setExpandedNamespaces] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch schema on mount
+  // Fetch namespace config + schema on mount
   useEffect(() => {
-    fetch('/api/agentic-memory/schema?full=true')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: SchemaResponse) => {
-        setSchema(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+    loadNamespaceConfig().then(() =>
+      fetch('/api/agentic-memory/schema?full=true')
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((data: SchemaResponse) => {
+          setSchema(data);
+          setLoading(false);
+        })
+        .catch((err) => {
+          setError(err.message);
+          setLoading(false);
+        })
+    );
   }, []);
 
   // Auto-expand namespace when expandNamespace prop changes
@@ -194,18 +197,34 @@ export default function SchemaTree({
           borderBottom: `1px solid ${colors.borderDim}`,
         }}
       >
-        <h2
-          style={{
-            margin: 0,
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: 18,
-            fontWeight: 400,
-            color: colors.fg,
-            letterSpacing: '0.02em',
-          }}
-        >
-          Alhazen Notebook
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <a
+            href="/"
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 11,
+              color: '#5e7387',
+              textDecoration: 'none',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#5aadaf'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#5e7387'; }}
+          >
+            &larr; hub
+          </a>
+          <h2
+            style={{
+              margin: 0,
+              fontFamily: "'DM Serif Display', serif",
+              fontSize: 18,
+              fontWeight: 400,
+              color: colors.fg,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Alhazen Notebook
+          </h2>
+        </div>
         <div
           style={{
             marginTop: 6,

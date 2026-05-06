@@ -1,0 +1,45 @@
+{
+  "alh": {
+    "badge": "CORE",
+    "color": "teal"
+  },
+  "nbmem": {
+    "badge": "OS",
+    "color": "mint",
+    "skill": "agentic-memory"
+  },
+  "slog": {
+    "badge": "OS",
+    "color": "rust"
+  },
+  "dm": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "curation-skill-builder"
+  },
+  "jhunt": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "jobhunt"
+  },
+  "sltrend": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "literature-trends"
+  },
+  "scilit": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "scientific-literature"
+  },
+  "trec": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "tech-recon"
+  },
+  "coach": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "coach"
+  }
+}

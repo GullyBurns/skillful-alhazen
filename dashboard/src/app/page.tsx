@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, Database, Dna, LayoutDashboard, Layers, Megaphone, Network, Search } from 'lucide-react';
+import { Briefcase, Database, Dna, Heart, LayoutDashboard, Layers, Megaphone, Network, Search } from 'lucide-react';
 
 type ServiceStatus = 'checking' | 'online' | 'offline';
 
@@ -27,6 +27,7 @@ const STATUS_STYLES: Record<ServiceStatus, string> = {
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Briefcase,
+  Heart,
   Search,
   Dna,
   Layers,

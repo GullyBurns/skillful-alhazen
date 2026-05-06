@@ -36,6 +36,15 @@
     "color": "teal"
   },
   {
+    "slug": "coach",
+    "enabled": true,
+    "name": "Health Coach",
+    "description": "Personal health & fitness monitoring \u2014 metrics, sleep, workouts, goals, appointments.",
+    "url_path": "/coach",
+    "icon": "Heart",
+    "color": "teal"
+  },
+  {
     "slug": "they-said-whaaa",
     "enabled": false,
     "name": "They Said Whaaa?",

@@ -85,8 +85,18 @@ function getExtraColumnsFromSchema(
     (nsPrefix ? a.startsWith(nsPrefix) || a.startsWith('alh-') : true)
   );
 
-  // Add up to 2 interesting attributes
-  for (const attr of interestingAttrs.slice(0, 2)) {
+  // Prioritize: type/kind discriminators first, then date, then value, then rest
+  const priority = (attr: string): number => {
+    const a = attr.toLowerCase();
+    if (a.endsWith('-type') || a.endsWith('-status') || a.includes('metric-type') || a.includes('workout-type')) return 0;
+    if (a.endsWith('-date') || a === nsPrefix + 'date') return 1;
+    if (a.endsWith('-value') || a === nsPrefix + 'value') return 2;
+    return 3;
+  };
+  const sorted = [...interestingAttrs].sort((a, b) => priority(a) - priority(b));
+
+  // Add up to 4 interesting attributes
+  for (const attr of sorted.slice(0, 4)) {
     const label = attr
       .replace(nsPrefix, '')
       .replace('alh-', '')

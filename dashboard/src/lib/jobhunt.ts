@@ -99,8 +99,9 @@ export async function listPipeline(filters?: {
   return runJobhunt(args);
 }
 
-export async function getSkillGaps(priority?: string) {
+export async function getSkillGaps(priority?: string, all?: boolean) {
   const args = ['show-gaps'];
+  if (all) args.push('--all');
   if (priority) args.push('--priority', priority);
   return runJobhunt(args);
 }
