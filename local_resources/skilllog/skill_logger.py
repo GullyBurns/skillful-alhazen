@@ -24,7 +24,7 @@ import os
 import re
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -212,7 +212,7 @@ def escape_string(s: str) -> str:
 
 
 def get_timestamp() -> str:
-    return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 
 # ---------------------------------------------------------------------------
