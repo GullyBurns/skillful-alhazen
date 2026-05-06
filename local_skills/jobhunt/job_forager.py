@@ -134,7 +134,8 @@ ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
 # Platform categories
 COMPANY_PLATFORMS = ["greenhouse", "lever", "ashby"]
 AGGREGATOR_PLATFORMS = ["linkedin", "remotive", "adzuna"]
-ALL_PLATFORMS = COMPANY_PLATFORMS + AGGREGATOR_PLATFORMS
+WEBSITE_PLATFORMS = ["website"]  # Browser-based, agent searches via Playwright MCP
+ALL_PLATFORMS = COMPANY_PLATFORMS + AGGREGATOR_PLATFORMS + WEBSITE_PLATFORMS
 
 # Profile-based query generation
 _GENERIC_SKILL_NAMES = {
@@ -801,6 +802,26 @@ def search_platform(source: dict, profile_terms: dict = None) -> list[dict]:
             )
         return search_adzuna(query, location)
 
+    elif platform == "website":
+        # Website sources require browser automation — return instructions for the agent
+        url = source.get("company_url", source.get("board_token", ""))
+        print(json.dumps({
+            "success": True,
+            "source": source.get("name", ""),
+            "platform": "website",
+            "type": "browser-required",
+            "url": url,
+            "query": query,
+            "total_jobs": 0,
+            "jobs": [],
+            "instructions": f"This source requires browser automation. Use Playwright MCP tools to: "
+                           f"1) Navigate to {url}, "
+                           f"2) Search for '{query}', "
+                           f"3) Extract job listings from the rendered page, "
+                           f"4) Use add-candidate to store matches.",
+        }, indent=2))
+        return []
+
     print(f"  Unknown platform: {platform}", file=sys.stderr)
     return []
 
@@ -1185,6 +1206,13 @@ def cmd_add_source(args):
         }))
         return
 
+    if args.platform in WEBSITE_PLATFORMS and not args.url:
+        print(json.dumps({
+            "success": False,
+            "error": f"Platform '{args.platform}' requires --url (job website URL)",
+        }))
+        return
+
     if args.platform in AGGREGATOR_PLATFORMS and not query_kw:
         print(f"  Note: No --query provided for {args.platform}. "
               "Will auto-generate from your skill profile during heartbeat.", file=sys.stderr)
@@ -1375,7 +1403,7 @@ def cmd_suggest_sources(args):
 
 
 def cmd_search_source(args):
-    """Search a single source, score, dedup, and store candidates."""
+    """Search a single source and return raw listings for agent review."""
     # Find the source by token, id, or name
     sources = load_search_sources()
     source = None
@@ -1397,53 +1425,41 @@ def cmd_search_source(args):
         position_titles = load_position_titles()
         profile_terms = extract_profile_search_terms(skills, position_titles)
 
-    # Search the API
-    jobs = search_platform(source, profile_terms)
-
-    if not jobs:
+    # Website sources require browser automation — return instructions
+    if source["platform"] in WEBSITE_PLATFORMS:
+        url = source.get("company_url") or ""
+        query = source.get("search_query") or ""
         print(json.dumps({
             "success": True,
             "source": source["name"],
-            "total_jobs": 0,
-            "new_candidates": 0,
-        }))
+            "source_id": source["id"],
+            "platform": "website",
+            "type": "browser-required",
+            "url": url,
+            "query": query,
+            "instructions": f"This source requires Playwright MCP browser automation. "
+                           f"Navigate to {url}, search for '{query}', extract job listings, "
+                           f"then use add-candidate to store matches with rationale.",
+        }, indent=2))
         return
 
-    # Score by relevance
-    skills = load_user_skills()
-    for job in jobs:
-        job["relevance"] = compute_relevance(job, skills)
-
-    # Filter by minimum relevance
-    min_rel = args.min_relevance if hasattr(args, "min_relevance") and args.min_relevance is not None else 0.0
-    relevant = [j for j in jobs if j["relevance"] >= min_rel]
-
-    # Dedup
-    existing_urls = load_existing_position_urls()
-    existing_ext_ids = load_existing_candidate_ext_ids()
-    new_jobs = deduplicate(relevant, existing_urls, existing_ext_ids)
-
-    # Store
-    stored = store_candidates(new_jobs, source["id"], source_name=source["name"]) if new_jobs else []
+    # API sources — search and return raw results for agent evaluation
+    jobs = search_platform(source, profile_terms)
 
     print(json.dumps({
         "success": True,
         "source": source["name"],
+        "source_id": source["id"],
         "platform": source["platform"],
         "total_jobs": len(jobs),
-        "above_threshold": len(relevant),
-        "after_dedup": len(new_jobs),
-        "stored": len(stored),
-        "min_relevance": min_rel,
-        "candidates": [
+        "jobs": [
             {
-                "id": c.get("candidate_id", ""),
-                "title": c["title"],
-                "relevance": c["relevance"],
-                "location": c.get("location", ""),
-                "url": c["url"],
+                "title": j.get("title", ""),
+                "url": j.get("url", ""),
+                "location": j.get("location", ""),
+                "external_id": j.get("external_id", ""),
             }
-            for c in stored
+            for j in jobs
         ],
     }, indent=2))
 
@@ -1751,6 +1767,101 @@ def cmd_promote(args):
     }, indent=2))
 
 
+def cmd_add_candidate(args):
+    """Add a candidate directly (agent-driven search mission)."""
+    candidate_id = generate_id("candidate")
+    timestamp = get_timestamp()
+
+    query = f'''insert $c isa jhunt-candidate,
+        has id "{candidate_id}",
+        has name "{escape_string(args.title)}",
+        has jhunt-candidate-status "reviewed",
+        has jhunt-discovered-at {timestamp}'''
+
+    if args.url:
+        query += f', has jhunt-job-url "{escape_string(args.url)}"'
+    if args.location:
+        query += f', has alh-location "{escape_string(args.location)}"'
+    if args.relevance is not None:
+        query += f', has jhunt-relevance-score {args.relevance}'
+    if args.reason:
+        query += f', has jhunt-triage-reason "{escape_string(args.reason)}"'
+
+    query += ";"
+
+    with get_driver() as driver:
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
+
+        # Link to source if provided
+        if args.source_id:
+            try:
+                with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                    tx.query(f'''match
+                        $s isa jhunt-search-source, has id "{escape_string(args.source_id)}";
+                        $c isa jhunt-candidate, has id "{candidate_id}";
+                    insert (source: $s, candidate: $c) isa jhunt-source-provides;''').resolve()
+                    tx.commit()
+            except Exception:
+                pass  # source may not exist
+
+        # Link to active seeker pipeline
+        try:
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                tx.query(f'''match
+                    $role isa jhunt-job-seeker-role, has alh-role-status "active";
+                    $c isa jhunt-candidate, has id "{candidate_id}";
+                insert (seeker: $role, opportunity: $c) isa jhunt-seeker-pipeline;''').resolve()
+                tx.commit()
+        except Exception:
+            pass  # seeker role may not exist, or candidate not an opportunity subtype
+
+    # Embed in Qdrant if available
+    embed_text_str = f"{args.title}"
+    if args.location:
+        embed_text_str += f" | {args.location}"
+    if args.reason:
+        embed_text_str += f" | {args.reason}"
+
+    embedded = False
+    try:
+        from embedding_map import embed_and_upsert_candidate
+        embed_and_upsert_candidate(candidate_id, embed_text_str)
+        embedded = True
+    except Exception:
+        pass  # Qdrant/Voyage not available
+
+    print(json.dumps({
+        "success": True,
+        "candidate_id": candidate_id,
+        "title": args.title,
+        "status": "reviewed",
+        "embedded": embedded,
+        "message": f"Candidate '{args.title}' added as reviewed.",
+    }, indent=2))
+
+
+def cmd_search_candidates(args):
+    """Semantic search across candidates using Qdrant embeddings."""
+    try:
+        from embedding_map import search_candidates_semantic
+        results = search_candidates_semantic(args.query, limit=args.limit)
+        print(json.dumps({
+            "success": True,
+            "query": args.query,
+            "results": results,
+            "count": len(results),
+        }, indent=2))
+    except ImportError:
+        print(json.dumps({
+            "success": False,
+            "error": "Qdrant/Voyage not available. Start Qdrant and set VOYAGE_API_KEY.",
+        }))
+    except Exception as e:
+        print(json.dumps({"success": False, "error": str(e)}))
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -1780,17 +1891,23 @@ def main():
     p.add_argument("--token", help="Board token to remove")
     p.add_argument("--name", help="Source name to remove")
 
-    # suggest-sources
-    subparsers.add_parser("suggest-sources", help="Suggest companies from your profile/positions")
+    # search-source (raw API search — agent evaluates results)
+    p = subparsers.add_parser("search-source", help="Search a single source (returns raw listings for agent review)")
+    p.add_argument("--source", required=True, help="Source name, ID, or board token")
 
-    # search-source
-    p = subparsers.add_parser("search-source", help="Search a single source")
-    p.add_argument("--source", required=True, help="Source jhunt-board-token or entity ID")
-    p.add_argument("--min-relevance", type=float, default=0.0, help="Minimum relevance score (0.0-1.0)")
+    # add-candidate (agent creates candidates directly with rationale)
+    p = subparsers.add_parser("add-candidate", help="Add a candidate with agent evaluation")
+    p.add_argument("--title", required=True, help="Job title")
+    p.add_argument("--url", help="Job posting URL")
+    p.add_argument("--location", help="Job location")
+    p.add_argument("--relevance", type=float, help="Agent's relevance score (0.0-1.0)")
+    p.add_argument("--reason", help="Agent's fit rationale")
+    p.add_argument("--source-id", dest="source_id", help="Source ID to link candidate to")
 
-    # heartbeat
-    p = subparsers.add_parser("heartbeat", help="Full cycle: search all sources, filter, store, digest")
-    p.add_argument("--min-relevance", type=float, default=0.0, help="Minimum relevance score (0.0-1.0)")
+    # search-candidates (semantic search via Qdrant)
+    p = subparsers.add_parser("search-candidates", help="Semantic search across candidates")
+    p.add_argument("--query", required=True, help="Search query")
+    p.add_argument("--limit", type=int, default=10, help="Max results")
 
     # list-candidates
     p = subparsers.add_parser("list-candidates", help="List discovered candidates")
@@ -1798,11 +1915,6 @@ def main():
     p.add_argument("--source", help="Filter by source jhunt-board-token")
     p.add_argument("--limit", type=int, default=None, help="Max candidates to return")
     p.add_argument("--offset", type=int, default=None, help="Skip first N candidates (after sort)")
-
-    # triage
-    p = subparsers.add_parser("triage", help="Mark candidate as reviewed/dismissed")
-    p.add_argument("--id", required=True, help="Candidate entity ID")
-    p.add_argument("--action", required=True, choices=["reviewed", "dismissed"], help="Triage action")
 
     # promote
     p = subparsers.add_parser("promote", help="Promote candidate to full position")
@@ -1826,11 +1938,10 @@ def main():
         "add-source": cmd_add_source,
         "list-sources": cmd_list_sources,
         "remove-source": cmd_remove_source,
-        "suggest-sources": cmd_suggest_sources,
         "search-source": cmd_search_source,
-        "heartbeat": cmd_heartbeat,
+        "add-candidate": cmd_add_candidate,
+        "search-candidates": cmd_search_candidates,
         "list-candidates": cmd_list_candidates,
-        "triage": cmd_triage,
         "promote": cmd_promote,
     }
 

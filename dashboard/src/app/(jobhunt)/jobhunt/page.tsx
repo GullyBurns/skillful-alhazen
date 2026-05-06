@@ -523,9 +523,11 @@ interface Candidate {
 const PLATFORM_COLORS: Record<string, string> = {
   greenhouse: '#5aadaf',
   lever: '#5b8ab8',
+  ashby: '#5b8ab8',
   linkedin: '#5b8ab8',
   remotive: '#b8c84a',
   adzuna: '#62c4bc',
+  website: '#b8c84a',
 };
 
 function SearchTab() {
@@ -677,11 +679,13 @@ function SearchTab() {
   );
 }
 
-const COMPANY_BOARDS = new Set(['greenhouse', 'lever']);
+const COMPANY_BOARDS = new Set(['greenhouse', 'lever', 'ashby']);
+const WEBSITE_PLATFORMS = new Set(['website']);
 
 function SourceGroups({ sources }: { sources: Source[] }) {
   const companyBoards = sources.filter(s => COMPANY_BOARDS.has(s.platform));
-  const aggregators = sources.filter(s => !COMPANY_BOARDS.has(s.platform));
+  const websites = sources.filter(s => WEBSITE_PLATFORMS.has(s.platform));
+  const aggregators = sources.filter(s => !COMPANY_BOARDS.has(s.platform) && !WEBSITE_PLATFORMS.has(s.platform));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -699,6 +703,23 @@ function SourceGroups({ sources }: { sources: Source[] }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
             {companyBoards.map(source => <SourceCard key={source.id} source={source} />)}
+          </div>
+        </div>
+      )}
+      {websites.length > 0 && (
+        <div>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '9px',
+            color: '#8ba4b8',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+            marginBottom: '6px',
+          }}>
+            Job Websites (Browser Search)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
+            {websites.map(source => <SourceCard key={source.id} source={source} />)}
           </div>
         </div>
       )}
@@ -726,6 +747,7 @@ function SourceGroups({ sources }: { sources: Source[] }) {
 function SourceCard({ source }: { source: Source }) {
   const color = PLATFORM_COLORS[source.platform] ?? '#8ba4b8';
   const isBoard = COMPANY_BOARDS.has(source.platform);
+  const isWebsite = WEBSITE_PLATFORMS.has(source.platform);
 
   return (
     <div style={{
@@ -762,8 +784,25 @@ function SourceCard({ source }: { source: Source }) {
             </a>
           </div>
         )}
+        {isWebsite && source.company_url && (
+          <div>
+            <a
+              href={source.company_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#5aadaf', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+            >
+              {source.company_url.replace(/^https?:\/\//, '')}
+            </a>
+          </div>
+        )}
         {source.search_query && <div>query: {source.search_query}</div>}
         {source.search_location && <div>location: {source.search_location}</div>}
+        {isWebsite && (
+          <div style={{ marginTop: '4px', fontSize: '9px', color: '#62c4bc', fontStyle: 'italic' }}>
+            Requires Playwright MCP browser automation
+          </div>
+        )}
       </div>
     </div>
   );

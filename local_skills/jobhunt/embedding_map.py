@@ -452,3 +452,71 @@ if __name__ == "__main__":
         cmd_embed_and_map(args)
     else:
         parser.print_help()
+
+
+# =============================================================================
+# Candidate embedding helpers (called from job_forager.py)
+# =============================================================================
+
+CANDIDATES_COLLECTION = "jobhunt-candidates"
+
+
+def _ensure_candidates_collection():
+    """Create the candidates Qdrant collection if it doesn't exist."""
+    from qdrant_client.models import Distance, VectorParams
+    client = get_qdrant_client()
+    collections = [c.name for c in client.get_collections().collections]
+    if CANDIDATES_COLLECTION not in collections:
+        client.create_collection(
+            collection_name=CANDIDATES_COLLECTION,
+            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
+        )
+    return client
+
+
+def embed_and_upsert_candidate(candidate_id: str, text: str):
+    """Embed a candidate's text and upsert into Qdrant."""
+    from skillful_alhazen.utils.embeddings import embed_texts
+    from qdrant_client.models import PointStruct
+    import hashlib
+
+    embeddings = embed_texts([text], input_type="document")
+    if not embeddings:
+        return
+
+    client = _ensure_candidates_collection()
+    # Use a numeric hash of the ID as the Qdrant point ID
+    point_id = int(hashlib.md5(candidate_id.encode()).hexdigest()[:15], 16)
+    client.upsert(
+        collection_name=CANDIDATES_COLLECTION,
+        points=[PointStruct(
+            id=point_id,
+            vector=embeddings[0],
+            payload={"candidate_id": candidate_id, "text": text},
+        )],
+    )
+
+
+def search_candidates_semantic(query: str, limit: int = 10) -> list[dict]:
+    """Semantic search across candidate embeddings."""
+    from skillful_alhazen.utils.embeddings import embed_texts
+
+    embeddings = embed_texts([query], input_type="query")
+    if not embeddings:
+        return []
+
+    client = _ensure_candidates_collection()
+    results = client.query_points(
+        collection_name=CANDIDATES_COLLECTION,
+        query=embeddings[0],
+        limit=limit,
+    ).points
+
+    return [
+        {
+            "candidate_id": r.payload.get("candidate_id", ""),
+            "text": r.payload.get("text", ""),
+            "score": r.score,
+        }
+        for r in results
+    ]

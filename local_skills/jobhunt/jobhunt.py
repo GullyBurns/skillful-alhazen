@@ -388,7 +388,7 @@ def cmd_ingest_job(args):
             rep_query = f'''match
                 $a isa jhunt-job-description, has id "{artifact_id}";
                 $p isa jhunt-position, has id "{position_id}";
-            insert (artifact: $a, referent: $p) isa alh-representation;'''
+            insert (alh-artifact: $a, referent: $p) isa alh-representation;'''
             tx.query(rep_query).resolve()
             tx.commit()
 
@@ -452,7 +452,16 @@ def cmd_ingest_job(args):
     else:
         output["storage"] = "inline"
 
+    # Link to active job-seeker role
+    try:
+        with get_driver() as d:
+            _link_opportunity_to_seeker(d, position_id)
+    except Exception:
+        pass  # seeker role may not exist yet
+
     print(json.dumps(output, indent=2))
+
+
 def cmd_add_company(args):
     """Add a company to track."""
     company_id = args.id or generate_id("company")
@@ -469,8 +478,8 @@ def cmd_add_company(args):
         query += f', has alh-linkedin-url "{escape_string(args.linkedin)}"'
     if args.description:
         query += f', has description "{escape_string(args.description)}"'
-    if args.alh-location:
-        query += f', has alh-location "{escape_string(args.alh-location)}"'
+    if args.location:
+        query += f', has alh-location "{escape_string(args.location)}"'
 
     query += ";"
 
@@ -494,18 +503,18 @@ def cmd_add_position(args):
 
     if args.url:
         query += f', has jhunt-job-url "{escape_string(args.url)}"'
-    if args.alh-location:
-        query += f', has alh-location "{escape_string(args.alh-location)}"'
-    if args.remote_policy:
-        query += f', has jhunt-remote-policy "{args.remote_policy}"'
+    if args.location:
+        query += f', has alh-location "{escape_string(args.location)}"'
+    if args.jhunt_remote_policy:
+        query += f', has jhunt-remote-policy "{args.jhunt_remote_policy}"'
     if args.salary:
         query += f', has jhunt-salary-range "{escape_string(args.salary)}"'
-    if args.team_size:
-        query += f', has jhunt-team-size "{escape_string(args.team_size)}"'
+    if args.jhunt_team_size:
+        query += f', has jhunt-team-size "{escape_string(args.jhunt_team_size)}"'
     if args.priority:
         query += f', has jhunt-priority-level "{args.priority}"'
-    if args.jhunt-deadline:
-        query += f", has jhunt-deadline {parse_date(args.jhunt-deadline)}"
+    if args.deadline:
+        query += f", has jhunt-deadline {parse_date(args.deadline)}"
 
     query += ";"
 
@@ -564,6 +573,12 @@ def cmd_add_position(args):
             insert (note: $n, subject: $p) isa alh-aboutness;'''
             tx.query(about_query).resolve()
             tx.commit()
+
+    # Link to active job-seeker role
+    try:
+        _link_opportunity_to_seeker(driver, position_id)
+    except Exception:
+        pass
 
     print(json.dumps({"success": True, "position_id": position_id, "title": args.title}))
 
@@ -1037,14 +1052,14 @@ def cmd_link_collection(args):
             # Link to all requirements matching skill name
             with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
                 find_query = f'''match
-                    $req isa jhunt-requirement, has slog-skill-name "{escape_string(args.skill)}";
+                    $req isa jhunt-requirement, has jhunt-skill-name "{escape_string(args.skill)}";
                 fetch {{ "id": $req.id }};'''
                 reqs = list(tx.query(find_query).resolve())
 
             if not reqs:
                 print(json.dumps({
                     "success": False,
-                    "error": f"No requirements found with slog-skill-name '{args.skill}'",
+                    "error": f"No requirements found with jhunt-skill-name '{args.skill}'",
                 }))
                 return
 
@@ -1204,6 +1219,16 @@ def _link_opportunity_to_company(driver, opportunity_id, company_id):
         tx.commit()
 
 
+def _link_opportunity_to_seeker(driver, opportunity_id):
+    """Link an opportunity to the active job-seeker role via jhunt-seeker-pipeline."""
+    with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+        tx.query(f'''match
+            $role isa jhunt-job-seeker-role, has alh-role-status "active";
+            $opp isa jhunt-opportunity, has id "{escape_string(opportunity_id)}";
+        insert (seeker: $role, opportunity: $opp) isa jhunt-seeker-pipeline;''').resolve()
+        tx.commit()
+
+
 def cmd_add_engagement(args):
     """Add a consulting/service engagement opportunity."""
     engagement_id = args.id or generate_id("engagement")
@@ -1222,8 +1247,8 @@ def cmd_add_engagement(args):
         query += f', has jhunt-opportunity-status "{args.status}"'
     if args.priority:
         query += f', has jhunt-priority-level "{args.priority}"'
-    if args.jhunt-deadline:
-        query += f', has jhunt-deadline {parse_date(args.jhunt-deadline)}'
+    if args.deadline:
+        query += f', has jhunt-deadline {parse_date(args.deadline)}'
     if args.description:
         query += f', has description "{escape_string(args.description)}"'
 
@@ -1236,6 +1261,11 @@ def cmd_add_engagement(args):
 
         if args.company_id:
             _link_opportunity_to_company(driver, engagement_id, args.company_id)
+
+        try:
+            _link_opportunity_to_seeker(driver, engagement_id)
+        except Exception:
+            pass
 
     print(json.dumps({"success": True, "engagement_id": engagement_id, "name": args.name}))
 
@@ -1258,8 +1288,8 @@ def cmd_add_venture(args):
         query += f', has jhunt-opportunity-status "{args.status}"'
     if args.priority:
         query += f', has jhunt-priority-level "{args.priority}"'
-    if args.jhunt-deadline:
-        query += f', has jhunt-deadline {parse_date(args.jhunt-deadline)}'
+    if args.deadline:
+        query += f', has jhunt-deadline {parse_date(args.deadline)}'
     if args.description:
         query += f', has description "{escape_string(args.description)}"'
 
@@ -1272,6 +1302,11 @@ def cmd_add_venture(args):
 
         if args.company_id:
             _link_opportunity_to_company(driver, venture_id, args.company_id)
+
+        try:
+            _link_opportunity_to_seeker(driver, venture_id)
+        except Exception:
+            pass
 
     print(json.dumps({"success": True, "venture_id": venture_id, "name": args.name}))
 
@@ -1299,6 +1334,11 @@ def cmd_add_lead(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(query).resolve()
             tx.commit()
+
+        try:
+            _link_opportunity_to_seeker(driver, lead_id)
+        except Exception:
+            pass
 
     print(json.dumps({"success": True, "lead_id": lead_id, "name": args.name}))
 
@@ -1495,6 +1535,11 @@ def cmd_list_opportunities(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             for otype in types_to_query:
                 match_clause = f"match $o isa {otype};"
+                if hasattr(args, 'person') and args.person:
+                    match_clause += f'''
+                    (seeker: $seeker, opportunity: $o) isa jhunt-seeker-pipeline;
+                    (bearer: $person, borne-role: $seeker) isa alh-role-bearing;
+                    $person has id "{escape_string(args.person)}";'''
                 if args.status:
                     match_clause += f'\n$o has jhunt-opportunity-status "{args.status}";'
                 if args.priority:
@@ -1556,6 +1601,12 @@ def cmd_list_pipeline(args):
                     $p isa jhunt-position;
                     (note: $n, subject: $p) isa alh-aboutness;
                     $n isa jhunt-application-note, has jhunt-application-status $status;"""
+
+            if hasattr(args, 'person') and args.person:
+                match_clause += f'''
+                    (seeker: $seeker, opportunity: $p) isa jhunt-seeker-pipeline;
+                    (bearer: $person, borne-role: $seeker) isa alh-role-bearing;
+                    $person has id "{escape_string(args.person)}";'''
 
             if args.status:
                 match_clause = match_clause.replace(
@@ -1689,7 +1740,7 @@ def cmd_show_position(args):
                 (requirement: $r, position: $p) isa jhunt-requirement-for;
             fetch {{
                 "id": $r.id,
-                "slog-skill-name": $r.slog-skill-name,
+                "jhunt-skill-name": $r.jhunt-skill-name,
                 "jhunt-skill-level": $r.jhunt-skill-level,
                 "jhunt-your-level": $r.jhunt-your-level,
                 "content": $r.content
@@ -1699,7 +1750,7 @@ def cmd_show_position(args):
             # Get job description artifact
             artifact_query = f'''match
                 $p isa jhunt-position, has id "{args.id}";
-                (artifact: $a, referent: $p) isa alh-representation;
+                (alh-artifact: $a, referent: $p) isa alh-representation;
                 $a isa jhunt-job-description;
             fetch {{ "id": $a.id, "content": $a.content }};'''
             artifact_result = list(tx.query(artifact_query).resolve())
@@ -1818,7 +1869,7 @@ def cmd_show_gaps(args):
                 not { $status == "rejected"; };
                 not { $status == "withdrawn"; };
             fetch {
-                "slog-skill-name": $r.slog-skill-name,
+                "jhunt-skill-name": $r.jhunt-skill-name,
                 "jhunt-skill-level": $r.jhunt-skill-level,
                 "jhunt-your-level": $r.jhunt-your-level,
                 "pos-id": $p.id,
@@ -1848,14 +1899,14 @@ def cmd_show_gaps(args):
                 "name": $c.name,
                 "description": $c.description,
                 "req-id": $req.id,
-                "slog-skill-name": $req.slog-skill-name
+                "jhunt-skill-name": $req.jhunt-skill-name
             };"""
             coll_results = list(tx.query(coll_query).resolve())
 
     # Aggregate skills
     skill_map = {}
     for r in results:
-        skill = r.get("slog-skill-name", "")
+        skill = r.get("jhunt-skill-name", "")
         if not skill:
             continue
 
@@ -1885,7 +1936,7 @@ def cmd_show_gaps(args):
             "name": cr.get("name", ""),
             "description": cr.get("description", ""),
             "requirement_id": cr.get("req-id", ""),
-            "skill_name": cr.get("slog-skill-name", ""),
+            "skill_name": cr.get("jhunt-skill-name", ""),
         })
 
     print(
@@ -1928,7 +1979,7 @@ def cmd_learning_plan(args):
                 "id": $c.id,
                 "name": $c.name,
                 "description": $c.description,
-                "slog-skill-name": $req.slog-skill-name
+                "jhunt-skill-name": $req.jhunt-skill-name
             };"""
             coll_results = list(tx.query(coll_query).resolve())
 
@@ -1970,7 +2021,7 @@ def cmd_learning_plan(args):
     seen_colls = set()
     for cr in coll_results:
         coll_id = cr.get("id", "")
-        skill = cr.get("slog-skill-name", "")
+        skill = cr.get("jhunt-skill-name", "")
         key = f"{coll_id}:{skill}"
         if key not in seen_colls:
             seen_colls.add(key)
@@ -2064,13 +2115,13 @@ def cmd_add_requirement(args):
 
     query = f'''insert $r isa jhunt-requirement,
         has id "{req_id}",
-        has slog-skill-name "{escape_string(args.skill)}",
+        has jhunt-skill-name "{escape_string(args.skill)}",
         has created-at {timestamp}'''
 
     if args.level:
         query += f', has jhunt-skill-level "{args.level}"'
-    if args.your_level:
-        query += f', has jhunt-your-level "{args.your_level}"'
+    if args.jhunt_your_level:
+        query += f', has jhunt-your-level "{args.jhunt_your_level}"'
     if args.content:
         query += f', has content "{escape_string(args.content)}"'
 
@@ -2107,6 +2158,53 @@ def cmd_add_requirement(args):
 # =============================================================================
 
 
+def cmd_create_seeker_profile(args):
+    """Create a job-seeker role for a person (BFO/UFO role pattern)."""
+    role_id = args.id or generate_id("jhunt-seeker")
+    timestamp = get_timestamp()
+
+    query = f'''insert $role isa jhunt-job-seeker-role,
+        has id "{role_id}",
+        has name "{escape_string(args.name or 'Job Search')}",
+        has created-at {timestamp},
+        has alh-role-status "active",
+        has alh-role-started-on {timestamp}'''
+
+    if args.target_role:
+        query += f', has jhunt-target-role "{escape_string(args.target_role)}"'
+    if args.industries:
+        query += f', has jhunt-target-industries "{escape_string(args.industries)}"'
+    if args.salary:
+        query += f', has jhunt-salary-expectations "{escape_string(args.salary)}"'
+    if args.location:
+        query += f', has jhunt-location-preference "{escape_string(args.location)}"'
+    if args.focus:
+        query += f', has jhunt-search-focus "{escape_string(args.focus)}"'
+
+    query += ";"
+
+    with get_driver() as driver:
+        # Create the role entity
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(query).resolve()
+            tx.commit()
+
+        # Link role to person via alh-role-bearing
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(f'''match
+                $person isa alh-person, has id "{escape_string(args.person)}";
+                $role isa jhunt-job-seeker-role, has id "{role_id}";
+            insert (bearer: $person, borne-role: $role) isa alh-role-bearing;''').resolve()
+            tx.commit()
+
+    print(json.dumps({
+        "success": True,
+        "role_id": role_id,
+        "person_id": args.person,
+        "message": f"Job-seeker profile created for {args.person}",
+    }))
+
+
 def cmd_add_skill(args):
     """
     Add or update a skill in your profile.
@@ -2121,9 +2219,9 @@ def cmd_add_skill(args):
         # Check if skill already exists
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
             check_query = f'''match
-                $s isa jhunt-your-skill, has slog-skill-name "{escape_string(args.name)}";
+                $s isa jhunt-your-skill, has jhunt-skill-name "{escape_string(args.name)}";
             fetch {{
-                "slog-skill-name": $s.slog-skill-name,
+                "jhunt-skill-name": $s.jhunt-skill-name,
                 "jhunt-skill-level": $s.jhunt-skill-level
             }};'''
             existing = list(tx.query(check_query).resolve())
@@ -2132,7 +2230,7 @@ def cmd_add_skill(args):
             # Update existing skill - delete and recreate
             with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
                 tx.query(f'''match
-                    $s isa jhunt-your-skill, has slog-skill-name "{escape_string(args.name)}";
+                    $s isa jhunt-your-skill, has jhunt-skill-name "{escape_string(args.name)}";
                 delete $s;''').resolve()
                 tx.commit()
 
@@ -2140,7 +2238,7 @@ def cmd_add_skill(args):
         skill_id = generate_id("skill")
         skill_query = f'''insert $s isa jhunt-your-skill,
             has id "{skill_id}",
-            has slog-skill-name "{escape_string(args.name)}",
+            has jhunt-skill-name "{escape_string(args.name)}",
             has jhunt-skill-level "{args.level}",
             has jhunt-last-updated {timestamp}'''
 
@@ -2152,6 +2250,17 @@ def cmd_add_skill(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(skill_query).resolve()
             tx.commit()
+
+        # Link skill to active job-seeker role
+        try:
+            with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+                tx.query(f'''match
+                    $role isa jhunt-job-seeker-role, has alh-role-status "active";
+                    $skill isa jhunt-your-skill, has id "{skill_id}";
+                insert (seeker: $role, skill: $skill) isa jhunt-seeker-has-skill;''').resolve()
+                tx.commit()
+        except Exception:
+            pass  # seeker role may not exist
 
     action = "updated" if existing else "added"
     print(
@@ -2174,7 +2283,7 @@ def cmd_list_skills(args):
             query = """match
                 $s isa jhunt-your-skill;
             fetch {
-                "slog-skill-name": $s.slog-skill-name,
+                "jhunt-skill-name": $s.jhunt-skill-name,
                 "jhunt-skill-level": $s.jhunt-skill-level,
                 "description": $s.description,
                 "jhunt-last-updated": $s.jhunt-last-updated
@@ -2185,7 +2294,7 @@ def cmd_list_skills(args):
     skills = []
     for r in results:
         skill = {
-            "name": r.get("slog-skill-name", ""),
+            "name": r.get("jhunt-skill-name", ""),
             "level": r.get("jhunt-skill-level", ""),
             "description": r.get("description", ""),
             "last_updated": r.get("jhunt-last-updated", ""),
@@ -2250,7 +2359,7 @@ def cmd_list_artifacts(args):
                 # Check for notes on the linked position
                 notes_query = f'''match
                     $a isa jhunt-job-description, has id "{artifact_id}";
-                    (artifact: $a, referent: $p) isa alh-representation;
+                    (alh-artifact: $a, referent: $p) isa alh-representation;
                     (note: $n, subject: $p) isa alh-aboutness;
                     not {{ $n isa jhunt-application-note; }};
                 fetch {{ "id": $n.id }};'''
@@ -2325,7 +2434,7 @@ def cmd_show_artifact(args):
             # Get linked position (specifically jhunt-position)
             position_query = f'''match
                 $a isa jhunt-job-description, has id "{args.id}";
-                (artifact: $a, referent: $p) isa alh-representation;
+                (alh-artifact: $a, referent: $p) isa alh-representation;
                 $p isa jhunt-position;
             fetch {{
                 "id": $p.id,
@@ -2667,7 +2776,7 @@ def cmd_report_gaps(args):
                 $p isa jhunt-position;
                 (position: $p, requirement: $req) isa jhunt-requirement-for;
                 fetch {
-                    "skill": $req.slog-skill-name,
+                    "skill": $req.jhunt-skill-name,
                     "level": $req.jhunt-skill-level,
                     "pos_name": $p.name
                 };
@@ -2677,7 +2786,7 @@ def cmd_report_gaps(args):
             # Get your skills
             skill_query = """
                 match $s isa jhunt-your-skill;
-                fetch { "name": $s.slog-skill-name, "level": $s.jhunt-skill-level };
+                fetch { "name": $s.jhunt-skill-name, "level": $s.jhunt-skill-level };
             """
             try:
                 skill_results = list(tx.query(skill_query).resolve())
@@ -2932,6 +3041,17 @@ def main():
     # list-skills
     subparsers.add_parser("list-skills", help="Show your skill profile")
 
+    # create-seeker-profile
+    p = subparsers.add_parser("create-seeker-profile", help="Create a job-seeker role for a person")
+    p.add_argument("--person", required=True, help="Person ID (e.g., op-f25ab4b15b0f)")
+    p.add_argument("--name", help="Profile name (default: 'Job Search')")
+    p.add_argument("--id", help="Custom role ID")
+    p.add_argument("--target-role", dest="target_role", help="Target role title")
+    p.add_argument("--industries", help="Target industries (comma-separated)")
+    p.add_argument("--salary", help="Salary expectations (e.g., '180k-220k')")
+    p.add_argument("--location", help="Location preference (e.g., 'Remote')")
+    p.add_argument("--focus", help="Search focus (free text)")
+
     # list-artifacts
     p = subparsers.add_parser(
         "list-artifacts", help="List artifacts (job descriptions) with analysis status"
@@ -2998,12 +3118,14 @@ def main():
     p.add_argument("--type", choices=["position", "engagement", "venture", "lead", "all"], default="all", help="Opportunity type filter")
     p.add_argument("--status", help="Filter by opportunity status")
     p.add_argument("--priority", choices=["high", "medium", "low"], help="Filter by priority")
+    p.add_argument("--person", help="Filter by person ID (via seeker-pipeline)")
 
     # list-pipeline
     p = subparsers.add_parser("list-pipeline", help="Show application pipeline")
     p.add_argument("--status", help="Filter by status")
     p.add_argument("--priority", choices=["high", "medium", "low"], help="Filter by priority")
     p.add_argument("--tag", help="Filter by tag")
+    p.add_argument("--person", help="Filter by person ID (via seeker-pipeline)")
 
     # show-position
     p = subparsers.add_parser("show-position", help="Get position details")
@@ -3059,6 +3181,7 @@ def main():
         # Your skill profile
         "add-skill": cmd_add_skill,
         "list-skills": cmd_list_skills,
+        "create-seeker-profile": cmd_create_seeker_profile,
         # Artifacts (for sensemaking)
         "list-artifacts": cmd_list_artifacts,
         "show-artifact": cmd_show_artifact,

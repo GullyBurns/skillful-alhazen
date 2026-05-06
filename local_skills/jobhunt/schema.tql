@@ -53,7 +53,7 @@ attribute jhunt-completion-status, value string;
 
 # Contact attributes
 attribute jhunt-contact-role, value string;
-attribute jhunt-contact-email, value string;
+# jhunt-contact-email removed — use alh-email-address on alh-person instead
 
 # Job-seeker role attributes
 attribute jhunt-target-role, value string;
@@ -235,10 +235,8 @@ entity jhunt-learning-resource sub alh-domain-thing,
     owns jhunt-completion-status,
     plays jhunt-addresses-requirement:resource;
 
-# JHUNT-CONTACT - A person in the job search process (recruiter, hiring manager, etc.)
-entity jhunt-contact sub alh-person,
-    owns jhunt-contact-role,
-    owns jhunt-contact-email;
+# NOTE: jhunt-contact entity type removed — use jhunt-contact-for-opportunity relation instead.
+# Contact role and email are now on the relation and alh-person respectively.
 
 
 # -----------------------------------------------------------------------------
