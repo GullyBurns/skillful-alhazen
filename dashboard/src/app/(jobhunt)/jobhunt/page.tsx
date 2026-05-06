@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
 import { EmbeddingMap, MapItem } from '@/components/jobhunt/embedding-map';
 import { OpportunityList } from '@/components/jobhunt/opportunity-list';
@@ -16,7 +18,7 @@ export default function MissionControl() {
   const [resetKey, setResetKey] = useState(0);
   const [seekers, setSeekers] = useState<Array<{ role_id: string; role_name: string; status: string; person_id: string; person_name: string }>>([]);
   const [selectedSeeker, setSelectedSeeker] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'opportunities' | 'search' | 'learning'>('opportunities');
+  const [activeTab, setActiveTab] = useState<'opportunities' | 'search' | 'about' | 'learning'>('opportunities');
 
   const fetchItems = useCallback(async (exclude?: Set<string>) => {
     setLoading(true);
@@ -141,6 +143,7 @@ export default function MissionControl() {
   const TAB_ITEMS: { key: typeof activeTab; label: string }[] = [
     { key: 'opportunities', label: 'Opportunities' },
     { key: 'search', label: 'Search for Jobs' },
+    { key: 'about', label: 'About' },
     { key: 'learning', label: 'Learning Plan' },
   ];
 
@@ -473,6 +476,9 @@ export default function MissionControl() {
 
       {/* Search for Jobs tab */}
       {activeTab === 'search' && <SearchTab />}
+
+      {/* About tab */}
+      {activeTab === 'about' && <AboutTab />}
 
       {/* Learning Plan tab */}
       {activeTab === 'learning' && <LearningTab />}
@@ -861,248 +867,216 @@ interface LearningPriority {
   positions: string[];
 }
 
-function LearningTab() {
+// =============================================================================
+// About Tab — Seeker Profile + Skills
+// =============================================================================
+
+function AboutTab() {
+  const [seekerProfile, setSeekerProfile] = useState<Record<string, string> | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [gaps, setGaps] = useState<SkillGap[]>([]);
-  const [resources, setResources] = useState<LearningResource[]>([]);
-  const [positionFits, setPositionFits] = useState<PositionFit[]>([]);
-  const [learningPriorities, setLearningPriorities] = useState<LearningPriority[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
+      fetch('/api/jobhunt/seekers').then(r => r.json()),
       fetch('/api/jobhunt/skills').then(r => r.json()),
-      fetch('/api/jobhunt/fit').then(r => r.json()),
-      fetch('/api/jobhunt/learning').then(r => r.json()),
-    ]).then(([skillsData, fitData, resourcesData]) => {
+    ]).then(([seekerData, skillsData]) => {
+      const seeker = (seekerData.seekers ?? [])[0];
+      setSeekerProfile(seeker ?? null);
       setSkills(skillsData.skills ?? []);
-      setPositionFits(fitData.positions ?? []);
-      setLearningPriorities(fitData.learning_priorities ?? []);
-      setGaps(fitData.skill_gaps ?? []);
-      setResources(resourcesData.learning_plan ?? []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   if (loading) {
-    return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
-        Loading...
-      </div>
-    );
+    return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Loading...</div>;
   }
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-      {/* Position Skill Coverage */}
-      {positionFits.length > 0 && (
-        <div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
-            Position Skill Coverage ({positionFits.length} positions)
+      {/* Seeker Profile */}
+      {seekerProfile && (
+        <div style={{ background: 'rgba(12, 22, 40, 0.72)', border: '1px solid rgba(200, 221, 232, 0.08)', borderRadius: '3px', padding: '16px 20px' }}>
+          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: '20px', color: '#c8dde8', marginBottom: '8px' }}>
+            {seekerProfile.person_name}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {positionFits.map(pf => (
-              <div key={pf.id} style={{
-                background: 'rgba(12, 22, 40, 0.72)',
-                border: `1px solid ${pf.gaps === 0 ? 'rgba(90,173,175,0.3)' : 'rgba(200,221,232,0.08)'}`,
-                borderRadius: '3px', padding: '10px 14px',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '12px', color: '#c8dde8' }}>{pf.name.substring(0, 50)}</span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: pf.gaps === 0 ? '#5aadaf' : '#c87a4a', marginLeft: 'auto' }}>
-                    {pf.gaps === 0 ? 'ALL MET' : `${pf.gaps} GAP${pf.gaps > 1 ? 'S' : ''}`}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {(pf as unknown as { requirements: Array<{ skill: string; required_level: string; my_level: string; coverage: number }> }).requirements?.map((req: { skill: string; required_level: string; my_level: string; coverage: number }) => {
-                    const met = req.coverage >= 1.0;
-                    const color = met ? '#5aadaf' : '#c87a4a';
-                    return (
-                      <span key={req.skill} style={{
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
-                        color, background: `${color}10`,
-                        border: `1px solid ${color}30`,
-                        borderRadius: '2px', padding: '1px 6px',
-                      }}>
-                        {met ? '\u2713' : '\u2717'} {req.skill} ({req.required_level})
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5aadaf', marginBottom: '12px' }}>
+            {seekerProfile.role_name} &middot; {seekerProfile.status}
           </div>
         </div>
       )}
 
-      {/* Learning Priorities */}
-      {learningPriorities.length > 0 && (
-        <div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
-            Learning Priorities (by gap impact)
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {learningPriorities.map(lp => {
-              const levelColor = LEVEL_COLORS[lp.current_level] ?? '#c87a4a';
-              return (
-                <div key={lp.skill} style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '6px 12px',
-                  background: 'rgba(12, 22, 40, 0.72)',
-                  border: '1px solid rgba(200, 221, 232, 0.08)',
-                  borderLeft: `3px solid ${levelColor}`,
-                  borderRadius: '3px',
-                }}>
-                  <span style={{ fontSize: '12px', color: '#c8dde8', flex: '1' }}>{lp.skill}</span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: levelColor }}>
-                    {(LEVEL_LABELS[lp.current_level] ?? 'NONE')}
-                  </span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#5e7387' }}>
-                    impact: {lp.gap_impact} | {lp.needed_for} positions
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Your Skills */}
+      {/* Skills Table */}
       <div>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
-          Your Skills ({skills.length})
+          Skills Profile ({skills.length})
         </div>
-
-        {skills.length === 0 ? (
-          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px' }}>
-            No skills defined yet. Ingest your LinkedIn profile and run skill extraction.
-          </div>
-        ) : (
+        {skills.length > 0 && (
           <div style={{ border: '1px solid rgba(200, 221, 232, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1.2fr 80px 2fr 100px',
-              padding: '6px 12px', background: 'rgba(12, 22, 40, 0.72)',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', color: '#5e7387', letterSpacing: '0.5px',
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 80px 2fr 100px', padding: '6px 12px', background: 'rgba(12, 22, 40, 0.72)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', color: '#5e7387', letterSpacing: '0.5px' }}>
               <span>Skill</span><span>Level</span><span>Evidence</span><span>Recency</span>
             </div>
             {skills.map(skill => {
               const color = LEVEL_COLORS[skill.level] ?? '#5e7387';
               const label = LEVEL_LABELS[skill.level] ?? skill.level.toUpperCase();
               return (
-                <div key={skill.name} style={{
-                  display: 'grid', gridTemplateColumns: '1.2fr 80px 2fr 100px',
-                  padding: '7px 12px', borderTop: '1px solid rgba(200, 221, 232, 0.08)', fontSize: '12px', alignItems: 'baseline',
-                }}>
+                <div key={skill.name} style={{ display: 'grid', gridTemplateColumns: '1.2fr 80px 2fr 100px', padding: '7px 12px', borderTop: '1px solid rgba(200, 221, 232, 0.08)', fontSize: '12px', alignItems: 'baseline' }}>
                   <span style={{ color: '#c8dde8' }}>{skill.name}</span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color, background: `${color}15`, borderRadius: '2px', padding: '1px 6px', textAlign: 'center' }}>
-                    {label}
-                  </span>
-                  <span style={{ color: '#8ba4b8', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {skill.evidence ?? skill.description ?? ''}
-                  </span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#5e7387' }}>
-                    {skill.recency ?? ''}
-                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color, background: `${color}15`, borderRadius: '2px', padding: '1px 6px', textAlign: 'center' }}>{label}</span>
+                  <span style={{ color: '#8ba4b8', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{skill.evidence ?? skill.description ?? ''}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#5e7387' }}>{skill.recency ?? ''}</span>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Skill Gaps */}
+
+// =============================================================================
+// Gap Chart (Observable Plot)
+// =============================================================================
+
+function GapChart({ priorities }: { priorities: LearningPriority[] }) {
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!chartRef.current || priorities.length === 0) return;
+
+    import('@observablehq/plot').then(Plot => {
+      const data = priorities.map(p => ({
+        skill: p.skill,
+        impact: p.gap_impact,
+        positions: p.needed_for,
+      }));
+
+      const chart = Plot.plot({
+        marginLeft: 180,
+        marginRight: 60,
+        width: chartRef.current!.clientWidth,
+        height: Math.max(120, data.length * 44 + 40),
+        style: { background: 'transparent', color: '#c8dde8', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' },
+        x: { label: 'Gap Impact Score', grid: true },
+        y: { label: null },
+        marks: [
+          Plot.barX(data, {
+            y: 'skill',
+            x: 'impact',
+            fill: '#c87a4a',
+            sort: { y: '-x' },
+            tip: true,
+          }),
+          Plot.text(data, {
+            y: 'skill',
+            x: 'impact',
+            text: (d: { positions: number }) => `${d.positions} pos`,
+            dx: 8,
+            textAnchor: 'start',
+            fill: '#8ba4b8',
+            fontSize: 10,
+          }),
+          Plot.ruleX([0]),
+        ],
+      });
+
+      chartRef.current!.innerHTML = '';
+      chartRef.current!.appendChild(chart);
+    });
+  }, [priorities]);
+
+  return (
+    <div ref={chartRef} style={{
+      background: 'rgba(12, 22, 40, 0.72)',
+      border: '1px solid rgba(200, 221, 232, 0.08)',
+      borderRadius: '3px',
+      padding: '12px',
+    }} />
+  );
+}
+
+
+// =============================================================================
+// Learning Tab — Gap Chart + Agent-Generated Learning Plan Note
+// =============================================================================
+
+function LearningTab() {
+  const [learningPriorities, setLearningPriorities] = useState<LearningPriority[]>([]);
+  const [learningPlanContent, setLearningPlanContent] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/jobhunt/fit').then(r => r.json()),
+      // Fetch the learning plan note from the seeker's aboutness notes
+      fetch('/api/jobhunt/seekers').then(r => r.json()),
+    ]).then(async ([fitData, seekerData]) => {
+      setLearningPriorities(fitData.learning_priorities ?? []);
+
+      // Get learning plan note for the seeker
+      const seeker = (seekerData.seekers ?? [])[0];
+      if (seeker?.role_id) {
+        try {
+          const notesRes = await fetch(`/api/agentic-memory/query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              typeql: `match (note: $n, subject: $s) isa alh-aboutness; $s has id '${seeker.role_id}'; $n has name "Learning Plan", has content $c; fetch { "content": $c };`,
+              limit: 1,
+            }),
+          });
+          if (notesRes.ok) {
+            const notesData = await notesRes.json();
+            if (notesData.results?.length > 0) {
+              setLearningPlanContent(notesData.results[0].content ?? '');
+            }
+          }
+        } catch { /* no learning plan note yet */ }
+      }
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Loading...</div>;
+  }
+
+  return (
+    <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Gap Impact Chart */}
+      {learningPriorities.length > 0 && (
+        <div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
+            Skill Gap Analysis
+          </div>
+          <GapChart priorities={learningPriorities} />
+        </div>
+      )}
+
+      {/* Learning Plan Note (agent-generated markdown) */}
       <div>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
-          Skill Gaps ({gaps.length})
+          Learning Plan
         </div>
-
-        {gaps.length === 0 ? (
-          <div style={{ color: '#62c4bc', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px' }}>
-            No skill gaps detected.
-          </div>
-        ) : (
-          <div style={{ border: '1px solid rgba(200, 221, 232, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1.2fr 80px 80px 2fr',
-              padding: '6px 12px', background: 'rgba(12, 22, 40, 0.72)',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', color: '#5e7387', letterSpacing: '0.5px',
-            }}>
-              <span>Skill</span><span>Your Level</span><span>Required</span><span>Positions</span>
+        {learningPlanContent ? (
+          <div style={{
+            background: 'rgba(12, 22, 40, 0.72)',
+            border: '1px solid rgba(200, 221, 232, 0.08)',
+            borderRadius: '3px',
+            padding: '20px 24px',
+            fontSize: '13px',
+            color: '#c8dde8',
+            lineHeight: 1.7,
+          }}>
+            <div className="prose prose-sm prose-invert max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{learningPlanContent}</ReactMarkdown>
             </div>
-            {gaps.map(gap => {
-              const yourColor = LEVEL_COLORS[gap.your_level] ?? '#c87a4a';
-              const yourLabel = LEVEL_LABELS[gap.your_level] ?? gap.your_level.toUpperCase();
-              const isLargeGap = gap.your_level === 'none' && gap.level === 'required';
-              return (
-                <div key={gap.skill} style={{
-                  display: 'grid', gridTemplateColumns: '1.2fr 80px 80px 2fr',
-                  padding: '7px 12px', borderTop: '1px solid rgba(200, 221, 232, 0.08)',
-                  borderLeft: isLargeGap ? '3px solid #c87a4a' : '3px solid transparent',
-                  fontSize: '12px', alignItems: 'baseline',
-                }}>
-                  <span style={{ color: '#c8dde8' }}>{gap.skill}</span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: yourColor, background: `${yourColor}15`, borderRadius: '2px', padding: '1px 6px', textAlign: 'center' }}>
-                    {yourLabel}
-                  </span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#c8dde8', textTransform: 'uppercase' }}>
-                    {gap.level}
-                  </span>
-                  <span style={{ color: '#8ba4b8', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {gap.positions.map(p => p.title.substring(0, 40)).join(', ')}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Learning Resources */}
-      <div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
-          Learning Resources ({resources.length})
-        </div>
-
-        {resources.length === 0 ? (
-          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px' }}>
-            No learning resources yet.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '8px' }}>
-            {resources.map(resource => {
-              const typeColor = RESOURCE_TYPE_COLORS[resource.type] ?? '#8ba4b8';
-              return (
-                <div key={resource.id} style={{
-                  background: 'rgba(12, 22, 40, 0.72)', border: '1px solid rgba(200, 221, 232, 0.08)',
-                  borderRadius: '3px', padding: '10px 14px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: typeColor, background: `${typeColor}15`, borderRadius: '2px', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      {resource.type}
-                    </span>
-                    {resource.hours != null && (
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#5e7387' }}>{resource.hours}h</span>
-                    )}
-                    <span style={{
-                      fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', marginLeft: 'auto', textTransform: 'uppercase',
-                      color: resource.status === 'completed' ? '#5aadaf' : resource.status === 'in-progress' ? '#b8c84a' : '#5e7387',
-                    }}>
-                      {resource.status}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '12px' }}>
-                    {resource.url ? (
-                      <a href={resource.url} target="_blank" rel="noopener noreferrer" style={{ color: '#c8dde8', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
-                        {resource.name}
-                      </a>
-                    ) : (
-                      <span style={{ color: '#c8dde8' }}>{resource.name}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px', textAlign: 'center' }}>
+            No learning plan generated yet. Ask the agent to analyze your skill gaps and generate a learning plan.
           </div>
         )}
       </div>

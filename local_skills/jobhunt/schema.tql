@@ -338,6 +338,11 @@ entity jhunt-dashboard-state-note sub alh-note;
 entity jhunt-cc-brief-note sub alh-note;
 entity jhunt-cc-feedback-note sub alh-note;
 
+# Learning plan — single note per seeker, periodically overwritten by agent.
+# Contains markdown coaching text generated from gap analysis + seeker context.
+# Linked to seeker role via alh-aboutness.
+entity jhunt-learning-plan-note sub alh-note;
+
 
 # -----------------------------------------------------------------------------
 # CROSS-NAMESPACE EXTENSIONS
