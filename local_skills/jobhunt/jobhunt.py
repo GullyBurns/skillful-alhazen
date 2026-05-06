@@ -2242,6 +2242,10 @@ def cmd_add_skill(args):
             has jhunt-skill-level "{args.level}",
             has jhunt-last-updated {timestamp}'''
 
+        if args.evidence:
+            skill_query += f', has jhunt-skill-evidence "{escape_string(args.evidence)}"'
+        if args.recency:
+            skill_query += f', has jhunt-skill-recency "{escape_string(args.recency)}"'
         if args.description:
             skill_query += f', has description "{escape_string(args.description)}"'
 
@@ -2285,6 +2289,8 @@ def cmd_list_skills(args):
             fetch {
                 "jhunt-skill-name": $s.jhunt-skill-name,
                 "jhunt-skill-level": $s.jhunt-skill-level,
+                "jhunt-skill-evidence": $s.jhunt-skill-evidence,
+                "jhunt-skill-recency": $s.jhunt-skill-recency,
                 "description": $s.description,
                 "jhunt-last-updated": $s.jhunt-last-updated
             };"""
@@ -2296,13 +2302,16 @@ def cmd_list_skills(args):
         skill = {
             "name": r.get("jhunt-skill-name", ""),
             "level": r.get("jhunt-skill-level", ""),
+            "evidence": r.get("jhunt-skill-evidence", ""),
+            "recency": r.get("jhunt-skill-recency", ""),
             "description": r.get("description", ""),
             "last_updated": r.get("jhunt-last-updated", ""),
         }
         skills.append(skill)
 
-    # Sort by level (strong first, then some, then learning, then none)
-    level_order = {"strong": 0, "some": 1, "learning": 2, "none": 3}
+    # Sort by level (expert first, then practiced, aware, none)
+    level_order = {"expert": 0, "practiced": 1, "aware": 2, "none": 3,
+                   "strong": 0, "some": 1, "learning": 2}  # backward compat
     skills.sort(key=lambda x: (level_order.get(x["level"], 4), x["name"]))
 
     print(
@@ -2312,9 +2321,9 @@ def cmd_list_skills(args):
                 "skills": skills,
                 "count": len(skills),
                 "by_level": {
-                    "strong": len([s for s in skills if s["level"] == "strong"]),
-                    "some": len([s for s in skills if s["level"] == "some"]),
-                    "learning": len([s for s in skills if s["level"] == "learning"]),
+                    "expert": len([s for s in skills if s["level"] in ("expert", "strong")]),
+                    "practiced": len([s for s in skills if s["level"] in ("practiced", "some")]),
+                    "aware": len([s for s in skills if s["level"] in ("aware", "learning")]),
                     "none": len([s for s in skills if s["level"] == "none"]),
                 },
             },
@@ -3021,7 +3030,7 @@ def main():
     p.add_argument(
         "--level", choices=["required", "preferred", "nice-to-have"], help="Requirement level"
     )
-    p.add_argument("--jhunt-your-level", choices=["strong", "some", "none"], help="Your skill level")
+    p.add_argument("--jhunt-your-level", choices=["expert", "practiced", "aware", "none"], help="Your skill level (Bloom's: expert/practiced/aware/none)")
     p.add_argument("--content", help="Full requirement text")
     p.add_argument("--id", help="Specific ID")
 
@@ -3033,10 +3042,12 @@ def main():
     p.add_argument(
         "--level",
         required=True,
-        choices=["strong", "some", "learning", "none"],
-        help="Your skill level",
+        choices=["expert", "practiced", "aware", "none"],
+        help="Proficiency level (Bloom's): expert=can design/teach, practiced=hands-on, aware=conceptual, none=unknown",
     )
-    p.add_argument("--description", help="Optional description or evidence of this skill")
+    p.add_argument("--evidence", help="What proves this level (project URL, publication, years)")
+    p.add_argument("--recency", help="When last used (e.g., 'daily 2026', 'used 2019-2022')")
+    p.add_argument("--description", help="Free text context about your experience")
 
     # list-skills
     subparsers.add_parser("list-skills", help="Show your skill profile")

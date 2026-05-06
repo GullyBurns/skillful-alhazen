@@ -475,19 +475,7 @@ export default function MissionControl() {
       {activeTab === 'search' && <SearchTab />}
 
       {/* Learning Plan tab */}
-      {activeTab === 'learning' && (
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#5e7387',
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '13px',
-        }}>
-          Skill profile, gap analysis, and learning plan will appear here.
-        </div>
-      )}
+      {activeTab === 'learning' && <LearningTab />}
 
       {/* SchemaInspector removed — use Alhazen Notebook for schema browsing */}
     </div>
@@ -801,6 +789,226 @@ function SourceCard({ source }: { source: Source }) {
         {isWebsite && (
           <div style={{ marginTop: '4px', fontSize: '9px', color: '#62c4bc', fontStyle: 'italic' }}>
             Requires Playwright MCP browser automation
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// =============================================================================
+// Learning Tab — Skills, Gaps, Learning Resources
+// =============================================================================
+
+interface Skill {
+  name: string;
+  level: string;
+  evidence: string | null;
+  recency: string | null;
+  description: string | null;
+}
+
+interface SkillGap {
+  skill: string;
+  level: string;
+  your_level: string;
+  positions: Array<{ id: string; title: string }>;
+}
+
+interface LearningResource {
+  id: string;
+  name: string;
+  type: string;
+  url: string | null;
+  hours: number | null;
+  status: string;
+}
+
+const LEVEL_COLORS: Record<string, string> = {
+  expert: '#5aadaf', strong: '#5aadaf',
+  practiced: '#5b8ab8', some: '#5b8ab8',
+  aware: '#b8c84a', learning: '#b8c84a',
+  none: '#c87a4a',
+};
+
+const LEVEL_LABELS: Record<string, string> = {
+  expert: 'EXPERT', strong: 'EXPERT',
+  practiced: 'PRACTICED', some: 'PRACTICED',
+  aware: 'AWARE', learning: 'AWARE',
+  none: 'NONE',
+};
+
+const RESOURCE_TYPE_COLORS: Record<string, string> = {
+  course: '#5b8ab8', book: '#b8c84a', tutorial: '#62c4bc',
+  project: '#5aadaf', video: '#8ba4b8',
+};
+
+function LearningTab() {
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [gaps, setGaps] = useState<SkillGap[]>([]);
+  const [resources, setResources] = useState<LearningResource[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/jobhunt/skills').then(r => r.json()),
+      fetch('/api/jobhunt/gaps').then(r => r.json()),
+      fetch('/api/jobhunt/learning').then(r => r.json()),
+    ]).then(([skillsData, gapsData, resourcesData]) => {
+      setSkills(skillsData.skills ?? []);
+      setGaps(gapsData.skill_gaps ?? []);
+      setResources(resourcesData.learning_plan ?? []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+      {/* Your Skills */}
+      <div>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
+          Your Skills ({skills.length})
+        </div>
+
+        {skills.length === 0 ? (
+          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px' }}>
+            No skills defined yet. Ingest your LinkedIn profile and run skill extraction.
+          </div>
+        ) : (
+          <div style={{ border: '1px solid rgba(200, 221, 232, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1.2fr 80px 2fr 100px',
+              padding: '6px 12px', background: 'rgba(12, 22, 40, 0.72)',
+              fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', color: '#5e7387', letterSpacing: '0.5px',
+            }}>
+              <span>Skill</span><span>Level</span><span>Evidence</span><span>Recency</span>
+            </div>
+            {skills.map(skill => {
+              const color = LEVEL_COLORS[skill.level] ?? '#5e7387';
+              const label = LEVEL_LABELS[skill.level] ?? skill.level.toUpperCase();
+              return (
+                <div key={skill.name} style={{
+                  display: 'grid', gridTemplateColumns: '1.2fr 80px 2fr 100px',
+                  padding: '7px 12px', borderTop: '1px solid rgba(200, 221, 232, 0.08)', fontSize: '12px', alignItems: 'baseline',
+                }}>
+                  <span style={{ color: '#c8dde8' }}>{skill.name}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color, background: `${color}15`, borderRadius: '2px', padding: '1px 6px', textAlign: 'center' }}>
+                    {label}
+                  </span>
+                  <span style={{ color: '#8ba4b8', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {skill.evidence ?? skill.description ?? ''}
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#5e7387' }}>
+                    {skill.recency ?? ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Skill Gaps */}
+      <div>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
+          Skill Gaps ({gaps.length})
+        </div>
+
+        {gaps.length === 0 ? (
+          <div style={{ color: '#62c4bc', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px' }}>
+            No skill gaps detected.
+          </div>
+        ) : (
+          <div style={{ border: '1px solid rgba(200, 221, 232, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1.2fr 80px 80px 2fr',
+              padding: '6px 12px', background: 'rgba(12, 22, 40, 0.72)',
+              fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', color: '#5e7387', letterSpacing: '0.5px',
+            }}>
+              <span>Skill</span><span>Your Level</span><span>Required</span><span>Positions</span>
+            </div>
+            {gaps.map(gap => {
+              const yourColor = LEVEL_COLORS[gap.your_level] ?? '#c87a4a';
+              const yourLabel = LEVEL_LABELS[gap.your_level] ?? gap.your_level.toUpperCase();
+              const isLargeGap = gap.your_level === 'none' && gap.level === 'required';
+              return (
+                <div key={gap.skill} style={{
+                  display: 'grid', gridTemplateColumns: '1.2fr 80px 80px 2fr',
+                  padding: '7px 12px', borderTop: '1px solid rgba(200, 221, 232, 0.08)',
+                  borderLeft: isLargeGap ? '3px solid #c87a4a' : '3px solid transparent',
+                  fontSize: '12px', alignItems: 'baseline',
+                }}>
+                  <span style={{ color: '#c8dde8' }}>{gap.skill}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: yourColor, background: `${yourColor}15`, borderRadius: '2px', padding: '1px 6px', textAlign: 'center' }}>
+                    {yourLabel}
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#c8dde8', textTransform: 'uppercase' }}>
+                    {gap.level}
+                  </span>
+                  <span style={{ color: '#8ba4b8', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {gap.positions.map(p => p.title.substring(0, 40)).join(', ')}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Learning Resources */}
+      <div>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5e7387', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: '10px' }}>
+          Learning Resources ({resources.length})
+        </div>
+
+        {resources.length === 0 ? (
+          <div style={{ color: '#5e7387', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '16px' }}>
+            No learning resources yet.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '8px' }}>
+            {resources.map(resource => {
+              const typeColor = RESOURCE_TYPE_COLORS[resource.type] ?? '#8ba4b8';
+              return (
+                <div key={resource.id} style={{
+                  background: 'rgba(12, 22, 40, 0.72)', border: '1px solid rgba(200, 221, 232, 0.08)',
+                  borderRadius: '3px', padding: '10px 14px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: typeColor, background: `${typeColor}15`, borderRadius: '2px', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {resource.type}
+                    </span>
+                    {resource.hours != null && (
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#5e7387' }}>{resource.hours}h</span>
+                    )}
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', marginLeft: 'auto', textTransform: 'uppercase',
+                      color: resource.status === 'completed' ? '#5aadaf' : resource.status === 'in-progress' ? '#b8c84a' : '#5e7387',
+                    }}>
+                      {resource.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px' }}>
+                    {resource.url ? (
+                      <a href={resource.url} target="_blank" rel="noopener noreferrer" style={{ color: '#c8dde8', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                        {resource.name}
+                      </a>
+                    ) : (
+                      <span style={{ color: '#c8dde8' }}>{resource.name}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

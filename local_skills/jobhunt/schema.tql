@@ -71,6 +71,11 @@ attribute jhunt-priority-level, value string;
 
 # Your skill profile attributes
 attribute jhunt-last-updated, value datetime;
+attribute jhunt-skill-evidence, value string;
+attribute jhunt-skill-recency, value string;
+
+# Skill concept vocabulary (SKOS-lite)
+attribute jhunt-alt-label, value string;
 
 # Forager attributes (automated job discovery)
 attribute jhunt-board-token, value string;
@@ -102,6 +107,16 @@ relation jhunt-position-at-company,
 relation jhunt-requirement-for,
     relates requirement,
     relates position;
+
+# SKILL-DEFINITION - Links seeker skills and requirements to a shared concept
+relation jhunt-skill-definition,
+    relates concept,
+    relates defined-skill;
+
+# SKILL-HIERARCHY - Broader/narrower relations between skill concepts (SKOS-lite)
+relation jhunt-skill-hierarchy,
+    relates broader-skill,
+    relates narrower-skill;
 
 # ADDRESSES-REQUIREMENT - Learning resources that address skill gaps
 relation jhunt-addresses-requirement,
@@ -154,12 +169,27 @@ entity jhunt-job-seeker-role sub alh-role,
     plays jhunt-seeker-pipeline:seeker,
     plays jhunt-seeker-has-skill:seeker;
 
+# JHUNT-SKILL-CONCEPT - Controlled vocabulary for skills (SKOS-lite)
+# Canonical concept with preferred label (name), alt-labels, and hierarchy.
+# Both seeker skills and position requirements link to concepts via jhunt-skill-definition.
+entity jhunt-skill-concept sub alh-domain-thing,
+    owns jhunt-alt-label,
+    plays jhunt-skill-definition:concept,
+    plays jhunt-skill-hierarchy:broader-skill,
+    plays jhunt-skill-hierarchy:narrower-skill;
+
 # JHUNT-YOUR-SKILL - Personal skill/capability for gap analysis
+# Level uses simplified Bloom's taxonomy: none | aware | practiced | expert
+# Evidence: what proves this level (project URL, publication, years of experience)
+# Recency: when last used ("daily 2026", "used 2019-2022", "studied 2024")
 entity jhunt-your-skill sub alh-domain-thing,
     owns jhunt-skill-name,
     owns jhunt-skill-level,
+    owns jhunt-skill-evidence,
+    owns jhunt-skill-recency,
     owns jhunt-last-updated,
-    plays jhunt-seeker-has-skill:skill;
+    plays jhunt-seeker-has-skill:skill,
+    plays jhunt-skill-definition:defined-skill;
 
 
 # -----------------------------------------------------------------------------
@@ -260,7 +290,8 @@ entity jhunt-requirement sub alh-fragment,
     owns jhunt-skill-level,
     owns jhunt-your-level,
     plays jhunt-requirement-for:requirement,
-    plays jhunt-addresses-requirement:requirement;
+    plays jhunt-addresses-requirement:requirement,
+    plays jhunt-skill-definition:defined-skill;
 
 entity jhunt-responsibility sub alh-fragment;
 entity jhunt-qualification sub alh-fragment;
