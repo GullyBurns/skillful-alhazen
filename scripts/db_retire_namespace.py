@@ -329,7 +329,7 @@ def main():
     try:
         # Verify database exists
         if not driver.databases.contains(params["database"]):
-            print(f"Error: database '{params['database']}' does not exist", file=sys.stderr)
+            print("Error: configured database does not exist", file=sys.stderr)
             sys.exit(1)
 
         result = retire_namespace(driver, params["database"], args.namespace, args.dry_run)
