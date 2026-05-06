@@ -46,7 +46,7 @@ export default function GlobalSearch({ onSelectEntity }: GlobalSearchProps) {
 
     try {
       if (searchMode === 'text') {
-        const escaped = term.replace(/'/g, "\\'");
+        const escaped = term.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
         const typeql = `match $e isa alh-identifiable-entity, has id $id, has name $name; $name contains '${escaped}'; fetch { "id": $id, "name": $name };`;
         const res = await fetch('/api/agentic-memory/query', {
           method: 'POST',
