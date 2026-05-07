@@ -4,6 +4,8 @@
 # Services:
 # - Dashboard: http://localhost:3001
 # - TypeDB: localhost:1729
+# - SearXNG: http://localhost:8888
+# - Qdrant: http://localhost:6333
 #
 # To run only TypeDB: docker compose up -d typedb
 # To run everything: docker compose up -d
@@ -97,6 +99,22 @@ services:
       - "127.0.0.1:6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - alhazen-network
+
+  # ============================================
+  # SearXNG - Self-Hosted Metasearch Engine
+  # ============================================
+  searxng:
+    image: searxng/searxng:latest
+    container_name: alhazen-searxng
+    ports:
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./local_resources/searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888
     restart: unless-stopped
     networks:
       - alhazen-network

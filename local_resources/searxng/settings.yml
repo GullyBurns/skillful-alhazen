@@ -1,0 +1,12 @@
+use_default_settings: true
+
+server:
+  secret_key: "alhazen-searxng-local-dev-key"
+  limiter: false
+  image_proxy: false
+  bind_address: "0.0.0.0"
+
+search:
+  formats:
+    - html
+    - json
