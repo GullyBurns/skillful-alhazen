@@ -74,7 +74,7 @@ skills:
   - name: dismech-notebook
     git: https://github.com/sciknow-io/alhazen-skill-dismech
     ref: main
-    subdir: plugins/dismech/skills/dismech-notebook
+    subdir: skills/dismech-notebook
     dashboard:
       enabled: true
       name: "DisMech Notebook"
