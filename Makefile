@@ -143,10 +143,12 @@ build-dashboard: build-skills ## Wire skill dashboard pages/routes/components in
 	  echo " $$PUBLIC_SKILLS " | grep -q " $$skill_name " || { \
 	    echo "  Removing stale lib file: $$f"; rm -f "$$f"; }; \
 	done; \
+	COMMITTED_DASHBOARDS=$$(uv run python -c "import yaml; cfg=yaml.safe_load(open('skills-registry.yaml')); print(' '.join(s['name'] for s in (cfg.get('skills') or []) if s.get('core_os')))"); \
 	for skill_dir in local_skills/*/; do \
 	  [ -d "$${skill_dir}dashboard" ] || continue; \
 	  skill_name=$$(basename $$skill_dir); \
 	  echo " $$PUBLIC_SKILLS " | grep -q " $$skill_name " || { echo "  Skipping $${skill_name} (local-registry — not wired into tracked dashboard)"; continue; }; \
+	  echo " $$COMMITTED_DASHBOARDS " | grep -q " $$skill_name " && { echo "  Skipping $${skill_name} (core_os — dashboard committed to git)"; continue; }; \
 	  echo "  Wiring $${skill_name} dashboard..."; \
 	  rm -rf "dashboard/src/app/($${skill_name})" 2>/dev/null || true; \
 	  rm -rf "dashboard/src/components/$${skill_name}" 2>/dev/null || true; \
