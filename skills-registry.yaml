@@ -72,7 +72,7 @@ skills:
       color: cyan
 
   - name: dismech-notebook
-    git: https://github.com/GullyBurns/alhazen-skill-dismech
+    git: https://github.com/sciknow-io/alhazen-skill-dismech
     ref: main
     subdir: plugins/dismech/skills/dismech-notebook
     dashboard:
