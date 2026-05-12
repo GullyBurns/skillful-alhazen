@@ -81,6 +81,7 @@ schema_map:
   - dismech-notebook
   - jobhunt
   - literature-trends
+  - scientific-literature
   - tech-recon
   namespaces:
     nbmem:

@@ -8,7 +8,7 @@ cli: agentic_memory.py
 dependencies:
   - typedb-notebook
 schema:
-  namespace: nbmem  # all types: nbmem-operator-user, nbmem-memory-claim-note, etc.
+  namespace: nbmem  # all types: nbmem-operator-role, nbmem-memory-claim-note, etc.
   depends_on: []
 tags:
   - memory

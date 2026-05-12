@@ -33,6 +33,7 @@ async function runTechRecon(args: string[]): Promise<unknown> {
 export interface Investigation {
   id: string;
   name: string;
+  type?: string;
   status: string;
   goal: string;
   criteria: string;

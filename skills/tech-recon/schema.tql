@@ -41,6 +41,7 @@ attribute trec-language, value string;
 attribute trec-title, value string;
 attribute trec-tag, value string;
 attribute trec-iteration-number, value integer;
+attribute trec-investigation-type, value string;
 
 
 # -----------------------------------------------------------------------------
@@ -74,6 +75,7 @@ relation trec-system-paper-reference,
 # -----------------------------------------------------------------------------
 
 entity trec-investigation sub alh-collection,
+    owns trec-investigation-type,
     owns trec-goal-description,
     owns trec-success-criteria,
     owns trec-status,

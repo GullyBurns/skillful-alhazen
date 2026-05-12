@@ -211,7 +211,8 @@ def cmd_start_investigation(args):
     ts = get_timestamp()
     name = escape_string(args.name)
     goal = escape_string(args.goal)
-    criteria = escape_string(args.success_criteria)
+    criteria = escape_string(args.trec_success_criteria)
+    inv_type = escape_string(getattr(args, 'type', 'landscape') or 'landscape')
 
     systems_to_add = []
     if args.systems:
@@ -228,6 +229,7 @@ def cmd_start_investigation(args):
                 insert $inv isa trec-investigation,
                     has id "{inv_id}",
                     has name "{name}",
+                    has trec-investigation-type "{inv_type}",
                     has trec-goal-description "{goal}",
                     has trec-success-criteria "{criteria}",
                     has trec-status "scoping",
@@ -268,6 +270,7 @@ def cmd_start_investigation(args):
             "investigation": {
                 "id": inv_id,
                 "name": args.name,
+                "type": getattr(args, 'type', 'landscape') or 'landscape',
                 "status": "scoping",
                 "systems_added": inserted_systems,
             },
@@ -289,7 +292,8 @@ def cmd_list_investigations(args):
                     "id": $inv.id,
                     "name": $inv.name,
                     "status": $inv.trec-status,
-                    "goal": $inv.trec-goal-description
+                    "goal": $inv.trec-goal-description,
+                    "type": $inv.trec-investigation-type
                 };
             ''').resolve())
         driver.close()
@@ -301,6 +305,7 @@ def cmd_list_investigations(args):
                 "name": r.get("name"),
                 "status": r.get("status"),
                 "goal": r.get("goal"),
+                "type": r.get("type") or "landscape",
             })
 
         print(json.dumps({"success": True, "investigations": investigations}))
@@ -322,6 +327,7 @@ def cmd_show_investigation(args):
                 fetch {{
                     "id": $inv.id,
                     "name": $inv.name,
+                    "type": $inv.trec-investigation-type,
                     "status": $inv.trec-status,
                     "goal": $inv.trec-goal-description,
                     "criteria": $inv.trec-success-criteria,
@@ -358,6 +364,7 @@ def cmd_show_investigation(args):
             "investigation": {
                 "id": inv.get("id"),
                 "name": inv.get("name"),
+                "type": inv.get("type") or "landscape",
                 "goal": inv.get("goal"),
                 "criteria": inv.get("criteria"),
                 "status": inv.get("status"),
@@ -378,8 +385,8 @@ def cmd_show_investigation(args):
 
 def cmd_update_investigation(args):
     """Update investigation status, goal, or success criteria."""
-    if not any([args.status, args.goal, args.success_criteria]):
-        print(json.dumps({"success": False, "error": "At least one of --status, --goal, --trec-success-criteria is required"}))
+    if not any([args.status, args.goal, args.trec_success_criteria, getattr(args, 'type', None)]):
+        print(json.dumps({"success": False, "error": "At least one of --status, --goal, --trec-success-criteria, --type is required"}))
         sys.exit(1)
 
     inv_id = escape_string(args.id)
@@ -415,14 +422,31 @@ def cmd_update_investigation(args):
                     insert $inv has trec-goal-description "{new_goal}";
                 ''').resolve()
 
-            if args.success_criteria:
-                new_criteria = escape_string(args.success_criteria)
+            if args.trec_success_criteria:
+                new_criteria = escape_string(args.trec_success_criteria)
                 tx.query(f'''
                     match
                         $inv isa trec-investigation, has id "{inv_id}",
                             has trec-success-criteria $old_criteria;
                     delete has $old_criteria of $inv;
                     insert $inv has trec-success-criteria "{new_criteria}";
+                ''').resolve()
+
+            if getattr(args, 'type', None):
+                new_type = escape_string(args.type)
+                # Try delete existing type first (may not exist for old investigations)
+                try:
+                    tx.query(f'''
+                        match
+                            $inv isa trec-investigation, has id "{inv_id}",
+                                has trec-investigation-type $old_type;
+                        delete has $old_type of $inv;
+                    ''').resolve()
+                except Exception:
+                    pass  # No existing type attribute — that's fine
+                tx.query(f'''
+                    match $inv isa trec-investigation, has id "{inv_id}";
+                    insert $inv has trec-investigation-type "{new_type}";
                 ''').resolve()
 
             tx.commit()
@@ -436,7 +460,8 @@ def cmd_update_investigation(args):
                     k: v for k, v in {
                         "status": args.status,
                         "goal": args.goal,
-                        "success_criteria": args.success_criteria,
+                        "success_criteria": args.trec_success_criteria,
+                        "type": getattr(args, 'type', None),
                     }.items() if v
                 },
             },
@@ -716,14 +741,14 @@ def cmd_add_system(args):
 
             # Build insert query with optional attributes
             optional_attrs = ""
-            if args.github_url:
-                optional_attrs += f', has trec-github-url "{escape_string(args.github_url)}"'
+            if args.trec_github_url:
+                optional_attrs += f', has trec-github-url "{escape_string(args.trec_github_url)}"'
             if args.language:
                 optional_attrs += f', has trec-language "{escape_string(args.language)}"'
             if args.license:
                 optional_attrs += f', has license "{escape_string(args.license)}"'
-            if args.star_count is not None:
-                optional_attrs += f", has trec-star-count {args.star_count}"
+            if args.trec_star_count is not None:
+                optional_attrs += f", has trec-star-count {args.trec_star_count}"
 
             sq = f'''
                 insert $sys isa trec-system,
@@ -1150,7 +1175,7 @@ def _insert_artifact_and_link(tx, art_id, ts, artifact_type, url, fmt, cache_pat
     insert_q = f'''
         insert $art isa trec-artifact,
             has id "{art_id}",
-            has trec-artialh-fact-type "{esc_type}",
+            has trec-artifact-type "{esc_type}",
             has trec-url "{esc_url}",
             has format "{esc_fmt}",
             has created-at {ts}{optional};
@@ -1416,7 +1441,7 @@ def cmd_ingest_repo(args):
                         existing = list(tx2.query(f'''
                             match
                                 $sys isa trec-system, has id "{escape_string(sys_id)}";
-                                $art isa trec-artifact, has trec-artialh-fact-type "repo-clone";
+                                $art isa trec-artifact, has trec-artifact-type "repo-clone";
                                 (artifact: $art, source: $sys) isa trec-sourced-from;
                             fetch {{ "id": $art.id, "cache_path": $art.cache-path }};
                         ''').resolve())
@@ -1428,7 +1453,7 @@ def cmd_ingest_repo(args):
                             tx2.query(f'''
                                 insert $art isa trec-artifact,
                                     has id "{art_id}",
-                                    has trec-artialh-fact-type "repo-clone",
+                                    has trec-artifact-type "repo-clone",
                                     has trec-url "{esc_url}",
                                     has format "directory",
                                     has cache-path "{esc_cp}",
@@ -1477,7 +1502,7 @@ def cmd_explore_repo(args):
             art_results = list(tx.query(f'''
                 match
                     $sys isa trec-system, has id "{sys_id}";
-                    $art isa trec-artifact, has trec-artialh-fact-type "repo-clone";
+                    $art isa trec-artifact, has trec-artifact-type "repo-clone";
                     (artifact: $art, source: $sys) isa trec-sourced-from;
                 fetch {{
                     "id": $art.id,
@@ -1595,7 +1620,7 @@ def cmd_extract_fragments(args):
                 match $art isa trec-artifact, has id "{art_id}";
                 fetch {{
                     "id": $art.id,
-                    "type": $art.trec-artialh-fact-type,
+                    "type": $art.trec-artifact-type,
                     "cache_path": $art.cache-path,
                     "url": $art.trec-url
                 }};
@@ -1969,11 +1994,11 @@ def cmd_list_artifacts(args):
                 results = list(tx.query(f'''
                     match
                         $sys isa trec-system, has id "{sys_id}";
-                        $art isa trec-artifact, has trec-artialh-fact-type "{esc_type}";
+                        $art isa trec-artifact, has trec-artifact-type "{esc_type}";
                         (artifact: $art, source: $sys) isa trec-sourced-from;
                     fetch {{
                         "id": $art.id,
-                        "type": $art.trec-artialh-fact-type,
+                        "type": $art.trec-artifact-type,
                         "url": $art.trec-url,
                         "format": $art.format,
                         "cache_path": $art.cache-path
@@ -1987,7 +2012,7 @@ def cmd_list_artifacts(args):
                         (artifact: $art, source: $sys) isa trec-sourced-from;
                     fetch {{
                         "id": $art.id,
-                        "type": $art.trec-artialh-fact-type,
+                        "type": $art.trec-artifact-type,
                         "url": $art.trec-url,
                         "format": $art.format,
                         "cache_path": $art.cache-path
@@ -2022,7 +2047,7 @@ def cmd_show_artifact(args):
                 match $art isa trec-artifact, has id "{art_id}";
                 fetch {{
                     "id": $art.id,
-                    "type": $art.trec-artialh-fact-type,
+                    "type": $art.trec-artifact-type,
                     "url": $art.trec-url,
                     "format": $art.format,
                     "cache_path": $art.cache-path,
@@ -2969,7 +2994,7 @@ def cmd_compile_report(args):
                         $art isa trec-artifact;
                         (artifact: $art, source: $sys) isa trec-sourced-from;
                         $art has id $aid;
-                        $art has trec-artialh-fact-type $atype;
+                        $art has trec-artifact-type $atype;
                         $art has trec-url $aurl;
                     fetch {{
                         "id": $aid,
@@ -3122,7 +3147,7 @@ def cmd_evaluate_completion(args):
                 has_repo_clone = bool(list(tx.query(f'''
                     match
                         $sys isa trec-system, has id "{sid}";
-                        $art isa trec-artifact, has trec-artialh-fact-type "repo-clone";
+                        $art isa trec-artifact, has trec-artifact-type "repo-clone";
                         (artifact: $art, source: $sys) isa trec-sourced-from;
                     fetch {{ "id": $art.id }};
                 ''').resolve()))
@@ -3201,6 +3226,9 @@ def build_parser():
     p.add_argument("--name", required=True, help="Investigation name")
     p.add_argument("--goal", required=True, help="Investigation goal description")
     p.add_argument("--trec-success-criteria", required=True, help="Success criteria")
+    p.add_argument("--type", default="landscape",
+                   choices=["landscape", "evaluation", "question", "survey", "monitor", "brief"],
+                   help="Investigation type (default: landscape)")
     p.add_argument("--systems", help="Comma-separated list of initial system names")
     p.set_defaults(func=cmd_start_investigation)
 
@@ -3223,6 +3251,9 @@ def build_parser():
     )
     p.add_argument("--goal", help="New goal description")
     p.add_argument("--trec-success-criteria", help="New success criteria")
+    p.add_argument("--type",
+                   choices=["landscape", "evaluation", "question", "survey", "monitor", "brief"],
+                   help="Change investigation type")
     p.set_defaults(func=cmd_update_investigation)
 
     # -- advance-iteration --

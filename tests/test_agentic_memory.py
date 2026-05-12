@@ -121,7 +121,7 @@ class TestSchemaIntrospection:
         assert "relations" in data
         assert "embedding_index" in data
         # Core entity types must be present
-        assert "nbmem-operator-user" in data["entities"]
+        assert "nbmem-operator-role" in data["entities"]
         assert "alh-episode" in data["entities"]
 
     @requires_typedb
@@ -130,7 +130,7 @@ class TestSchemaIntrospection:
         data = run_cmd("describe-schema", "--skill", "jhunt")
         entities = data["entities"]
         # Core types should still be present
-        assert "nbmem-operator-user" in entities
+        assert "nbmem-operator-role" in entities
         # If any jhunt types exist, they should start with 'jhunt-'
         jhunt_types = [k for k in entities if k.startswith("jhunt-")]
         # At least some jhunt types expected (position, company, etc.)
@@ -141,8 +141,8 @@ class TestSchemaIntrospection:
         """describe-schema --full includes instance counts."""
         data = run_cmd("describe-schema", "--full")
         # Pick a type that has known instances
-        if "nbmem-operator-user" in data["entities"]:
-            entry = data["entities"]["nbmem-operator-user"]
+        if "nbmem-operator-role" in data["entities"]:
+            entry = data["entities"]["nbmem-operator-role"]
             assert "instance_count" in entry
             assert isinstance(entry["instance_count"], int)
 
@@ -184,8 +184,8 @@ class TestQueryInterface:
     def test_query_read_fetch(self):
         """query --typeql with a fetch returns structured results."""
         typeql = (
-            f'match $p isa nbmem-operator-user, has id "{OPERATOR_ID}"; '
-            'fetch { "id": $p.id, "name": $p.name };'
+            f'match $person isa alh-person, has id "{OPERATOR_ID}"; '
+            'fetch { "id": $person.id, "name": $person.name };'
         )
         data = run_cmd("query", "--typeql", typeql)
         assert data["count"] >= 1
@@ -203,7 +203,7 @@ class TestQueryInterface:
     def test_query_read_no_results(self):
         """query that matches nothing returns count 0."""
         typeql = (
-            'match $p isa nbmem-operator-user, has id "nonexistent-id-xyz"; '
+            'match $p isa alh-person, has id "nonexistent-id-xyz"; '
             'fetch { "id": $p.id };'
         )
         data = run_cmd("query", "--typeql", typeql)

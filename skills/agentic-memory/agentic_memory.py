@@ -2,14 +2,14 @@
 """
 Agentic Memory CLI - TypeDB-backed two-tier memory architecture.
 
-Manages persons (nbmem-operator-users) with personal context,
+Manages persons with operator roles (nbmem-operator-role via alh-role-bearing),
 nbmem-memory-claim-notes (crystallized semantic propositions), and session episodes.
 
 Usage:
     python skills/agentic-memory/agentic_memory.py <command> [options]
 
 Person / Context commands:
-    create-operator        Create an nbmem-operator-user with personal context
+    create-operator        Create an alh-person with nbmem-operator-role (linked via alh-role-bearing)
     update-context-domain  Update one personal context domain for a person
     get-context            Get formatted personal context for a person (JSON)
     link-project           Link a person to a collection (nbmem-project-involvement)
@@ -101,8 +101,9 @@ def get_driver():
 # ---------------------------------------------------------------------------
 
 def create_operator(args):
-    """Create an nbmem-operator-user with initial personal context."""
-    eid = generate_id("op")
+    """Create an alh-person with nbmem-operator-role linked via alh-role-bearing."""
+    person_id = generate_id("op")
+    role_id = generate_id("oprole")
     ts = get_timestamp()
     name_esc = escape_string(args.name)
     given = escape_string(args.given_name or "")
@@ -110,29 +111,49 @@ def create_operator(args):
     identity = escape_string(args.identity or "")
     role = escape_string(args.role or "")
 
-    query = f'''
-    insert $p isa nbmem-operator-user,
-        has id "{eid}",
+    # Build person insert
+    person_q = f'''
+    insert $person isa alh-person,
+        has id "{person_id}",
         has name "{name_esc}",
-        has created-at {ts};
-    '''
+        has created-at {ts}'''
     if given:
-        query = query.rstrip().rstrip(";") + f',\n        has alh-given-name "{given}";'
+        person_q += f',\n        has alh-given-name "{given}"'
     if family:
-        query = query.rstrip().rstrip(";") + f',\n        has alh-family-name "{family}";'
+        person_q += f',\n        has alh-family-name "{family}"'
+    person_q += ";"
+
+    # Build role insert
+    role_q = f'''
+    insert $role isa nbmem-operator-role,
+        has id "{role_id}",
+        has name "{name_esc} (operator)",
+        has alh-role-status "active",
+        has created-at {ts}'''
     if identity:
-        query = query.rstrip().rstrip(";") + f',\n        has nbmem-identity-summary "{identity}";'
+        role_q += f',\n        has nbmem-identity-summary "{identity}"'
     if role:
-        query = query.rstrip().rstrip(";") + f',\n        has nbmem-role-description "{role}";'
-    if not query.rstrip().endswith(";"):
-        query = query.rstrip() + ";"
+        role_q += f',\n        has nbmem-role-description "{role}"'
+    role_q += ";"
+
+    # Link person to role via alh-role-bearing
+    bearing_q = f'''
+    match
+        $person isa alh-person, has id "{person_id}";
+        $role isa nbmem-operator-role, has id "{role_id}";
+    insert (bearer: $person, borne-role: $role) isa alh-role-bearing;
+    '''
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
-            tx.query(query).resolve()
+            tx.query(person_q).resolve()
+            tx.query(role_q).resolve()
+            tx.commit()
+        with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
+            tx.query(bearing_q).resolve()
             tx.commit()
 
-    print(json.dumps({"success": True, "id": eid, "name": args.name}))
+    print(json.dumps({"success": True, "id": person_id, "role_id": role_id, "name": args.name}))
 
 
 def update_context_domain(args):
@@ -155,12 +176,15 @@ def update_context_domain(args):
     ts = get_timestamp()
 
     # Delete old value then insert new one
-    # Use nbmem-operator-user as the match type so TypeDB inference resolves nbmem-operator-user-specific attrs
+    # Match through alh-role-bearing to find the nbmem-operator-role for this person
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             check_q = f'''
-            match $p isa nbmem-operator-user, has id "{pid}", has {attr} $v;
-            delete has $v of $p;
+            match
+                $person isa alh-person, has id "{pid}";
+                (bearer: $person, borne-role: $role) isa alh-role-bearing;
+                $role isa nbmem-operator-role, has {attr} $v;
+            delete has $v of $role;
             '''
             try:
                 tx.query(check_q).resolve()
@@ -172,8 +196,11 @@ def update_context_domain(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             try:
                 tx.query(f'''
-                match $p isa nbmem-operator-user, has id "{pid}", has updated-at $v;
-                delete has $v of $p;
+                match
+                    $person isa alh-person, has id "{pid}";
+                    (bearer: $person, borne-role: $role) isa alh-role-bearing;
+                    $role isa nbmem-operator-role, has updated-at $v;
+                delete has $v of $role;
                 ''').resolve()
                 tx.commit()
             except Exception:
@@ -181,8 +208,11 @@ def update_context_domain(args):
 
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
-            match $p isa nbmem-operator-user, has id "{pid}";
-            insert $p has {attr} "{content_esc}", has updated-at {ts};
+            match
+                $person isa alh-person, has id "{pid}";
+                (bearer: $person, borne-role: $role) isa alh-role-bearing;
+                $role isa nbmem-operator-role;
+            insert $role has {attr} "{content_esc}", has updated-at {ts};
             ''').resolve()
             tx.commit()
 
@@ -204,20 +234,23 @@ def get_context(args):
 
     with get_driver() as driver:
         with driver.transaction(TYPEDB_DATABASE, TransactionType.READ) as tx:
-            # Get basic person info
+            # Get person info + operator role context via alh-role-bearing
             person_q = f'''
-            match $p isa nbmem-operator-user, has id "{pid}";
+            match
+                $person isa alh-person, has id "{pid}";
+                (bearer: $person, borne-role: $role) isa alh-role-bearing;
+                $role isa nbmem-operator-role;
             fetch {{
-                "id": $p.id,
-                "name": $p.name,
-                "alh-given-name": $p.alh-given-name,
-                "alh-family-name": $p.alh-family-name,
-                "nbmem-identity-summary": $p.nbmem-identity-summary,
-                "nbmem-role-description": $p.nbmem-role-description,
-                "nbmem-communication-style": $p.nbmem-communication-style,
-                "nbmem-goals-summary": $p.nbmem-goals-summary,
-                "nbmem-preferences-summary": $p.nbmem-preferences-summary,
-                "nbmem-domain-expertise": $p.nbmem-domain-expertise
+                "id": $person.id,
+                "name": $person.name,
+                "alh-given-name": $person.alh-given-name,
+                "alh-family-name": $person.alh-family-name,
+                "nbmem-identity-summary": $role.nbmem-identity-summary,
+                "nbmem-role-description": $role.nbmem-role-description,
+                "nbmem-communication-style": $role.nbmem-communication-style,
+                "nbmem-goals-summary": $role.nbmem-goals-summary,
+                "nbmem-preferences-summary": $role.nbmem-preferences-summary,
+                "nbmem-domain-expertise": $role.nbmem-domain-expertise
             }};
             '''
             persons = list(tx.query(person_q).resolve())
@@ -227,11 +260,13 @@ def get_context(args):
 
             ctx = persons[0]
 
-            # Get linked projects (nbmem-project-involvement)
+            # Get linked projects (nbmem-project-involvement via role)
             proj_q = f'''
             match
-                $p isa alh-identifiable-entity, has id "{pid}";
-                (participant: $p, project: $c) isa nbmem-project-involvement;
+                $person isa alh-person, has id "{pid}";
+                (bearer: $person, borne-role: $role) isa alh-role-bearing;
+                $role isa nbmem-operator-role;
+                (participant: $role, project: $c) isa nbmem-project-involvement;
                 $c has id $cid, has name $cname;
             fetch {{
                 "id": $cid,
@@ -243,11 +278,13 @@ def get_context(args):
             except Exception:
                 projects = []
 
-            # Get linked tools (nbmem-tool-familiarity)
+            # Get linked tools (nbmem-tool-familiarity via role)
             tool_q = f'''
             match
-                $p isa alh-identifiable-entity, has id "{pid}";
-                (practitioner: $p, tool: $t) isa nbmem-tool-familiarity;
+                $person isa alh-person, has id "{pid}";
+                (bearer: $person, borne-role: $role) isa alh-role-bearing;
+                $role isa nbmem-operator-role;
+                (practitioner: $role, tool: $t) isa nbmem-tool-familiarity;
                 $t has id $tid, has name $tname;
             fetch {{
                 "id": $tid,
@@ -277,9 +314,11 @@ def link_project(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
             match
-                $p isa nbmem-operator-user, has id "{pid}";
+                $person isa alh-person, has id "{pid}";
+                (bearer: $person, borne-role: $role) isa alh-role-bearing;
+                $role isa nbmem-operator-role;
                 $c isa alh-collection, has id "{cid}";
-            insert (participant: $p, project: $c) isa nbmem-project-involvement;
+            insert (participant: $role, project: $c) isa nbmem-project-involvement;
             ''').resolve()
             tx.commit()
 
@@ -295,9 +334,11 @@ def link_tool(args):
         with driver.transaction(TYPEDB_DATABASE, TransactionType.WRITE) as tx:
             tx.query(f'''
             match
-                $p isa nbmem-operator-user, has id "{pid}";
+                $person isa alh-person, has id "{pid}";
+                (bearer: $person, borne-role: $role) isa alh-role-bearing;
+                $role isa nbmem-operator-role;
                 $t isa alh-domain-thing, has id "{tid}";
-            insert (practitioner: $p, tool: $t) isa nbmem-tool-familiarity;
+            insert (practitioner: $role, tool: $t) isa nbmem-tool-familiarity;
             ''').resolve()
             tx.commit()
 
@@ -795,7 +836,7 @@ def describe_schema(args):
             "alh-episode", "alh-user-question", "alh-information-resource",
             "alh-agent", "alh-person", "alh-role", "alh-organization", "alh-interaction",
             "alh-tag", "alh-vocabulary", "alh-vocabulary-type", "alh-vocabulary-property",
-            "nbmem-operator-user", "nbmem-memory-claim-note",
+            "nbmem-operator-role", "nbmem-memory-claim-note",
         }
         core_rels = {
             "alh-aboutness", "alh-representation", "alh-collection-membership",
@@ -911,7 +952,7 @@ def _run_namespace_audit(entities, relations):
         "alh-identifiable-entity", "alh-domain-thing", "alh-collection",
         "alh-information-content-entity", "alh-artifact", "alh-fragment", "alh-note",
         "nbmem-memory-claim-note", "alh-episode", "alh-agent", "alh-ai-agent", "alh-person",
-        "nbmem-operator-user", "alh-organization", "alh-interaction",
+        "nbmem-operator-role", "alh-organization", "alh-interaction",
     }
     KNOWN_PREFIXES = [
         "trec",    # was tech-recon
@@ -1175,7 +1216,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command")
 
     # --- Person / Context ---
-    p = subparsers.add_parser("create-operator", help="Create an nbmem-operator-user")
+    p = subparsers.add_parser("create-operator", help="Create an alh-person with nbmem-operator-role")
     p.add_argument("--name", required=True)
     p.add_argument("--given-name")
     p.add_argument("--family-name")

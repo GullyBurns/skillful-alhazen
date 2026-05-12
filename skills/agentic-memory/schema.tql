@@ -17,7 +17,6 @@ relation nbmem-tool-familiarity,
     relates tool;
 
 # Role bindings: declare which core entity types play these roles
-# (nbmem-operator-user inherits participant/practitioner via alh-person)
 entity alh-collection plays nbmem-project-involvement:project;
 entity alh-domain-thing plays nbmem-tool-familiarity:tool;
 
@@ -47,9 +46,11 @@ attribute nbmem-domain-expertise, value string;
 
 # Entities
 
-# Person specialization (alh-agent -> alh-person -> nbmem-operator-user)
-
-entity nbmem-operator-user sub alh-person,
+# OPERATOR ROLE - BFO/UFO pattern: anti-rigid, bearer-dependent on alh-person
+# A person bears this role when acting as an operator of the Alhazen notebook.
+# Context attributes live on the role, not on the person.
+# Linked to alh-person via alh-role-bearing (bearer: person, borne-role: role).
+entity nbmem-operator-role sub alh-role,
     owns nbmem-identity-summary,
     owns nbmem-role-description,
     owns nbmem-communication-style,
