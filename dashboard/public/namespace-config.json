@@ -4,13 +4,18 @@
     "color": "teal"
   },
   "nbmem": {
-    "badge": "OS",
-    "color": "mint",
+    "badge": "SKILL",
+    "color": "blue",
     "skill": "agentic-memory"
   },
   "slog": {
     "badge": "OS",
     "color": "rust"
+  },
+  "coach": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "coach"
   },
   "dm": {
     "badge": "SKILL",
@@ -27,19 +32,9 @@
     "color": "blue",
     "skill": "literature-trends"
   },
-  "scilit": {
-    "badge": "SKILL",
-    "color": "blue",
-    "skill": "scientific-literature"
-  },
   "trec": {
     "badge": "SKILL",
     "color": "blue",
     "skill": "tech-recon"
-  },
-  "coach": {
-    "badge": "SKILL",
-    "color": "blue",
-    "skill": "coach"
   }
 }

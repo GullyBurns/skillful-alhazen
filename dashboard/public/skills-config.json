@@ -43,14 +43,5 @@
     "url_path": "/coach",
     "icon": "Heart",
     "color": "teal"
-  },
-  {
-    "slug": "they-said-whaaa",
-    "enabled": false,
-    "name": "They Said Whaaa?",
-    "description": "Track public statements, detect contradictions, build credibility timelines.",
-    "url_path": "/they-said-whaaa",
-    "icon": "Megaphone",
-    "color": "amber"
   }
 ]

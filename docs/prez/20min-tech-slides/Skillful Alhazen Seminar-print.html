@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Skillful Alhazen — technical seminar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="deck/styles.css">
+
+<template id="__bundler_thumbnail" data-bg-color="#070d1c">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#070d1c"/>
+    <g transform="translate(600,400)">
+      <circle r="180" fill="none" stroke="#5a7fa8" stroke-width="2" opacity="0.5"/>
+      <circle r="110" fill="none" stroke="#b8c84a" stroke-width="2" opacity="0.7"/>
+      <circle r="40" fill="#4ba89d"/>
+      <text x="0" y="280" text-anchor="middle" font-family="serif" font-size="44" fill="#e8eef7" font-style="italic">Skillful Alhazen</text>
+    </g>
+  </svg>
+</template>
+
+<script type="application/json" id="speaker-notes">
+[
+  "• Hi — I'm walking you through Skillful Alhazen, a framework for ontology-backed agentic curation.\n• 20 minutes. Origin → architecture → three hard problems → results.\n• Then I want the rest of the hour to be a real conversation — challenge anything you see.",
+
+  "• Personal frame: I started this as focused literature curation at a previous org — pulling structured metadata out of papers and online sources.\n• It turned into a question: can the same notebook scale across totally different domains — disease mechanisms, journalism, careers — without rewriting the agent?\n• Forked from CZI's Alhazen, but reimagined around Claude Code, TypeDB 3.x, and a skills marketplace. Skillful Alhazen is the answer to that question.",
+
+  "• The thesis is one sentence: agentic curation needs structured memory, not Markdown sprawl.\n• Today most agent stacks dump everything to MD or to RAG. That's fine for chat. It falls apart the moment you want to ask 'which papers support which mechanism' or 'which contact mentioned which gap'.\n• Bioinformatics taught us this 20 years ago — data hygiene wins. We forgot.",
+
+  "• Three layers, clean separation:\n• Agent — Claude Code interactively, OpenClaw as a persistent service. Same skills, two runtimes.\n• TypeDB — the ontological memory. Schema is what the agent reasons ABOUT; data is what it has learned.\n• Skills — domain modules that contribute schema, CLI commands, and agent instructions.\n• Critical move: the agent doesn't 'know' the schema. It calls CLI scripts that operate on it.",
+
+  "• Whole-system view. Operator on the left talks to Claude Code or OpenClaw.\n• Agent dispatches into skills — each skill is a directory with SKILL.md, schema.tql, a Python CLI, optional dashboard.\n• Skills read and write through TypeDB. Large artifacts spill to a content-addressed file cache.\n• Schema gaps detected at the seam between Claude and TypeDB go to GitHub Issues — that's the evolution loop on the right.",
+
+  "• One typed hierarchy, three branches. Everything inherits from identifiable-entity.\n• domain-thing is real-world objects — papers, diseases, genes, jobs, people.\n• collection is typed sets — corpora, search campaigns, case files.\n• information-content-entity is content-bearing — artifacts (raw), fragments (extracted), notes (Claude's analysis).\n• This hierarchy is the part that does NOT change per skill. Skills extend the leaves.",
+
+  "• A skill is the unit of extension. Self-contained directory.\n• It contributes a typed schema namespace — every type it defines starts with the skill prefix.\n• A Python CLI script — these are the verbs Claude calls.\n• An agent-readable SKILL.md — triggers, workflows, commands.\n• Optional dashboard — Next.js components that get wired in at build.\n• `make build-skills` resolves a registry YAML, drops symlinks, loads schemas. That's the marketplace.",
+
+  "• Hard problem one: the schema can't be frozen. The whole point is that the agent learns new things.\n• Standard agent stacks treat 'I can't represent this' as a silent skip. We treat it as the most important signal in the system.\n• Claude tries to write something TypeDB rejects → PostToolUse hook catches the error code → CLI files a deduplicated GitHub issue → workflow labels it → human merges the schema PR.\n• Schema gaps are how the graph grows organically from use, not from upfront design.",
+
+  "• Hard problem two: keep the runtime cheap and disposable.\n• Constraint: existing Claude license, no platform lock-in, fast iteration.\n• Claude Code IS the agent runtime. We don't ship our own orchestrator.\n• Skills are git repos. Marketplace pattern — clone, register, go.\n• OpenClaw wraps the same skill bundle as a persistent service. Same schemas, same CLIs.\n• Tradeoff: less control over the agent loop. Win: 10x less code to maintain, deploy is `git clone && make build`.",
+
+  "• Hard problem three: prove the notebook is actually better than what people already do.\n• Markdown notes drift. RAG is an opaque blob you can't audit.\n• TypeDB gives us types, relations, constraints, multi-hop queries. We can ask 'show me every contact who mentioned a skill gap, grouped by company stage.'\n• RAG and MD are still available — artifacts cache as files, vector search via Qdrant for the scientific-literature skill.\n• The notebook adds structure on top, not instead.",
+
+  "• Six skills today across three really different domains.\n• Biomedical — scientific-literature, alg-precision-therapeutics, dismech, literature-trends.\n• Career — jobhunt.\n• Journalism — they-said-whaaa, tracking claim consistency across transcripts.\n• Same notebook, same agent, same deploy story. The skill is the only thing that changes.",
+
+  "• What this looks like in practice. The screenshot here is the jobhunt dossier — the design system you saw in the brief.\n• It's a render of typed entities — position, contact, interview, fit-analysis-note — pulled live from TypeDB.\n• The dashboard is one of the skill's optional contributions; it's not required for the agent to work.\n• Same backend powers the dismech disease-mechanism browser and the scientific-literature corpora views.",
+
+  "• Where we are.\n• Paper accepted at CAIS2026 — ACM Conference on Agents and Agent Systems.\n• Six working skill demos on top of the same framework, deployable in three modes.\n• Honest lessons: schema migration during evolution is still mostly re-ingestion. Concurrent gap PRs can conflict. Need real proposed-vs-committed schema state, not just branches.\n• None of those are blocking — they're the next twelve months of work.",
+
+  "• Where I want to take it next, and what I'd love your push-back on:\n• Domain coverage — what does this look like under a real Altos research workflow?\n• Schema governance at scale — when twenty skills share the core, who arbitrates?\n• The boundary between agent memory and lab memory — what belongs in the notebook vs. in the LIMS?\n• Open the floor — 40 minutes is a lot, please be brutal."
+]
+</script>
+</head>
+<body>
+
+<deck-stage width="1920" height="1080">
+
+  <!-- ── 01 · Title ───────────────────────────────────────── -->
+  <section data-label="01 Title">
+    <div class="chrome">
+      <span class="accent">SKILLFUL ALHAZEN</span>
+      <span class="rule"></span>
+      <span>Technical Seminar</span>
+      <span class="num">·</span>
+      <span>Altos Labs</span>
+    </div>
+
+    <div class="cover" style="height: 100%;">
+      <div style="display: flex; flex-direction: column; gap: 56px;">
+        <div style="display: flex; flex-direction: column; gap: 18px;">
+          <p class="eyebrow"><span class="bracket">&lt;/&gt;</span>&nbsp;&nbsp;A WALKTHROUGH</p>
+          <h1 class="title-display">
+            <span style="color: var(--fg);">Skillful</span><br/>
+            <span class="italic" style="color: var(--olive); font-size: 0.94em;">Alhazen</span>
+          </h1>
+        </div>
+        <p class="lead" style="max-width: 720px;">
+          A TypeDB‑powered, ontology‑backed notebook for agentic curation —
+          one framework, many domains.
+        </p>
+        <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+          <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;framework</span>
+          <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;ontology</span>
+          <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;agentic-memory</span>
+          <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;biomedicine</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 28px;">
+        <div class="panel elevated">
+          <p class="panel-label" style="color: var(--olive);">Brief</p>
+          <p class="italic" style="font-size: 28px; line-height: 1.45; color: var(--fg);">
+            "The duty of the man who investigates the writings of scientists,
+            if learning the truth is his goal, is to make himself an enemy of all
+            that he reads, and, applying his mind to the core and margins of its content,
+            attack it from every side."
+          </p>
+          <p class="mono" style="text-align: right;">— Ibn al‑Haytham · 965–1039 AD</p>
+        </div>
+        <div style="display: flex; gap: 32px; padding-left: 8px;">
+          <div class="kv"><span class="k">Speaker</span><span class="v">Gully Burns</span></div>
+          <div class="kv"><span class="k">Role</span><span class="v">Architect &amp; sole engineer</span></div>
+          <div class="kv"><span class="k">Date</span><span class="v">May 7, 2026</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>01 / 14</span>
+      <span class="rule"></span>
+      <span>github.com/GullyBurns/skillful-alhazen</span>
+    </div>
+  </section>
+
+  <!-- ── 02 · Origin ──────────────────────────────────────── -->
+  <section data-label="02 Origin">
+    <div class="chrome">
+      <span>02</span><span class="num">·</span><span class="accent">ORIGIN</span>
+      <span class="rule"></span>
+      <span>From a literature corpus to a general framework</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 80px;">
+      <div style="max-width: 1380px;">
+        <p class="eyebrow" style="margin-bottom: 22px;">Origin</p>
+        <h2 class="title">
+          A literature‑curation problem,<br/>
+          generalized into a notebook for any domain.
+        </h2>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; margin-top: 32px; align-items: stretch;">
+        <div class="panel">
+          <p class="panel-label">2018 — 2022</p>
+          <p class="lead" style="font-size: 28px;">Literature curation</p>
+          <p class="body" style="font-size: 22px; line-height: 1.5;">
+            Hand‑curated metadata pipelines for biomedical papers.
+            Brittle, expensive, single‑domain.
+          </p>
+        </div>
+        <div class="panel">
+          <p class="panel-label">CZI</p>
+          <p class="lead" style="font-size: 28px;">Alhazen v1</p>
+          <p class="body" style="font-size: 22px; line-height: 1.5;">
+            First pass: heavy framework, bespoke runtime,
+            single biomedical use‑case baked in.
+          </p>
+        </div>
+        <div class="panel" style="border-color: var(--border-hi);">
+          <p class="panel-label" style="color: var(--teal);">2025 — 2026</p>
+          <p class="lead" style="font-size: 28px;">Skillful Alhazen</p>
+          <p class="body" style="font-size: 22px; line-height: 1.5;">
+            Reimagined around Claude Code, TypeDB&nbsp;3.x,
+            and a skills marketplace. Domain becomes a plug‑in.
+          </p>
+        </div>
+        <div class="panel elevated">
+          <p class="panel-label" style="color: var(--olive);">Today</p>
+          <p class="lead" style="font-size: 28px;">CAIS&nbsp;2026 + 6 demos</p>
+          <p class="body" style="font-size: 22px; line-height: 1.5;">
+            Same framework now powers career, journalism,
+            and rare‑disease curation skills.
+          </p>
+        </div>
+      </div>
+
+      <div style="margin-top: 36px; display: flex; gap: 14px; align-items: center; color: var(--fg-faint);">
+        <span class="mono" style="letter-spacing: 1.4px; text-transform: uppercase;">trajectory</span>
+        <span class="arrow">single‑domain pipeline&nbsp;&nbsp;→&nbsp;&nbsp;heavy framework&nbsp;&nbsp;→&nbsp;&nbsp;skill marketplace</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>02 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Origin</span>
+    </div>
+  </section>
+
+  <!-- ── 03 · The problem ─────────────────────────────────── -->
+  <section data-label="03 The problem">
+    <div class="chrome">
+      <span>03</span><span class="num">·</span><span class="accent">PROBLEM</span>
+      <span class="rule"></span>
+      <span>What agentic curation actually demands</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; justify-content: center; height: 100%; max-width: 1500px;">
+      <p class="eyebrow" style="margin-bottom: 32px;">The thesis</p>
+      <h2 class="title-display" style="font-size: 96px;">
+        Agentic curation needs <span class="italic" style="color: var(--olive);">structured</span> memory<span class="fg-faint">,</span><br/>
+        not Markdown sprawl.
+      </h2>
+
+      <div style="margin-top: 80px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 48px;">
+        <div>
+          <p class="mono" style="color: var(--rust); letter-spacing: 1.6px; text-transform: uppercase; margin: 0 0 14px;">— what most stacks do</p>
+          <p class="body" style="font-size: 28px; color: var(--fg);">
+            Dump everything to MD files or an opaque RAG blob. Fine for chat.
+            Useless when you need to ask <span class="italic">which</span> &nbsp;and <span class="italic">why</span>.
+          </p>
+        </div>
+        <div>
+          <p class="mono" style="color: var(--teal); letter-spacing: 1.6px; text-transform: uppercase; margin: 0 0 14px;">— what we do</p>
+          <p class="body" style="font-size: 28px; color: var(--fg);">
+            Typed entities, typed relations, typed notes — persistent across sessions,
+            queryable across skills.
+          </p>
+        </div>
+        <div>
+          <p class="mono" style="color: var(--olive); letter-spacing: 1.6px; text-transform: uppercase; margin: 0 0 14px;">— the lesson, recalled</p>
+          <p class="body" style="font-size: 28px; color: var(--fg);">
+            Bioinformatics taught us data hygiene 20 years ago.
+            Let's not forget it now.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>03 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · The problem</span>
+    </div>
+  </section>
+
+  <!-- ── 04 · Three layers ────────────────────────────────── -->
+  <section data-label="04 Three layers">
+    <div class="chrome">
+      <span>04</span><span class="num">·</span><span class="accent">THREE LAYERS</span>
+      <span class="rule"></span>
+      <span>Agent · Ontology · Skills</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 60px;">
+      <div>
+        <p class="eyebrow" style="margin-bottom: 22px;">The shape of the system</p>
+        <h2 class="title">Three layers. Clean separation. Same skills, two runtimes.</h2>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 16px;">
+        <!-- Agent -->
+        <div class="panel" style="border-color: rgba(91,138,184,0.42); background: rgba(91,138,184,0.04); padding: 36px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span class="kind-chip" style="color: var(--blue);">
+              <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3 L21 12 L12 21 L3 12 Z"/></svg>
+              AGENT
+            </span>
+          </div>
+          <h3 class="title" style="font-size: 44px;">Claude Code &amp; OpenClaw</h3>
+          <p class="body" style="font-size: 24px; line-height: 1.5;">
+            You talk; the agent curates. Claude Code for interactive work,
+            OpenClaw for a persistent local or VPS service.
+          </p>
+          <hr class="rule" />
+          <p class="mono" style="font-size: 18px; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 1.6px;">runtime layer</p>
+        </div>
+
+        <!-- Ontology -->
+        <div class="panel" style="border-color: rgba(90,173,175,0.42); background: rgba(90,173,175,0.04); padding: 36px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span class="kind-chip" style="color: var(--teal);">
+              <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+              ONTOLOGY
+            </span>
+          </div>
+          <h3 class="title" style="font-size: 44px;">TypeDB 3.x</h3>
+          <p class="body" style="font-size: 24px; line-height: 1.5;">
+            The schema defines what the agent reasons <span class="italic">about</span>.
+            The data is what it has learned so far. Persistent across sessions.
+          </p>
+          <hr class="rule" />
+          <p class="mono" style="font-size: 18px; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 1.6px;">memory layer</p>
+        </div>
+
+        <!-- Skills -->
+        <div class="panel" style="border-color: rgba(184,200,74,0.42); background: rgba(184,200,74,0.04); padding: 36px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span class="kind-chip" style="color: var(--olive);">
+              <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4 L21 19 L3 19 Z"/></svg>
+              SKILLS
+            </span>
+          </div>
+          <h3 class="title" style="font-size: 44px;">Domain modules</h3>
+          <p class="body" style="font-size: 24px; line-height: 1.5;">
+            A typed schema namespace, a Python CLI, agent instructions —
+            optionally a dashboard. Self‑contained directory.
+          </p>
+          <hr class="rule" />
+          <p class="mono" style="font-size: 18px; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 1.6px;">extension layer</p>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 18px; margin-top: 12px; padding: 22px 28px; border: 1px dashed var(--border-dim); border-radius: 6px;">
+        <span class="mono" style="letter-spacing: 1.6px; text-transform: uppercase; color: var(--fg-faint);">key move</span>
+        <span class="lead" style="font-size: 28px;">
+          The agent doesn't <span class="italic">know</span> the schema.
+          It calls CLI scripts that operate on it. Schema and reasoning stay decoupled.
+        </span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>04 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Three layers</span>
+    </div>
+  </section>
+
+  <!-- ── 05 · Architecture ────────────────────────────────── -->
+  <section data-label="05 Architecture">
+    <div class="chrome">
+      <span>05</span><span class="num">·</span><span class="accent">ARCHITECTURE</span>
+      <span class="rule"></span>
+      <span>System overview</span>
+    </div>
+
+    <div style="margin-top: 40px;">
+      <p class="eyebrow" style="margin-bottom: 12px;">Boxes &amp; arrows</p>
+      <h2 class="title" style="font-size: 46px;">Operator → agent → skill → typed memory.</h2>
+    </div>
+
+    <!-- Diagram -->
+    <div style="margin-top: 26px; display: grid; grid-template-columns: 220px 1fr 220px; grid-template-rows: auto auto auto; gap: 18px 32px; align-items: stretch;">
+
+      <!-- Operator -->
+      <div class="box" style="grid-column: 1; grid-row: 1 / span 3; justify-content: center;">
+        <p class="box-label">Operator</p>
+        <p class="box-title">You.</p>
+        <p class="box-sub">Researcher, curator,<br/>analyst.</p>
+      </div>
+
+      <!-- Agent row -->
+      <div class="box blue" style="grid-column: 2; padding: 16px 22px;">
+        <p class="box-label" style="margin-bottom: 4px;">Agent runtime</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
+          <div>
+            <p class="box-title">Claude Code</p>
+            <p class="box-sub">interactive · skills via <span class="mono">.claude/skills/</span></p>
+          </div>
+          <div>
+            <p class="box-title">OpenClaw</p>
+            <p class="box-sub">persistent service · Mac mini / VPS</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gap loop -->
+      <div class="box olive" style="grid-column: 3; grid-row: 1 / span 3; justify-content: center;">
+        <p class="box-label" style="color: var(--olive);">Evolution loop</p>
+        <p class="box-title">Schema gaps</p>
+        <p class="box-sub">PostToolUse hook<br/><span class="arrow">↓</span><br/>file‑schema‑gap CLI<br/><span class="arrow">↓</span><br/>GitHub issue → PR<br/><span class="arrow">↓</span><br/>schema.tql merged</p>
+      </div>
+
+      <!-- Skills row -->
+      <div class="box" style="grid-column: 2; padding: 16px 22px;">
+        <p class="box-label" style="margin-bottom: 4px;">Skill dispatch</p>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:10px 12px;"><p class="mono" style="font-size:17px; color: var(--teal);">scientific‑literature</p><p class="box-sub" style="margin-top:2px;">SKILL.md · .tql · CLI</p></div>
+          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:10px 12px;"><p class="mono" style="font-size:17px; color: var(--teal);">jobhunt</p><p class="box-sub" style="margin-top:2px;">SKILL.md · .tql · CLI</p></div>
+          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:10px 12px;"><p class="mono" style="font-size:17px; color: var(--teal);">dismech</p><p class="box-sub" style="margin-top:2px;">SKILL.md · .tql · CLI</p></div>
+          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:10px 12px;"><p class="mono" style="font-size:17px; color: var(--teal);">+ skill</p><p class="box-sub" style="margin-top:2px;">git clone · register</p></div>
+        </div>
+      </div>
+
+      <!-- Storage row -->
+      <div class="box teal" style="grid-column: 2; padding: 16px 22px;">
+        <p class="box-label" style="color: var(--teal); margin-bottom: 4px;">Typed memory + spillover</p>
+        <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px;">
+          <div><p class="box-title">TypeDB&nbsp;3.x</p><p class="box-sub">typed entity hierarchy · skill‑namespaced</p></div>
+          <div><p class="box-title">Artifact cache</p><p class="box-sub"><span class="mono">~/.alhazen/cache/</span></p></div>
+          <div><p class="box-title">Qdrant</p><p class="box-sub">semantic search · scilit</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>05 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Architecture</span>
+    </div>
+  </section>
+
+  <!-- ── 06 · Notebook model ──────────────────────────────── -->
+  <section data-label="06 Notebook model">
+    <div class="chrome">
+      <span>06</span><span class="num">·</span><span class="accent">NOTEBOOK MODEL</span>
+      <span class="rule"></span>
+      <span>One identifiable‑entity hierarchy</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1.1fr; gap: 80px; margin-top: 80px; align-items: start;">
+      <div style="display: flex; flex-direction: column; gap: 32px;">
+        <p class="eyebrow">The notebook model</p>
+        <h2 class="title">One typed hierarchy.<br/>Three branches.</h2>
+        <p class="body">
+          Everything inherits from <span class="mono fg">alh‑identifiable‑entity</span>.
+          The hierarchy is the part that <span class="italic">does not change</span> per skill —
+          skills extend the leaves with namespaced sub‑types.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 8px;">
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="kind-chip" style="color: var(--teal); min-width: 130px; justify-content: center;">DOMAIN</span>
+            <span class="body" style="color: var(--fg);">Real‑world objects — papers, diseases, genes, jobs, people.</span>
+          </div>
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="kind-chip" style="color: var(--blue); min-width: 130px; justify-content: center;">COLLECT</span>
+            <span class="body" style="color: var(--fg);">Typed sets — corpora, search campaigns, case files.</span>
+          </div>
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="kind-chip" style="color: var(--olive); min-width: 130px; justify-content: center;">CONTENT</span>
+            <span class="body" style="color: var(--fg);">Artifacts (raw), fragments (extracted), notes (Claude's analysis).</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="padding: 36px 40px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <p class="panel-label">Schema</p>
+          <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;alh-identifiable-entity</span>
+        </div>
+<pre class="code" style="font-size: 21px; line-height: 1.55;">
+<span class="c">// abstract root — id, name, description, provenance</span>
+<span class="k">alh-identifiable-entity</span>
+├── <span class="n">alh-domain-thing</span>          <span class="c">// real-world objects</span>
+│   ├── agent             <span class="c">// person · ai-agent</span>
+│   │   └── person        <span class="c">// linkedin · email · bio</span>
+│   ├── alh-role          <span class="c">// anti-rigid (BFO/UFO)</span>
+│   ├── organization
+│   └── interaction       <span class="c">// meeting · email · interview</span>
+├── <span class="n">collection</span>                 <span class="c">// typed sets</span>
+│   ├── scilit-corpus
+│   ├── jhunt-search
+│   └── apm-case-file
+└── <span class="n">alh-information-content</span>    <span class="c">// content-bearing</span>
+    ├── artifact          <span class="c">// raw — pdf · html · email</span>
+    ├── fragment          <span class="c">// extracted piece</span>
+    └── note              <span class="c">// Claude's analysis</span>
+</pre>
+        <p class="mono" style="font-size: 18px; color: var(--fg-faint); margin-top: 4px;">
+          local_resources/typedb/alhazen_notebook.tql
+        </p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>06 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Notebook model</span>
+    </div>
+  </section>
+
+  <!-- ── 07 · Skills ──────────────────────────────────────── -->
+  <section data-label="07 Skills as the unit of extension">
+    <div class="chrome">
+      <span>07</span><span class="num">·</span><span class="accent">SKILLS</span>
+      <span class="rule"></span>
+      <span>The unit of extension</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 60px;">
+      <div>
+        <p class="eyebrow" style="margin-bottom: 22px;">Anatomy of a skill</p>
+        <h2 class="title">A skill is a self‑contained directory — and a marketplace entry.</h2>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 64px; align-items: start;">
+        <div class="panel" style="padding: 30px 36px;">
+          <p class="panel-label">Anatomy</p>
+<pre class="code" style="font-size: 22px; line-height: 1.55;">
+skills/<span class="n">jobhunt</span>/
+├── <span class="k">SKILL.md</span>            <span class="c">// triggers · workflows · commands</span>
+├── <span class="k">skill.yaml</span>          <span class="c">// metadata · namespace prefix</span>
+├── <span class="k">schema.tql</span>          <span class="c">// TypeDB extension</span>
+├── <span class="k">jobhunt.py</span>          <span class="c">// the verbs Claude calls</span>
+├── quality-checks.yaml
+└── dashboard/            <span class="c">// optional Next.js</span>
+</pre>
+          <hr class="rule" />
+          <p class="body" style="font-size: 22px; line-height: 1.5;">
+            Single source of truth: <span class="mono fg">skills-registry.yaml</span>.
+            Core skills with <span class="mono">path:</span>, externals with <span class="mono">git:</span>.
+            <span class="mono">make build-skills</span> resolves the registry, drops symlinks, loads schemas.
+          </p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <div class="panel">
+            <p class="panel-label" style="color: var(--teal);">Contract</p>
+            <p class="lead" style="font-size: 26px;">Every skill contributes four things:</p>
+            <div style="display: grid; grid-template-columns: 28px 1fr; row-gap: 14px; column-gap: 18px; align-items: baseline;">
+              <span class="mono fg">①</span><span class="body" style="font-size: 22px;">A typed schema namespace — every type prefixed.</span>
+              <span class="mono fg">②</span><span class="body" style="font-size: 22px;">A Python CLI — verbs the agent invokes.</span>
+              <span class="mono fg">③</span><span class="body" style="font-size: 22px;">Agent‑readable SKILL.md — triggers, workflows, commands.</span>
+              <span class="mono fg">④</span><span class="body" style="font-size: 22px;">Optional dashboard — Next.js components wired at build.</span>
+            </div>
+          </div>
+
+          <div class="panel" style="background: rgba(90,173,175,0.04); border-color: rgba(90,173,175,0.42);">
+            <p class="panel-label" style="color: var(--teal);">Marketplace pattern</p>
+            <p class="body" style="font-size: 22px; line-height: 1.5; color: var(--fg);">
+              Skills live in their own git repos. To add one: <span class="mono fg">git</span>, register, build.
+              No platform, no plugin runtime, no SDK — just a directory and a CLI.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>07 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Skills</span>
+    </div>
+  </section>
+
+  <!-- ── 08 · Hard problem 1 ──────────────────────────────── -->
+  <section data-label="08 Hard problem 1 — Schema as living artifact">
+    <div class="chrome">
+      <span>08</span><span class="num">·</span><span class="accent">HARD PROBLEM · 1</span>
+      <span class="rule"></span>
+      <span>Schema as a living artifact</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 56px; margin-top: 70px;">
+      <div style="display: flex; align-items: baseline; gap: 36px;">
+        <div class="marker"><span class="n">01</span></div>
+        <div style="flex: 1;">
+          <p class="eyebrow" style="margin-bottom: 16px;">Hard problem · one</p>
+          <h2 class="title">The schema can't be frozen — the agent <span class="italic" style="color: var(--olive);">learns</span> new things.</h2>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 72px;">
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <p class="body" style="font-size: 28px; line-height: 1.45; color: var(--fg);">
+            Standard agent stacks treat <span class="italic">"I can't represent this"</span> as a silent skip.
+            We treat it as the most important signal in the system.
+          </p>
+          <div class="panel" style="padding: 26px 28px;">
+            <p class="panel-label">Two failure modes</p>
+            <table style="width:100%; border-collapse: collapse; font-size: 22px;">
+              <tbody>
+                <tr>
+                  <td style="padding: 12px 0; color: var(--fg-faint); font-family: var(--mono); width: 200px; vertical-align: top;">EXECUTION</td>
+                  <td style="padding: 12px 0; color: var(--fg);">Tool crash · empty result · API down<br/><span class="fg-faint mono" style="font-size:18px;">→ standard error log + retry</span></td>
+                </tr>
+                <tr style="border-top: 1px solid var(--border-dim);">
+                  <td style="padding: 12px 0; color: var(--olive); font-family: var(--mono); vertical-align: top;">SCHEMA GAP</td>
+                  <td style="padding: 12px 0; color: var(--fg);">TypeDB write rejected · concept has no type<br/><span class="olive mono" style="font-size:18px;">→ filed as a structured GitHub issue</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel elevated" style="padding: 30px 34px;">
+          <p class="panel-label" style="color: var(--olive);">The evolution loop</p>
+          <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 6px;">
+            <div style="display: flex; gap: 18px; align-items: flex-start;">
+              <span class="mono" style="color: var(--olive); width: 36px;">[1]</span>
+              <span class="body" style="font-size: 22px; color: var(--fg);">Claude writes to TypeDB → error code <span class="mono fg-dim">[SYR1] [TYR01] [FEX1]</span></span>
+            </div>
+            <div style="display: flex; gap: 18px; align-items: flex-start;">
+              <span class="mono" style="color: var(--olive); width: 36px;">[2]</span>
+              <span class="body" style="font-size: 22px; color: var(--fg);">PostToolUse hook detects the code, prompts <span class="mono fg-dim">[SCHEMA-GAP-HINT]</span></span>
+            </div>
+            <div style="display: flex; gap: 18px; align-items: flex-start;">
+              <span class="mono" style="color: var(--olive); width: 36px;">[3]</span>
+              <span class="body" style="font-size: 22px; color: var(--fg);"><span class="mono fg">file-schema-gap</span> CLI: dedupes, routes to repo, opens issue</span>
+            </div>
+            <div style="display: flex; gap: 18px; align-items: flex-start;">
+              <span class="mono" style="color: var(--olive); width: 36px;">[4]</span>
+              <span class="body" style="font-size: 22px; color: var(--fg);"><span class="mono fg">gap-triage.yml</span> labels by severity / phase / skill</span>
+            </div>
+            <div style="display: flex; gap: 18px; align-items: flex-start;">
+              <span class="mono" style="color: var(--olive); width: 36px;">[5]</span>
+              <span class="body" style="font-size: 22px; color: var(--fg);">Local fix · validate against running TypeDB · draft PR · human merge</span>
+            </div>
+          </div>
+          <hr class="rule" />
+          <p class="italic" style="font-size: 22px; color: var(--fg-dim); margin: 0;">
+            Schema gaps are signal, not noise. They are how the graph grows from use, not from upfront design.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>08 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Hard problem 1</span>
+    </div>
+  </section>
+
+  <!-- ── 09 · Hard problem 2 ──────────────────────────────── -->
+  <section data-label="09 Hard problem 2 — Lightweight runtime">
+    <div class="chrome">
+      <span>09</span><span class="num">·</span><span class="accent">HARD PROBLEM · 2</span>
+      <span class="rule"></span>
+      <span>A lightweight runtime, on purpose</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 56px; margin-top: 70px;">
+      <div style="display: flex; align-items: baseline; gap: 36px;">
+        <div class="marker"><span class="n">02</span></div>
+        <div style="flex: 1;">
+          <p class="eyebrow" style="margin-bottom: 16px;">Hard problem · two</p>
+          <h2 class="title">Don't build an agent platform. Use the one you already pay for.</h2>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 72px;">
+        <div style="display: flex; flex-direction: column; gap: 28px;">
+          <div>
+            <p class="mono" style="color: var(--rust); letter-spacing: 1.6px; text-transform: uppercase; margin: 0 0 14px;">— constraints</p>
+            <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:14px;">
+              <li class="body" style="font-size: 26px; color: var(--fg);"><span class="fg-faint mono" style="margin-right: 10px;">·</span>Existing Claude license — keep token cost low</li>
+              <li class="body" style="font-size: 26px; color: var(--fg);"><span class="fg-faint mono" style="margin-right: 10px;">·</span>One engineer — maximum flexibility, minimum maintenance</li>
+              <li class="body" style="font-size: 26px; color: var(--fg);"><span class="fg-faint mono" style="margin-right: 10px;">·</span>Deploy must be <span class="mono fg">git clone &amp;&amp; make build</span></li>
+              <li class="body" style="font-size: 26px; color: var(--fg);"><span class="fg-faint mono" style="margin-right: 10px;">·</span>No platform lock‑in</li>
+            </ul>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <div>
+            <p class="mono" style="color: var(--teal); letter-spacing: 1.6px; text-transform: uppercase; margin: 0 0 14px;">— moves</p>
+            <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:14px;">
+              <li class="body" style="font-size: 26px; color: var(--fg);"><span class="fg-faint mono" style="margin-right: 10px;">·</span>Claude Code <span class="italic">is</span> the agent runtime</li>
+              <li class="body" style="font-size: 26px; color: var(--fg);"><span class="fg-faint mono" style="margin-right: 10px;">·</span>Skills are git repos · marketplace pattern</li>
+              <li class="body" style="font-size: 26px; color: var(--fg);"><span class="fg-faint mono" style="margin-right: 10px;">·</span>Same skill bundle wraps in <span class="mono fg">OpenClaw</span> for persistent service</li>
+              <li class="body" style="font-size: 26px; color: var(--fg);"><span class="fg-faint mono" style="margin-right: 10px;">·</span>Three deploy targets: laptop · Mac mini · VPS</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+        <div class="panel" style="border-color: rgba(200,122,74,0.32); background: rgba(200,122,74,0.04); padding: 24px 28px;">
+          <p class="panel-label" style="color: var(--rust);">Tradeoff accepted</p>
+          <p class="body" style="font-size: 24px; color: var(--fg); margin: 0;">
+            Less control over the agent loop. We don't own the orchestrator —
+            a Claude Code change can move things under us.
+          </p>
+        </div>
+        <div class="panel" style="border-color: rgba(90,173,175,0.42); background: rgba(90,173,175,0.04); padding: 24px 28px;">
+          <p class="panel-label" style="color: var(--teal);">Win banked</p>
+          <p class="body" style="font-size: 24px; color: var(--fg); margin: 0;">
+            ~10× less code to maintain. Onboarding a new skill is one PR.
+            Iteration speed is the moat.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>09 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Hard problem 2</span>
+    </div>
+  </section>
+
+  <!-- ── 10 · Hard problem 3 ──────────────────────────────── -->
+  <section data-label="10 Hard problem 3 — Notebook over Markdown sprawl">
+    <div class="chrome">
+      <span>10</span><span class="num">·</span><span class="accent">HARD PROBLEM · 3</span>
+      <span class="rule"></span>
+      <span>Notebook memory over Markdown sprawl</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 32px; margin-top: 50px;">
+      <div style="display: flex; align-items: baseline; gap: 36px;">
+        <div class="marker"><span class="n">03</span></div>
+        <div style="flex: 1;">
+          <p class="eyebrow" style="margin-bottom: 14px;">Hard problem · three</p>
+          <h2 class="title">Prove the notebook is actually better than what people already do.</h2>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: stretch;">
+        <div class="panel" style="padding: 20px 24px; gap: 10px;">
+          <p class="panel-label" style="color: var(--rust);">Markdown notes</p>
+          <p class="lead" style="font-size: 24px; margin: 0;">Drift &amp; duplicate.</p>
+          <p class="body" style="font-size: 20px; line-height: 1.45; margin: 0;">
+            Same fact in three files, slightly different. No way to ask “which”.
+          </p>
+        </div>
+        <div class="panel" style="padding: 20px 24px; gap: 10px;">
+          <p class="panel-label" style="color: var(--rust);">RAG only</p>
+          <p class="lead" style="font-size: 24px; margin: 0;">Opaque blob.</p>
+          <p class="body" style="font-size: 20px; line-height: 1.45; margin: 0;">
+            Useful for retrieval, useless for audit. Can't introspect what's in there.
+          </p>
+        </div>
+        <div class="panel elevated" style="padding: 20px 24px; gap: 10px;">
+          <p class="panel-label" style="color: var(--olive);">TypeDB notebook</p>
+          <p class="lead" style="font-size: 24px; margin: 0;">Typed &amp; queryable.</p>
+          <p class="body" style="font-size: 20px; line-height: 1.45; margin: 0;">
+            Multi‑hop questions across skills. Provenance on every claim.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel" style="padding: 18px 26px; gap: 10px;">
+        <p class="panel-label">Example query — only possible because the schema is real</p>
+<pre class="code" style="font-size: 18px; line-height: 1.35; margin: 0;">
+<span class="c">// "Every contact who flagged a skill gap, grouped by funding stage."</span>
+<span class="k">match</span>  $c <span class="k">isa</span> <span class="n">jhunt-contact</span>,        <span class="k">has</span> name $cname;
+       $g <span class="k">isa</span> <span class="n">jhunt-skill-gap-note</span>,  <span class="k">has</span> content $gtxt;
+       $co <span class="k">isa</span> <span class="n">jhunt-company</span>,        <span class="k">has</span> stage $stage;
+       (mentioner: $c, mention: $g) <span class="k">isa</span> <span class="n">jhunt-mention</span>;
+       (employee: $c, employer: $co) <span class="k">isa</span> <span class="n">alh-works-at</span>;
+<span class="k">fetch</span>  $cname; $stage; $gtxt;
+</pre>
+        <p class="body" style="font-size: 20px; line-height: 1.45; color: var(--fg-dim); margin: 0;">
+          RAG &amp; MD are still here when they're the right tool — the notebook adds structure on top, not instead.
+        </p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>10 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Hard problem 3</span>
+    </div>
+  </section>
+
+  <!-- ── 11 · Skill marketplace ───────────────────────────── -->
+  <section data-label="11 Skill marketplace">
+    <div class="chrome">
+      <span>11</span><span class="num">·</span><span class="accent">SKILL MARKETPLACE</span>
+      <span class="rule"></span>
+      <span>Six domains, one shell</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 28px; margin-top: 40px;">
+      <div>
+        <p class="eyebrow" style="margin-bottom: 14px;">What's deployed</p>
+        <h2 class="title" style="font-size: 46px;">Six skills, three really different domains, the same notebook underneath.</h2>
+      </div>
+
+      <table class="skill-table" style="font-size: 21px;">
+        <thead>
+          <tr>
+            <th style="width: 22%;">Skill</th>
+            <th style="width: 16%;">Type</th>
+            <th style="width: 18%;">Domain</th>
+            <th style="width: 36%;">What it does</th>
+            <th style="width: 8%; text-align: right;">UI</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="skill-name">scientific-literature</span></td>
+            <td><span class="tag-pill ext">external</span></td>
+            <td>Biomedical</td>
+            <td>Multi‑source literature search · PubMed · Europe PMC · OpenAlex · semantic search via Voyage AI + Qdrant</td>
+            <td style="text-align: right;" class="fg-faint">—</td>
+          </tr>
+          <tr>
+            <td><span class="skill-name">alg‑precision‑therapeutics</span></td>
+            <td><span class="tag-pill ext">external</span></td>
+            <td>Rare disease</td>
+            <td>Investigate mechanism of harm and therapeutic landscape from a MONDO diagnosis</td>
+            <td style="text-align: right;" class="teal">✓</td>
+          </tr>
+          <tr>
+            <td><span class="skill-name">dismech</span></td>
+            <td><span class="tag-pill ext">external</span></td>
+            <td>Disease mechanisms</td>
+            <td>Browse the DisMech knowledge graph — 750+ curated mechanism entries</td>
+            <td style="text-align: right;" class="fg-faint">—</td>
+          </tr>
+          <tr>
+            <td><span class="skill-name">literature-trends</span></td>
+            <td><span class="tag-pill ext">external</span></td>
+            <td>Research analysis</td>
+            <td>Trace how explanatory hypotheses evolve over time in a tagged corpus</td>
+            <td style="text-align: right;" class="fg-faint">—</td>
+          </tr>
+          <tr>
+            <td><span class="skill-name">jobhunt</span></td>
+            <td><span class="tag-pill ext">external</span></td>
+            <td>Career</td>
+            <td>Track positions and engagements · fit analysis · skill‑gap identification</td>
+            <td style="text-align: right;" class="teal">✓</td>
+          </tr>
+          <tr>
+            <td><span class="skill-name">they‑said‑whaaa</span></td>
+            <td><span class="tag-pill ext">external</span></td>
+            <td>Journalism</td>
+            <td>Track public‑figure consistency — extract claims, detect contradictions across sources</td>
+            <td style="text-align: right;" class="teal">✓</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="display: flex; align-items: center; gap: 14px; padding-top: 0; flex-wrap: wrap;">
+        <span class="mono" style="letter-spacing: 1.6px; text-transform: uppercase; color: var(--fg-faint); font-size: 18px;">Plus four core skills:</span>
+        <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;typedb-notebook</span>
+        <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;web-search</span>
+        <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;curation-skill-builder</span>
+        <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;tech-recon</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>11 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Skill marketplace</span>
+    </div>
+  </section>
+
+  <!-- ── 12 · Practice ────────────────────────────────────── -->
+  <section data-label="12 In practice">
+    <div class="chrome">
+      <span>12</span><span class="num">·</span><span class="accent">IN PRACTICE</span>
+      <span class="rule"></span>
+      <span>A dossier in the wild</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 80px; margin-top: 70px; align-items: center; height: calc(100% - 200px);">
+      <div style="display: flex; flex-direction: column; gap: 32px;">
+        <p class="eyebrow">In practice</p>
+        <h2 class="title" style="font-size: 60px;">A dossier is just a render of typed entities.</h2>
+        <p class="body" style="font-size: 26px;">
+          Position · contact · interview · fit‑analysis‑note — all live in TypeDB.
+          The dashboard is one of the skill's optional contributions.
+          Same backend powers the dismech mechanism browser and the
+          <span class="mono fg">scientific-literature</span> corpora views.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--teal);">POS</span>
+            <span class="mono fg-dim">jhunt-position</span>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--olive);">BRIEF</span>
+            <span class="mono fg-dim">jobhunt-cc-brief-note</span>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--blue);">TALK</span>
+            <span class="mono fg-dim">jobhunt-interaction-note</span>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--mint);">FIT</span>
+            <span class="mono fg-dim">jobhunt-fit-analysis-note</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="image-slot" style="height: 100%; min-height: 720px;">
+        <div>
+          [ screenshot · jobhunt opportunity dossier ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">replace with: dashboard render at 1240×1700 — Augura Health position</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>12 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · In practice</span>
+    </div>
+  </section>
+
+  <!-- ── 13 · Outcomes ────────────────────────────────────── -->
+  <section data-label="13 Outcomes">
+    <div class="chrome">
+      <span>13</span><span class="num">·</span><span class="accent">OUTCOMES</span>
+      <span class="rule"></span>
+      <span>Where we are · honest lessons</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 70px;">
+      <div>
+        <p class="eyebrow" style="margin-bottom: 22px;">Outcomes</p>
+        <h2 class="title">A paper, working demos, and three honest unfinished things.</h2>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;">
+        <div class="panel elevated" style="padding: 32px 34px; gap: 14px;">
+          <p class="panel-label" style="color: var(--olive);">Recognition</p>
+          <p class="title-display" style="font-size: 96px; color: var(--olive); line-height: 0.95;">CAIS</p>
+          <p class="lead" style="font-size: 28px;">Accepted at CAIS&nbsp;2026.</p>
+          <p class="body" style="font-size: 22px;">
+            ACM Conference on Agents and Agent Systems.
+          </p>
+        </div>
+        <div class="panel" style="padding: 32px 34px; gap: 14px;">
+          <p class="panel-label" style="color: var(--teal);">Working demos</p>
+          <div style="display:flex; align-items:baseline; gap: 16px;">
+            <span class="title-display" style="font-size: 96px; color: var(--teal); line-height: 0.95;">6</span>
+            <span class="body" style="font-size: 26px;">skill demos</span>
+          </div>
+          <p class="body" style="font-size: 22px;">
+            Across biomedicine, careers, journalism — three deploy targets, one codebase.
+          </p>
+        </div>
+        <div class="panel" style="padding: 32px 34px; gap: 14px;">
+          <p class="panel-label" style="color: var(--blue);">Adoption surface</p>
+          <div style="display:flex; align-items:baseline; gap: 16px;">
+            <span class="title-display" style="font-size: 96px; color: var(--blue); line-height: 0.95;">3</span>
+            <span class="body" style="font-size: 26px;">runtimes</span>
+          </div>
+          <p class="body" style="font-size: 22px;">
+            Claude Code · OpenClaw on Mac mini · OpenClaw on a hardened VPS.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel" style="padding: 28px 32px;">
+        <p class="panel-label" style="color: var(--rust);">Honest lessons — open work</p>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;">
+          <div>
+            <p class="lead" style="font-size: 24px; color: var(--fg);">Schema migration</p>
+            <p class="body" style="font-size: 20px; line-height: 1.5;">When an attribute type changes, existing data needs migration. Today: re‑ingest. Need a real path.</p>
+          </div>
+          <div>
+            <p class="lead" style="font-size: 24px; color: var(--fg);">Concurrent gap PRs</p>
+            <p class="body" style="font-size: 20px; line-height: 1.5;">Two open gap fixes can touch the same entity. No tooling to detect the conflict yet.</p>
+          </div>
+          <div>
+            <p class="lead" style="font-size: 24px; color: var(--fg);">Proposed vs. committed</p>
+            <p class="body" style="font-size: 20px; line-height: 1.5;">All schema changes go straight to <span class="mono fg">schema.tql</span>. Want a real intermediate state.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>13 / 14</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen · Outcomes</span>
+    </div>
+  </section>
+
+  <!-- ── 14 · What's next ─────────────────────────────────── -->
+  <section data-label="14 What's next — Q&amp;A">
+    <div class="chrome">
+      <span>14</span><span class="num">·</span><span class="accent">Q &amp; A</span>
+      <span class="rule"></span>
+      <span>Open questions for the next 40 minutes</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 80px; align-items: start; height: calc(100% - 220px);">
+      <div style="display: flex; flex-direction: column; gap: 32px; justify-content: center; height: 100%;">
+        <p class="eyebrow">Q &amp; A · 40 min</p>
+        <h2 class="title-display" style="font-size: 104px;">
+          Where would <span class="italic" style="color: var(--olive);">you</span><br/>
+          push this?
+        </h2>
+        <p class="body" style="font-size: 28px;">
+          Three areas I want to argue with you about — please be brutal.
+        </p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 28px; padding-top: 8px;">
+        <div class="panel" style="padding: 28px 32px;">
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="mono" style="color: var(--olive); font-size: 40px; line-height: 1;">①</span>
+            <div>
+              <p class="lead" style="font-size: 30px; color: var(--fg); margin-bottom: 8px;">Domain coverage at Altos</p>
+              <p class="body" style="font-size: 22px;">What does this notebook look like sitting under a real cell‑programming or rejuvenation workflow?</p>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="padding: 28px 32px;">
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="mono" style="color: var(--teal); font-size: 40px; line-height: 1;">②</span>
+            <div>
+              <p class="lead" style="font-size: 30px; color: var(--fg); margin-bottom: 8px;">Schema governance at scale</p>
+              <p class="body" style="font-size: 22px;">When twenty skills share the core hierarchy, who arbitrates? What's the review cadence?</p>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="padding: 28px 32px;">
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="mono" style="color: var(--blue); font-size: 40px; line-height: 1;">③</span>
+            <div>
+              <p class="lead" style="font-size: 30px; color: var(--fg); margin-bottom: 8px;">Notebook ↔ lab memory</p>
+              <p class="body" style="font-size: 22px;">Where's the boundary between agent memory and the systems of record — LIMS, ELN, sequencing pipelines?</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>14 / 14</span>
+      <span class="rule"></span>
+      <span>Thank you · Gully Burns · github.com/GullyBurns/skillful-alhazen</span>
+    </div>
+  </section>
+
+</deck-stage>
+
+<script src="deck/deck-stage.js"></script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="deck/tweaks-panel.jsx"></script>
+
+<div id="tweaks-root"></div>
+<script type="text/babel" data-presets="env,react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "mode": "dark",
+  "density": "default",
+  "accent": "#b8c84a"
+}/*EDITMODE-END*/;
+
+function applyTweaks(t) {
+  document.documentElement.dataset.mode = t.mode;
+  document.documentElement.dataset.density = t.density;
+  document.documentElement.style.setProperty('--olive', t.accent);
+}
+
+function TweaksApp() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  React.useEffect(() => { applyTweaks(t); }, [t]);
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection label="Theme">
+        <TweakRadio label="Mode" value={t.mode} options={['dark', 'light']}
+          onChange={(v) => setTweak('mode', v)} />
+        <TweakRadio label="Density" value={t.density} options={['comfy', 'default', 'dense']}
+          onChange={(v) => setTweak('density', v)} />
+      </TweakSection>
+      <TweakSection label="Accent">
+        <TweakColor label="Accent color" value={t.accent}
+          options={['#b8c84a', '#c87a4a', '#62c4bc', '#5b8ab8']}
+          onChange={(v) => setTweak('accent', v)} />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+// initial paint before mount
+applyTweaks(TWEAK_DEFAULTS);
+
+ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<TweaksApp />);
+</script>
+
+<script>
+  (async () => {
+    try { await document.fonts.ready; } catch (e) {}
+    setTimeout(() => window.print(), 800);
+  })();
+</script>
+
+</body>
+</html>

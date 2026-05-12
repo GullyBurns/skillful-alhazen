@@ -1,0 +1,449 @@
+/* ─────────────────────────────────────────────────────────────
+   Skillful Alhazen — technical seminar deck
+   Visual language inspired by the Alhazen jobhunt prototype:
+   "Starry Night" dark palette, DM Serif Display + DM Sans + JetBrains Mono,
+   geometric icons, schema-tag motifs, panel chrome with thin borders.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* type scale (1920×1080) */
+  --type-display:   116px;
+  --type-title:     72px;
+  --type-subtitle:  44px;
+  --type-lead:      36px;
+  --type-body:      30px;
+  --type-small:     24px;
+  --type-meta:      18px;
+  --type-mono:      22px;
+
+  /* spacing */
+  --pad-top:        96px;
+  --pad-bottom:     96px;
+  --pad-x:          120px;
+  --gap-title:      52px;
+  --gap-item:       28px;
+
+  /* palette — Starry Night */
+  --bg:        #070d1c;
+  --bg-raised: #0c1628;
+  --bg-sunken: #050a16;
+  --panel:     rgba(12, 22, 40, 0.72);
+  --panel-hi:  rgba(20, 34, 58, 0.85);
+  --border:    rgba(90, 173, 175, 0.22);
+  --border-hi: rgba(90, 173, 175, 0.42);
+  --border-dim:rgba(200, 221, 232, 0.08);
+  --fg:        #c8dde8;
+  --fg-dim:    #8ba4b8;
+  --fg-faint:  #5e7387;
+
+  --teal:   #5aadaf;
+  --teal-d: rgba(90, 173, 175, 0.18);
+  --blue:   #5b8ab8;
+  --blue-d: rgba(91, 138, 184, 0.18);
+  --olive:  #b8c84a;
+  --olive-d:rgba(184, 200, 74, 0.18);
+  --mint:   #62c4bc;
+  --rust:   #c87a4a;
+  --rust-d: rgba(200, 122, 74, 0.18);
+
+  --mono:  ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+  --serif: "DM Serif Display", "Iowan Old Style", Georgia, serif;
+  --sans:  "DM Sans", -apple-system, system-ui, sans-serif;
+}
+
+/* "light" variant — for tweaks toggle */
+:root[data-mode="light"] {
+  --bg:        #f3efe6;
+  --bg-raised: #eae5d8;
+  --bg-sunken: #e3ddcd;
+  --panel:     rgba(255, 252, 244, 0.72);
+  --panel-hi:  rgba(255, 252, 244, 0.95);
+  --border:    rgba(40, 90, 92, 0.28);
+  --border-hi: rgba(40, 90, 92, 0.5);
+  --border-dim:rgba(40, 60, 80, 0.12);
+  --fg:        #1c2436;
+  --fg-dim:    #5b6b80;
+  --fg-faint:  #8a96a8;
+  --teal:   #2a7273;
+  --olive:  #6e7a1f;
+  --blue:   #355c87;
+  --rust:   #9a4a1d;
+}
+
+/* density variant */
+:root[data-density="comfy"] {
+  --pad-top: 120px; --pad-bottom: 120px; --pad-x: 140px;
+  --gap-title: 64px; --gap-item: 36px;
+}
+:root[data-density="dense"] {
+  --pad-top: 72px; --pad-bottom: 72px; --pad-x: 96px;
+  --gap-title: 36px; --gap-item: 20px;
+}
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--fg);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+::selection { background: var(--olive-d); color: var(--fg); }
+
+/* ── slide framing ──────────────────────────────────────────── */
+deck-stage section {
+  width: 1920px; height: 1080px;
+  background: var(--bg);
+  position: relative;
+  display: flex; flex-direction: column;
+  padding: var(--pad-top) var(--pad-x) var(--pad-bottom);
+  overflow: hidden;
+}
+
+/* watermark grid — faint dots, subtle starfield */
+deck-stage section::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(200,221,232,0.05) 1px, transparent 0);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+deck-stage section > * { position: relative; z-index: 1; }
+
+/* ── chrome bar — slide identifier + accent rule ───────────── */
+.chrome {
+  position: absolute;
+  top: 48px; left: var(--pad-x); right: var(--pad-x);
+  display: flex; align-items: center; gap: 18px;
+  font-family: var(--mono);
+  font-size: var(--type-meta);
+  color: var(--fg-faint);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+.chrome .rule { flex: 1; height: 1px; background: var(--border-dim); }
+.chrome .accent { color: var(--teal); }
+.chrome .num { color: var(--fg-dim); }
+
+/* ── footer — author, venue ────────────────────────────────── */
+.footer {
+  position: absolute;
+  bottom: 48px; left: var(--pad-x); right: var(--pad-x);
+  display: flex; align-items: center; gap: 18px;
+  font-family: var(--mono);
+  font-size: var(--type-meta);
+  color: var(--fg-faint);
+  letter-spacing: 1.4px;
+}
+.footer .rule { flex: 1; height: 1px; background: var(--border-dim); }
+
+/* ── typographic primitives ────────────────────────────────── */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: var(--type-small);
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  margin: 0;
+}
+.title {
+  font-family: var(--serif);
+  font-size: var(--type-title);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  margin: 0;
+  text-wrap: balance;
+}
+.title-display {
+  font-family: var(--serif);
+  font-size: var(--type-display);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  color: var(--fg);
+  margin: 0;
+  text-wrap: balance;
+}
+.subtitle {
+  font-family: var(--serif);
+  font-size: var(--type-subtitle);
+  font-weight: 400;
+  line-height: 1.18;
+  color: var(--fg-dim);
+  margin: 0;
+  text-wrap: pretty;
+}
+.lead {
+  font-family: var(--sans);
+  font-size: var(--type-lead);
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--fg);
+  margin: 0;
+  text-wrap: pretty;
+}
+.body {
+  font-family: var(--sans);
+  font-size: var(--type-body);
+  font-weight: 400;
+  line-height: 1.42;
+  color: var(--fg-dim);
+  margin: 0;
+  text-wrap: pretty;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: var(--type-mono);
+  letter-spacing: 0.4px;
+  color: var(--fg-dim);
+}
+.italic {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--fg-dim);
+}
+
+.fg     { color: var(--fg) !important; }
+.fg-dim { color: var(--fg-dim) !important; }
+.fg-faint { color: var(--fg-faint) !important; }
+.teal   { color: var(--teal) !important; }
+.olive  { color: var(--olive) !important; }
+.blue   { color: var(--blue) !important; }
+.mint   { color: var(--mint) !important; }
+.rust   { color: var(--rust) !important; }
+
+/* ── schema-tag motif (lifted from atoms.jsx) ──────────────── */
+.schema-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono);
+  font-size: var(--type-small);
+  letter-spacing: 0.6px;
+  color: var(--fg-faint);
+  padding: 4px 10px;
+  border: 1px dashed var(--border-dim);
+  border-radius: 4px;
+  background: transparent;
+}
+.schema-tag .bracket { opacity: 0.55; }
+
+.kind-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono);
+  font-size: var(--type-small);
+  letter-spacing: 1.4px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid currentColor;
+}
+.kind-chip .glyph { width: 14px; height: 14px; }
+
+.kbd {
+  font-family: var(--mono);
+  font-size: 22px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-dim);
+  border-radius: 5px;
+  color: var(--fg-dim);
+  background: rgba(255,255,255,0.02);
+  letter-spacing: 1px;
+}
+
+/* ── panel motif ───────────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 28px 32px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.panel.elevated {
+  border-color: rgba(184,200,74,0.32);
+  background: rgba(184,200,74,0.04);
+}
+.panel-label {
+  font-family: var(--mono);
+  font-size: var(--type-small);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin: 0;
+}
+
+/* ── KV ────────────────────────────────────────────────────── */
+.kv { display: flex; flex-direction: column; gap: 6px; }
+.kv .k {
+  font-family: var(--mono);
+  font-size: 18px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+.kv .v {
+  font-family: var(--sans);
+  font-size: var(--type-body);
+  color: var(--fg);
+}
+
+/* ── numbered marker (for problem slides) ──────────────────── */
+.marker {
+  display: inline-flex; align-items: baseline; gap: 14px;
+  font-family: var(--mono);
+  font-size: var(--type-small);
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: var(--olive);
+}
+.marker .n {
+  font-family: var(--serif);
+  font-size: 84px;
+  letter-spacing: -0.02em;
+  color: var(--olive);
+  line-height: 1;
+}
+
+/* ── tables ────────────────────────────────────────────────── */
+table.skill-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: var(--type-small);
+  color: var(--fg);
+}
+table.skill-table thead th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 18px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  font-weight: 600;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-dim);
+}
+table.skill-table tbody td {
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--border-dim);
+  vertical-align: top;
+  line-height: 1.4;
+}
+table.skill-table tbody tr:last-child td { border-bottom: none; }
+table.skill-table .skill-name {
+  font-family: var(--mono);
+  color: var(--teal);
+  letter-spacing: 0.5px;
+}
+.tag-pill {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 16px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  color: var(--fg-dim);
+  letter-spacing: 0.6px;
+}
+.tag-pill.core { color: var(--teal); border-color: rgba(90,173,175,0.4); }
+.tag-pill.ext  { color: var(--olive); border-color: rgba(184,200,74,0.4); }
+
+/* ── timeline / arrow primitives ───────────────────────────── */
+.arrow {
+  font-family: var(--mono);
+  color: var(--teal);
+  letter-spacing: 0.5px;
+}
+
+/* ── image placeholder ─────────────────────────────────────── */
+.image-slot {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(200,221,232,0.03) 0 8px,
+      rgba(200,221,232,0.06) 8px 16px
+    ),
+    var(--bg-raised);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--fg-faint);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 24px;
+}
+
+/* ── full-bleed cover slide ────────────────────────────────── */
+.cover {
+  padding: var(--pad-top) var(--pad-x) var(--pad-bottom);
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 80px;
+  align-items: center;
+}
+
+/* ── two-column slot ───────────────────────────────────────── */
+.cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; }
+.cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 60px; }
+
+/* ── thin rule ─────────────────────────────────────────────── */
+hr.rule {
+  border: none; height: 1px; background: var(--border-dim); margin: 0;
+}
+
+/* ── code block ────────────────────────────────────────────── */
+pre.code {
+  font-family: var(--mono);
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  padding: 24px 28px;
+  margin: 0;
+  overflow: hidden;
+  white-space: pre;
+}
+pre.code .c { color: var(--fg-faint); }
+pre.code .k { color: var(--olive); }
+pre.code .s { color: var(--mint); }
+pre.code .n { color: var(--blue); }
+
+/* ── architecture diagram block ────────────────────────────── */
+.box {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 22px 24px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.box.olive { border-color: rgba(184,200,74,0.42); background: rgba(184,200,74,0.04); }
+.box.teal  { border-color: rgba(90,173,175,0.42); background: rgba(90,173,175,0.04); }
+.box.blue  { border-color: rgba(91,138,184,0.42); background: rgba(91,138,184,0.04); }
+.box .box-label {
+  font-family: var(--mono);
+  font-size: 18px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+.box .box-title {
+  font-family: var(--sans);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--fg);
+  letter-spacing: -0.005em;
+}
+.box .box-sub {
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--fg-dim);
+  line-height: 1.4;
+}
