@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Skillful Alhazen — technical seminar v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="deck/styles.css">
+
+<template id="__bundler_thumbnail" data-bg-color="#070d1c">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#070d1c"/>
+    <g transform="translate(600,400)">
+      <circle r="180" fill="none" stroke="#5a7fa8" stroke-width="2" opacity="0.5"/>
+      <circle r="110" fill="none" stroke="#b8c84a" stroke-width="2" opacity="0.7"/>
+      <circle r="40" fill="#4ba89d"/>
+      <text x="0" y="280" text-anchor="middle" font-family="serif" font-size="44" fill="#e8eef7" font-style="italic">Skillful Alhazen</text>
+    </g>
+  </svg>
+</template>
+
+<script type="application/json" id="speaker-notes">
+[
+  "Hi, I'm Gully Burns. I'm going to walk you through an architecture I've been building: an ontology-backed notebook for agentic curation.\n20 minutes, then I'd love to use the rest of the time for real conversation.",
+
+  "I started this work doing literature curation at CZI. The agents were smart, but their memory was markdown files and conversation logs.\nScientists don't remember everything -- they use notebooks. They write things down with structure so they can find it later and subject it to scrutiny.\nCalling what agents do 'memory' anthropomorphizes what is really a context management problem.",
+
+  "This is from Solomon Hynes at the AI Engineering World's Fair last year.\nThe moment you use agents for more than one task, you're building a platform. Most people haven't realized this yet.\nI decided to lean into it deliberately rather than let it happen accidentally.",
+
+  "Here's the deeper issue: LLMs are so good at language that every piece of software we build with them contains implicit ontological commitments.\nWhat's a 'contact'? What's a 'finding'? What's the relationship between a person and a role?\nThese commitments are buried in prompts and markdown. This framework makes them explicit and evolvable.",
+
+  "Decision one: use a knowledge graph instead of files.\nMarkdown drifts and duplicates. RAG is useful for retrieval but opaque -- you can't audit what's in there.\nTypeDB gives typed entities, typed relations, constraints, multi-hop queries.\nThe tradeoff: harder to set up. The payoff: queryable, auditable, cross-domain.",
+
+  "Decision two: make the skill the unit of extension.\nA skill is a self-contained directory: a typed schema namespace, a Python CLI, agent instructions, and an optional dashboard.\nOne agent, many domains. The domain becomes a plug-in, not a rewrite.",
+
+  "Decision three, and the hardest: let the schema evolve from use rather than freezing it upfront.\nMost agent stacks silently skip what they can't represent. I treat that as the most important signal in the system.\nWhen TypeDB rejects a write, a hook catches the error, files a GitHub issue, and the schema grows organically.",
+
+  "Decision four: don't build an orchestrator.\nClaude Code IS the agent runtime. I don't ship my own loop.\nTradeoff: less control over the agent loop. Win: 10x less code to maintain. Iteration speed is the moat.",
+
+  "This is the example that shows why explicit ontology pays off.\nAn LLM's instinct is 'Author is-a Person' -- make Author a subclass. That falls apart: Alice is also a reviewer, a patient, an employee. Single inheritance can't hold it.\nThe fix: Person is rigid and intrinsic. Role is anti-rigid and externally grounded. Roles come and go. The person stays clean.",
+
+  "Six skills today across three domains, all on the same notebook.\nJobhunt, tech-recon, skill-builder, scientific literature, disease mechanisms, literature trends.\nSame deploy, same agent, same schema hierarchy.",
+
+  "Where we are: a paper accepted at CAIS 2026, six working demos, three honest open problems.\nSchema migration is still mostly re-ingestion. Concurrent schema gap PRs can conflict. No proposed-vs-committed schema state yet.\nNone of these are blocking -- they're the next phase of work.",
+
+  "Any questions? I'm happy to go deeper on any of the decisions, the tradeoffs, or what this might look like in a research context."
+]
+</script>
+</head>
+<body style="font-size: 14px">
+
+<deck-stage width="1920" height="1080">
+
+  <!-- 01 Title -->
+  <section data-label="01 Title">
+    <div class="chrome">
+      <span class="accent">SKILLFUL ALHAZEN</span>
+      <span class="rule"></span>
+      <span>Technical Architecture Walkthrough</span>
+    </div>
+
+    <div class="cover" style="height: 100%;">
+      <div style="display: flex; flex-direction: column; gap: 56px;">
+        <div style="display: flex; flex-direction: column; gap: 18px;">
+          <p class="eyebrow"><span class="bracket">&lt;/&gt;</span>&nbsp;&nbsp;A WALKTHROUGH</p>
+          <h1 class="title-display">
+            <span style="color: var(--fg);">Skillful</span><br/>
+            <span class="italic" style="color: var(--olive); font-size: 0.94em;">Alhazen</span>
+          </h1>
+        </div>
+        <p class="lead" style="max-width: 780px;">
+          Designing an ontology-backed notebook for agentic curation --
+          decisions, tradeoffs, and what I learned.
+        </p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 28px;">
+        <div class="panel elevated">
+          <p class="panel-label" style="color: var(--olive);">Brief</p>
+          <p class="italic" style="font-size: 28px; line-height: 1.45; color: var(--fg);">
+            "The duty of the man who investigates the writings of scientists,
+            if learning the truth is his goal, is to make himself an enemy of all
+            that he reads, and, applying his mind to the core and margins of its content,
+            attack it from every side."
+          </p>
+          <p class="mono" style="text-align: right;">-- Ibn al-Haytham, 965-1039 AD</p>
+        </div>
+        <div style="display: flex; gap: 32px; padding-left: 8px;">
+          <div class="kv"><span class="k">Speaker</span><span class="v">Gully Burns</span></div>
+          <div class="kv"><span class="k">Role</span><span class="v">Principal AI Architect</span></div>
+          <div class="kv"><span class="k">Date</span><span class="v">May 2026</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>01 / 12</span>
+      <span class="rule"></span>
+      <span>github.com/GullyBurns/skillful-alhazen</span>
+    </div>
+  </section>
+
+  <!-- 02 The problem -->
+  <section data-label="02 The problem">
+    <div class="chrome">
+      <span>02</span><span class="num">.</span><span class="accent">THE PROBLEM</span>
+      <span class="rule"></span>
+      <span>What I set out to solve</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 80px; align-items: center; height: calc(100% - 240px);">
+      <div style="display: flex; flex-direction: column; gap: 36px;">
+        <p class="eyebrow">The starting point</p>
+        <h2 class="title" style="font-size: 56px;">
+          The agent was smart.<br/>
+          Its memory was <span class="italic" style="color: var(--rust);">post-it notes</span>.
+        </h2>
+        <p class="body" style="font-size: 26px; line-height: 1.55;">
+          We anthropomorphize "memory" in agent work. But scientists don't remember everything --
+          they use <span style="color: var(--olive);">notebooks</span>. They write things down with structure so they can find it later
+          and subject it to scrutiny.
+        </p>
+        <p class="body" style="font-size: 24px; line-height: 1.5; color: var(--fg-dim);">
+          Bioinformatics taught us data hygiene 20 years ago.
+          We built ontologies for exactly this reason.
+          The same problem is back.
+        </p>
+      </div>
+
+      <div class="image-slot" style="min-height: 500px;">
+        <div>
+          [ IMAGE PLACEHOLDER ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">Conceptual diagram: post-it notes scattered on a wall vs. a structured lab notebook with typed entries</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>02 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- The problem</span>
+    </div>
+  </section>
+
+  <!-- 03 Platform engineer -->
+  <section data-label="03 Platform engineer">
+    <div class="chrome">
+      <span>03</span><span class="num">.</span><span class="accent">THE REALIZATION</span>
+      <span class="rule"></span>
+      <span>You're building a platform whether you know it or not</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; gap: 32px;">
+      <img src="uploads/ura_platform_engineer_now.jpeg"
+           alt="Look at me. You're a platform engineer now."
+           style="max-height: 680px; max-width: 1400px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border-dim);" />
+      <p class="mono" style="font-size: 18px; color: var(--fg-faint);">
+        Solomon Hynes -- AI Engineering World's Fair, 2025
+      </p>
+    </div>
+
+    <div class="footer">
+      <span>03 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- The realization</span>
+    </div>
+  </section>
+
+  <!-- 04 Implicit ontology -->
+  <section data-label="04 Implicit ontology">
+    <div class="chrome">
+      <span>04</span><span class="num">.</span><span class="accent">THE DEEPER ISSUE</span>
+      <span class="rule"></span>
+      <span>Implicit ontological commitments</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 80px; align-items: center; height: calc(100% - 240px);">
+      <div style="display: flex; flex-direction: column; gap: 36px;">
+        <p class="eyebrow">The intellectual motivation</p>
+        <h2 class="title" style="font-size: 52px;">
+          Every agent makes <span class="italic" style="color: var(--olive);">ontological commitments</span>.<br/>
+          Most are invisible.
+        </h2>
+        <p class="body" style="font-size: 26px; line-height: 1.55;">
+          LLMs are so good at semantics that we stop noticing the modeling decisions buried in prompts and markdown.
+        </p>
+        <p class="body" style="font-size: 26px; line-height: 1.55;">
+          What's a "contact"? What's a "finding"? What's the relationship between a person and a role?
+        </p>
+        <p class="body" style="font-size: 24px; line-height: 1.5; color: var(--fg-dim);">
+          This framework makes those commitments <span style="color: var(--olive);">explicit</span> and <span style="color: var(--teal);">evolvable</span>.
+        </p>
+      </div>
+
+      <div class="image-slot" style="min-height: 500px;">
+        <div>
+          [ IMAGE PLACEHOLDER ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">Conceptual diagram: implicit commitments (buried in conversation threads and MD files) vs. explicit commitments (typed schema with clear entity/relation definitions)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>04 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- The deeper issue</span>
+    </div>
+  </section>
+
+  <!-- 05 Decision 1 -->
+  <section data-label="05 Decision 1 -- Knowledge graph">
+    <div class="chrome">
+      <span>05</span><span class="num">.</span><span class="accent">DECISION 1</span>
+      <span class="rule"></span>
+      <span>Use a knowledge graph, not files</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 70px; align-items: start; height: calc(100% - 220px);">
+      <div style="display: flex; flex-direction: column; gap: 36px;">
+        <p class="eyebrow">Decision one</p>
+        <h2 class="title" style="font-size: 52px;">
+          Structured memory<span class="fg-faint">,</span><br/>
+          not Markdown sprawl.
+        </h2>
+
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+          <div class="panel" style="padding: 20px 24px; border-color: rgba(200,122,74,0.42); background: rgba(200,122,74,0.04);">
+            <p class="panel-label" style="color: var(--rust);">What most agent stacks do</p>
+            <p class="body" style="font-size: 22px; margin: 0;">Save context to MD files or a RAG index. Fine for chat. Falls apart when you need to ask structured questions.</p>
+          </div>
+          <div class="panel" style="padding: 20px 24px; border-color: rgba(184,200,74,0.42); background: rgba(184,200,74,0.04);">
+            <p class="panel-label" style="color: var(--olive);">What I chose</p>
+            <p class="body" style="font-size: 22px; margin: 0;">TypeDB: typed entities, typed relations, persistent across sessions, queryable across domains. Harder to set up. Worth it.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="image-slot" style="min-height: 480px;">
+        <div>
+          [ IMAGE PLACEHOLDER ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">Diagram: flat files and RAG blobs on the left; a knowledge graph with typed nodes and labeled edges on the right</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>05 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- Decision 1</span>
+    </div>
+  </section>
+
+  <!-- 06 Decision 2 -->
+  <section data-label="06 Decision 2 -- Skills">
+    <div class="chrome">
+      <span>06</span><span class="num">.</span><span class="accent">DECISION 2</span>
+      <span class="rule"></span>
+      <span>Skills as the unit of extension</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 70px; align-items: start; height: calc(100% - 220px);">
+      <div style="display: flex; flex-direction: column; gap: 36px;">
+        <p class="eyebrow">Decision two</p>
+        <h2 class="title" style="font-size: 52px;">
+          Domain becomes a <span class="italic" style="color: var(--olive);">plug-in</span><span class="fg-faint">,</span><br/>
+          not a rewrite.
+        </h2>
+
+        <div class="panel" style="padding: 24px 30px;">
+          <p class="panel-label">Anatomy of a skill</p>
+<pre class="code" style="font-size: 22px; line-height: 1.55; color: var(--olive);">skills/jobhunt/
+  SKILL.md            <span class="c">// agent instructions</span>
+  schema.tql          <span class="c">// typed schema namespace</span>
+  jobhunt.py          <span class="c">// CLI commands</span>
+  dashboard/          <span class="c">// optional UI</span>
+</pre>
+        </div>
+
+        <p class="body" style="font-size: 24px; line-height: 1.5; color: var(--fg-dim);">
+          One agent, many domains. Same notebook, same deploy.
+          Onboarding a new skill is one PR.
+        </p>
+      </div>
+
+      <div class="image-slot" style="min-height: 480px;">
+        <div>
+          [ IMAGE PLACEHOLDER ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">Diagram: a skill directory contributing four things (schema, CLI, instructions, dashboard) into the shared notebook</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>06 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- Decision 2</span>
+    </div>
+  </section>
+
+  <!-- 07 Decision 3 -->
+  <section data-label="07 Decision 3 -- Schema evolution">
+    <div class="chrome">
+      <span>07</span><span class="num">.</span><span class="accent">DECISION 3</span>
+      <span class="rule"></span>
+      <span>Let the schema evolve from use</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 70px; align-items: start; height: calc(100% - 220px);">
+      <div style="display: flex; flex-direction: column; gap: 36px;">
+        <p class="eyebrow">Decision three -- the hardest</p>
+        <h2 class="title" style="font-size: 48px;">
+          <span class="italic" style="color: var(--rust);">"I can't represent this"</span><br/>
+          is the most important signal.
+        </h2>
+        <p class="body" style="font-size: 24px; line-height: 1.55;">
+          Most agent stacks silently skip what they can't store.
+          I treat schema rejection as a trigger for evolution.
+        </p>
+        <div class="panel elevated" style="padding: 24px 28px;">
+          <p class="panel-label" style="color: var(--olive);">The loop</p>
+          <div style="display: flex; flex-direction: column; gap: 12px; font-size: 22px;">
+            <span class="body">Agent writes to TypeDB -- rejected</span>
+            <span class="mono fg-faint" style="font-size: 18px; padding-left: 24px;">&#8595;</span>
+            <span class="body">Hook catches error, files GitHub issue</span>
+            <span class="mono fg-faint" style="font-size: 18px; padding-left: 24px;">&#8595;</span>
+            <span class="body">Schema PR -- human reviews -- merge</span>
+            <span class="mono fg-faint" style="font-size: 18px; padding-left: 24px;">&#8595;</span>
+            <span class="body" style="color: var(--olive);">The graph grows from use, not from committee</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="image-slot" style="min-height: 480px;">
+        <div>
+          [ IMAGE PLACEHOLDER ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">Circular diagram: agent tries -- schema rejects -- gap filed -- schema evolves -- agent succeeds</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>07 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- Decision 3</span>
+    </div>
+  </section>
+
+  <!-- 08 Decision 4 -->
+  <section data-label="08 Decision 4 -- No orchestrator">
+    <div class="chrome">
+      <span>08</span><span class="num">.</span><span class="accent">DECISION 4</span>
+      <span class="rule"></span>
+      <span>Don't build an orchestrator</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 80px; align-items: center; height: calc(100% - 240px);">
+      <div style="display: flex; flex-direction: column; gap: 36px;">
+        <p class="eyebrow">Decision four</p>
+        <h2 class="title" style="font-size: 52px;">
+          Use the runtime you<br/>
+          <span class="italic" style="color: var(--olive);">already pay for</span>.
+        </h2>
+        <p class="body" style="font-size: 24px; line-height: 1.55;">
+          Claude Code IS the agent runtime. Skills mount via <span class="mono fg">.claude/skills/</span>.
+          I don't ship my own orchestrator.
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <div class="panel" style="padding: 20px 24px; border-color: rgba(200,122,74,0.32); background: rgba(200,122,74,0.04);">
+            <p class="panel-label" style="color: var(--rust);">Tradeoff</p>
+            <p class="body" style="font-size: 20px; margin: 0;">Less control over the agent loop.</p>
+          </div>
+          <div class="panel" style="padding: 20px 24px; border-color: rgba(90,173,175,0.42); background: rgba(90,173,175,0.04);">
+            <p class="panel-label" style="color: var(--teal);">Win</p>
+            <p class="body" style="font-size: 20px; margin: 0;">~10x less code. Deploy is <span class="mono fg">git clone &amp;&amp; make build</span>.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="image-slot" style="min-height: 480px;">
+        <div>
+          [ IMAGE PLACEHOLDER ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">Diagram: custom orchestrator (crossed out, complex) vs. Claude Code + skills (simple, three boxes)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>08 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- Decision 4</span>
+    </div>
+  </section>
+
+  <!-- 09 Ontological distinction -->
+  <section data-label="09 The distinction that matters">
+    <div class="chrome">
+      <span>09</span><span class="num">.</span><span class="accent">WHY IT MATTERS</span>
+      <span class="rule"></span>
+      <span>The ontological distinction that pays off</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 70px; align-items: start; height: calc(100% - 220px);">
+      <div style="display: flex; flex-direction: column; gap: 32px;">
+        <p class="eyebrow">An example</p>
+        <h2 class="title" style="font-size: 48px;">
+          Person vs. Role --<br/>
+          explicit ontology <span class="italic" style="color: var(--olive);">pays off</span>.
+        </h2>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="panel" style="padding: 20px 24px; border-color: rgba(200,122,74,0.42); background: rgba(200,122,74,0.04);">
+            <p class="panel-label" style="color: var(--rust);">LLM instinct</p>
+            <p class="mono fg" style="font-size: 20px; margin: 4px 0 8px;">Author sub Person</p>
+            <p class="body" style="font-size: 18px; color: var(--fg-dim); margin: 0;">
+              Alice can't be an author, reviewer, and patient at once. Single inheritance breaks.
+            </p>
+          </div>
+          <div class="panel" style="padding: 20px 24px; border-color: rgba(184,200,74,0.42); background: rgba(184,200,74,0.04);">
+            <p class="panel-label" style="color: var(--olive);">BFO / UFO pattern</p>
+            <p class="mono fg" style="font-size: 20px; margin: 4px 0 8px;">Alice bears Author</p>
+            <p class="body" style="font-size: 18px; color: var(--fg-dim); margin: 0;">
+              Person is rigid. Role is anti-rigid. Roles come and go. Person stays clean.
+            </p>
+          </div>
+        </div>
+
+        <p class="body" style="font-size: 22px; line-height: 1.5; color: var(--fg-dim);">
+          This clarity only comes from making commitments explicit.
+          LLM linguistic logic quietly bakes in errors you find at scale.
+        </p>
+      </div>
+
+      <div class="image-slot" style="min-height: 480px;">
+        <div>
+          [ IMAGE PLACEHOLDER ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">Diagram: Alice with multiple roles attached via role-bearing relations (clean) vs. Author-sub-Person single-inheritance tree (broken)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>09 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- Why it matters</span>
+    </div>
+  </section>
+
+  <!-- 10 In practice -->
+  <section data-label="10 In practice">
+    <div class="chrome">
+      <span>10</span><span class="num">.</span><span class="accent">IN PRACTICE</span>
+      <span class="rule"></span>
+      <span>Six skills, three domains, one notebook</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 80px; margin-top: 70px; align-items: center; height: calc(100% - 220px);">
+      <div style="display: flex; flex-direction: column; gap: 28px;">
+        <p class="eyebrow">What's deployed</p>
+        <h2 class="title" style="font-size: 48px;">Same notebook,<br/>different domains.</h2>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--teal); min-width: 60px; justify-content: center;">1</span>
+            <span class="body" style="font-size: 22px;"><span class="mono fg">jobhunt</span> -- positions, contacts, fit analysis</span>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--teal); min-width: 60px; justify-content: center;">2</span>
+            <span class="body" style="font-size: 22px;"><span class="mono fg">tech-recon</span> -- comparative investigations</span>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--teal); min-width: 60px; justify-content: center;">3</span>
+            <span class="body" style="font-size: 22px;"><span class="mono fg">skill-builder</span> -- design new skills</span>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--blue); min-width: 60px; justify-content: center;">4</span>
+            <span class="body" style="font-size: 22px;"><span class="mono fg">scientific-literature</span> -- corpus curation</span>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--blue); min-width: 60px; justify-content: center;">5</span>
+            <span class="body" style="font-size: 22px;"><span class="mono fg">dismech</span> -- disease mechanisms</span>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <span class="kind-chip" style="color: var(--blue); min-width: 60px; justify-content: center;">6</span>
+            <span class="body" style="font-size: 22px;"><span class="mono fg">literature-trends</span> -- hypothesis tracking</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="image-slot" style="height: 100%; min-height: 600px;">
+        <div>
+          [ IMAGE PLACEHOLDER ]<br/><br/>
+          <span style="text-transform: none; letter-spacing: 0;" class="italic">Screenshot: dashboard view -- jobhunt dossier or tech-recon investigation</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>10 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- In practice</span>
+    </div>
+  </section>
+
+  <!-- 11 Outcomes -->
+  <section data-label="11 Outcomes">
+    <div class="chrome">
+      <span>11</span><span class="num">.</span><span class="accent">OUTCOMES</span>
+      <span class="rule"></span>
+      <span>Results and honest lessons</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 48px; margin-top: 80px;">
+      <div>
+        <p class="eyebrow" style="margin-bottom: 22px;">Outcomes</p>
+        <h2 class="title" style="font-size: 52px;">Results, and three honest open problems.</h2>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px;">
+        <div class="panel elevated" style="padding: 36px 40px;">
+          <p class="panel-label" style="color: var(--olive);">What worked</p>
+          <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 8px;">
+            <p class="body" style="font-size: 24px; margin: 0;"><span style="color: var(--olive);">CAIS 2026</span> -- paper accepted at ACM Conference on Agents and Agent Systems</p>
+            <p class="body" style="font-size: 24px; margin: 0;"><span style="color: var(--teal);">6 working skills</span> across biomedicine, careers, and technical investigation</p>
+            <p class="body" style="font-size: 24px; margin: 0;"><span style="color: var(--blue);">One codebase</span> -- deploy is <span class="mono fg">git clone &amp;&amp; make build</span></p>
+          </div>
+        </div>
+
+        <div class="panel" style="padding: 36px 40px;">
+          <p class="panel-label" style="color: var(--rust);">What's still hard</p>
+          <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 8px;">
+            <p class="body" style="font-size: 24px; margin: 0;"><span style="color: var(--fg);">Schema migration</span> <span class="fg-dim">-- attribute changes still mean re-ingestion</span></p>
+            <p class="body" style="font-size: 24px; margin: 0;"><span style="color: var(--fg);">Concurrent gap PRs</span> <span class="fg-dim">-- two fixes can conflict</span></p>
+            <p class="body" style="font-size: 24px; margin: 0;"><span style="color: var(--fg);">Proposed vs. committed</span> <span class="fg-dim">-- no intermediate schema state yet</span></p>
+          </div>
+        </div>
+      </div>
+
+      <p class="body" style="font-size: 24px; color: var(--fg-dim); max-width: 1200px;">
+        None of these are blocking. They're the next phase of work --
+        and they're the kind of problems that only emerge once the core architecture is working.
+      </p>
+    </div>
+
+    <div class="footer">
+      <span>11 / 12</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen -- Outcomes</span>
+    </div>
+  </section>
+
+  <!-- 12 Q&A -->
+  <section data-label="12 Q&A">
+    <div class="chrome">
+      <span>12</span><span class="num">.</span><span class="accent">Q &amp; A</span>
+      <span class="rule"></span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; gap: 48px;">
+      <h2 class="title-display" style="font-size: 120px;">
+        Any <span class="italic" style="color: var(--olive);">questions</span>?
+      </h2>
+      <p class="mono" style="font-size: 22px; color: var(--fg-faint);">
+        Gully Burns -- github.com/GullyBurns/skillful-alhazen
+      </p>
+    </div>
+
+    <div class="footer">
+      <span>12 / 12</span>
+      <span class="rule"></span>
+      <span>Thank you</span>
+    </div>
+  </section>
+
+</deck-stage>
+
+<script src="deck/deck-stage.js"></script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    fontFamily: 'DM Sans, system-ui, sans-serif',
+    themeCSS: `
+      .label, .nodeLabel { color: #e8eef7 !important; font-family: 'DM Sans', system-ui, sans-serif !important; }
+      .edgeLabel { background: #070d1c !important; padding: 2px 8px !important; font-size: 14px !important; color: #8a99ad !important; }
+      .edgePath path { stroke: #5a7fa8 !important; stroke-width: 1.4px !important; }
+      .marker, marker path { fill: #5a7fa8 !important; stroke: #5a7fa8 !important; }
+    `,
+    flowchart: { curve: 'basis', padding: 20, nodeSpacing: 60, rankSpacing: 70, htmlLabels: true },
+  });
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="deck/tweaks-panel.jsx"></script>
+
+<div id="tweaks-root"></div>
+<script type="text/babel" data-presets="env,react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "mode": "dark",
+  "density": "default",
+  "accent": "#b8c84a"
+}/*EDITMODE-END*/;
+
+function applyTweaks(t) {
+  document.documentElement.dataset.mode = t.mode;
+  document.documentElement.dataset.density = t.density;
+  document.documentElement.style.setProperty('--olive', t.accent);
+}
+
+function TweaksApp() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  React.useEffect(() => { applyTweaks(t); }, [t]);
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection label="Theme">
+        <TweakRadio label="Mode" value={t.mode} options={['dark', 'light']}
+          onChange={(v) => setTweak('mode', v)} />
+        <TweakRadio label="Density" value={t.density} options={['comfy', 'default', 'dense']}
+          onChange={(v) => setTweak('density', v)} />
+      </TweakSection>
+      <TweakSection label="Accent">
+        <TweakColor label="Accent color" value={t.accent}
+          options={['#b8c84a', '#c87a4a', '#62c4bc', '#5b8ab8']}
+          onChange={(v) => setTweak('accent', v)} />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+// initial paint before mount
+applyTweaks(TWEAK_DEFAULTS);
+
+ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<TweaksApp />);
+</script>
+
+</body>
+</html>

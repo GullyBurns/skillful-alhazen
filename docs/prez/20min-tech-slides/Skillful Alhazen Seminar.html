@@ -37,6 +37,8 @@
 
   "• A skill is the unit of extension. Self-contained directory.\n• It contributes a typed schema namespace — every type it defines starts with the skill prefix.\n• A Python CLI script — these are the verbs Claude calls.\n• An agent-readable SKILL.md — triggers, workflows, commands.\n• Optional dashboard — Next.js components that get wired in at build.\n• `make build-skills` resolves a registry YAML, drops symlinks, loads schemas. That's the marketplace.",
 
+  "• Every curation skill follows a six-stage pipeline.\n• Goal Definition — interview to define success criteria. Discovery — identify candidate systems. Ingestion — collect artifacts: repos, docs, pages, PDFs.\n• Sensemaking — structured note-taking, typed knowledge. Analysis — visualizations, queries, comparisons. Reporting — synthesis against criteria.\n• Tech-recon is the concrete example: scoping through evaluation, with system lifecycle states running in parallel.\n• The pipeline is the same across skills — the schema and commands change, the process doesn't.",
+
   "• Hard problem one — ontological distinctions create clarity.\n• Most schemas conflate person with role. We don’t.\n• BFO/UFO pattern: a person is rigid, intrinsic; a role is anti-rigid, externally grounded. Strip the institution — the role evaporates, the person remains.\n• In the schema: alh-role-bearing relation, alh-role entity with lifecycle attributes (status, started-on, ended-on). Skills extend the leaves — jhunt-job-seeker, scilit-author, apm-patient.\n• Payoff: role-specific data sits on the role, never on the person. The person stays clean. The role can come and go.",
 
   "• Hard problem one: the schema can't be frozen. The whole point is that the agent learns new things.\n• Standard agent stacks treat 'I can't represent this' as a silent skip. We treat it as the most important signal in the system.\n• Claude tries to write something TypeDB rejects → PostToolUse hook catches the error code → CLI files a deduplicated GitHub issue → workflow labels it → human merges the schema PR.\n• Schema gaps are how the graph grows organically from use, not from upfront design.",
@@ -61,14 +63,6 @@
 
   <!-- ── 01 · Title ───────────────────────────────────────── -->
   <section data-label="01 Title">
-    <div class="chrome">
-      <span class="accent">SKILLFUL ALHAZEN</span>
-      <span class="rule"></span>
-      <span>Technical Seminar</span>
-      <span class="num">·</span>
-      <span>Technical Seminar</span>
-    </div>
-
     <div class="cover" style="height: 100%;">
       <div style="display: flex; flex-direction: column; gap: 56px;">
         <div style="display: flex; flex-direction: column; gap: 18px;">
@@ -112,24 +106,19 @@
     <div class="footer">
       <span>01 / 15</span>
       <span class="rule"></span>
-      <span>github.com/GullyBurns/skillful-alhazen</span>
+      <span><a href="https://github.com/sciknow-io/skillful-alhazen">github.com/sciknow-io/skillful-alhazen</a></span>
     </div>
   </section>
 
   <!-- ── 02 · Origin ──────────────────────────────────────── -->
   <section data-label="02 Origin">
-    <div class="chrome">
-      <span>02</span><span class="num">·</span><span class="accent">ORIGIN</span>
-      <span class="rule"></span>
-      <span>From a literature corpus to a general framework</span>
-    </div>
 
     <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 80px;">
       <div style="max-width: 1380px;">
         <p class="eyebrow" style="margin-bottom: 22px;">Origin</p>
-        <h2 class="title">
-          A literature‑curation problem,<br/>
-          generalized into a notebook for any domain.
+        <h2 class="title" style="font-size: 72px;">
+          <span  style="color: var(--olive);">Curation (informatics) </span>
+          - the process of organizing disparate, complex information into coherent, structured knowledge representation.
         </h2>
       </div>
 
@@ -166,33 +155,20 @@
           </p>
         </div>
       </div>
-
-      <div style="margin-top: 36px; display: flex; gap: 14px; align-items: center; color: var(--fg-faint);">
-        <span class="mono" style="letter-spacing: 1.4px; text-transform: uppercase;">trajectory</span>
-        <span class="arrow">single‑domain pipeline&nbsp;&nbsp;→&nbsp;&nbsp;heavy framework&nbsp;&nbsp;→&nbsp;&nbsp;skill marketplace</span>
-      </div>
     </div>
 
     <div class="footer">
       <span>02 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Origin</span>
     </div>
   </section>
 
   <!-- ── 03 · The problem ─────────────────────────────────── -->
   <section data-label="03 The problem">
-    <div class="chrome">
-      <span>03</span><span class="num">·</span><span class="accent">PROBLEM</span>
-      <span class="rule"></span>
-      <span>What agentic curation actually demands</span>
-    </div>
 
     <div style="display: flex; flex-direction: column; justify-content: center; height: 100%; max-width: 1500px;">
       <p class="eyebrow" style="margin-bottom: 32px;">The thesis</p>
-      <h2 class="title-display" style="font-size: 96px;">
-        Agentic curation needs <span class="italic" style="color: var(--olive);">structured</span> memory<span class="fg-faint">,</span><br/>
-        not Markdown sprawl.
+      <h2 class="title-display" style="font-size: 72px;">
+        Scientists need <span class="italic" style="color: var(--olive);"> structured notebooks</span>, not just memory of conversations or plain-text notes.
       </h2>
 
       <div style="margin-top: 80px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 48px;">
@@ -216,181 +192,51 @@
 
     <div class="footer">
       <span>03 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · The problem</span>
     </div>
   </section>
 
-  <!-- ── 04 · Three layers ────────────────────────────────── -->
-  <section data-label="04 Three layers">
-    <div class="chrome">
-      <span>04</span><span class="num">·</span><span class="accent">THREE LAYERS</span>
-      <span class="rule"></span>
-      <span>Agent · Ontology · Skills</span>
+
+  <!-- ── 05 · Platform engineer ────────────────────────────────── -->
+  <section data-label="05 Platform engineer">
+
+    <div style="margin-top: 8px;">
+      <p class="eyebrow" style="margin-bottom: 32px;">The Realization</p>
+      <h2 class="title" style="font-size: 64px; margin: 0;">When building <span style="color: var(--olive);">agents</span>, we have to build <span style="color: var(--olive);">platforms</span></h2>
     </div>
 
-    <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 60px;">
-      <div>
-        <p class="eyebrow" style="margin-bottom: 22px;">The shape of the system</p>
-        <h2 class="title">Three layers. Clean separation. Same skills, two runtimes.</h2>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 16px;">
-        <!-- Agent -->
-        <div class="panel" style="border-color: rgba(91,138,184,0.42); background: rgba(91,138,184,0.04); padding: 36px;">
-          <div style="display: flex; align-items: center; gap: 14px;">
-            <span class="kind-chip" style="color: var(--blue);">
-              <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3 L21 12 L12 21 L3 12 Z"/></svg>
-              AGENT
-            </span>
-          </div>
-          <h3 class="title" style="font-size: 44px;">Claude Code</h3>
-          <p class="body" style="font-size: 24px; line-height: 1.5;">
-            You talk; the agent curates. Claude Code is the interactive
-            runtime — skills mount under <span class="mono fg">.claude/skills/</span>.
-          </p>
-          <hr class="rule" />
-          <p class="mono" style="font-size: 18px; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 1.6px;">runtime layer</p>
-        </div>
-
-        <!-- Ontology -->
-        <div class="panel" style="border-color: rgba(90,173,175,0.42); background: rgba(90,173,175,0.04); padding: 36px;">
-          <div style="display: flex; align-items: center; gap: 14px;">
-            <span class="kind-chip" style="color: var(--teal);">
-              <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-              ONTOLOGY
-            </span>
-          </div>
-          <h3 class="title" style="font-size: 44px;">TypeDB 3.x</h3>
-          <p class="body" style="font-size: 24px; line-height: 1.5;">
-            The schema defines what the agent reasons <span class="italic">about</span>.
-            The data is what it has learned so far. Persistent across sessions.
-          </p>
-          <hr class="rule" />
-          <p class="mono" style="font-size: 18px; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 1.6px;">memory layer</p>
-        </div>
-
-        <!-- Skills -->
-        <div class="panel" style="border-color: rgba(184,200,74,0.42); background: rgba(184,200,74,0.04); padding: 36px;">
-          <div style="display: flex; align-items: center; gap: 14px;">
-            <span class="kind-chip" style="color: var(--olive);">
-              <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4 L21 19 L3 19 Z"/></svg>
-              SKILLS
-            </span>
-          </div>
-          <h3 class="title" style="font-size: 44px;">Domain modules</h3>
-          <p class="body" style="font-size: 24px; line-height: 1.5;">A typed schema namespace, a Python CLI, agent instructions, and a dashboard. Simple, ontological 'world model'.</p>
-          <hr class="rule" />
-          <p class="mono" style="font-size: 18px; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 1.6px;">extension layer</p>
-        </div>
-      </div>
-
-      <div style="display: flex; align-items: center; gap: 18px; margin-top: 12px; padding: 22px 28px; border: 1px dashed var(--border-dim); border-radius: 6px;">
-        <span class="mono" style="letter-spacing: 1.6px; text-transform: uppercase; color: var(--fg-faint);">key move</span>
-        <span class="lead" style="font-size: 28px;">Lean into the agent's intelligence and use progressive skill loading. It calls CLI scripts to execute tasks or can write queries against the full schema.</span>
-      </div>
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; gap: 32px;">
+      <img src="uploads/ura_platform_engineer_now.jpeg"
+           alt="Look at me. You're a platform engineer now."
+           style="max-height: 680px; max-width: 1400px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border-dim);" />
+      <p class="mono" style="font-size: 18px; color: var(--fg-faint);">
+        Solomon Hynes -- AI Engineering World's Fair, 2025
+      </p>
     </div>
 
     <div class="footer">
       <span>04 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Three layers</span>
     </div>
   </section>
 
-  <!-- ── 05 · Architecture ────────────────────────────────── -->
-  <section data-label="05 Architecture">
-    <div class="chrome">
-      <span>05</span><span class="num">·</span><span class="accent">ARCHITECTURE</span>
-      <span class="rule"></span>
-      <span>System overview</span>
+  <!-- ── 04 · Architecture ────────────────────────────────── -->
+  <section data-label="04 Architecture">
+
+    <div style="margin-top: 8px;">
+      <p class="eyebrow" style="margin-bottom: 32px;">The Base Design</p>
+      <h2 class="title" style="font-size: 96px; margin: 0;">System Architecture.</h2>
     </div>
 
-    <div style="margin-top: 14px;">
-      <p class="eyebrow" style="margin-bottom: 4px;">Boxes &amp; arrows</p>
-      <h2 class="title" style="font-size: 28px;">Operator → agent → skill → typed memory.</h2>
-    </div>
-
-    <!-- Diagram -->
-    <div style="margin-top: 14px; display: grid; grid-template-columns: 220px 1fr 220px; grid-template-rows: auto auto auto auto; gap: 8px 28px; align-items: start;">
-
-      <!-- Operator -->
-      <div class="box" style="grid-column: 1; grid-row: 1 / span 4; justify-content: center;">
-        <p class="box-label">Operator</p>
-        <p class="box-title">You.</p>
-        <p class="box-sub">Researcher, curator,<br/>analyst.</p>
-        <hr class="rule" style="margin: 14px 0;"/>
-        <p class="box-sub" style="font-size: 14px; line-height: 1.5;">→ <span style="color: var(--blue);">input</span> via Claude<br/>← <span style="color: var(--rust);">output</span> via dashboards for data<br/>← <span style="color: var(--olive);">evolve</span> via github for schema, functions, &amp; dashboard code</p>
-      </div>
-
-      <!-- Agent row (input) -->
-      <div class="box blue" style="grid-column: 2; padding: 12px 18px;">
-        <p class="box-label" style="margin-bottom: 2px;">Agent runtime · <span style="color: var(--blue);">input</span></p>
-        <div>
-          <p class="box-title">Claude Code</p>
-          <p class="box-sub">interactive · skills mounted via <span class="mono">.claude/skills/</span> · PostToolUse hooks for the evolution loop</p>
-        </div>
-      </div>
-
-      <!-- Gap loop -->
-      <div class="box olive" style="grid-column: 3; grid-row: 1 / span 4; justify-content: flex-start; padding: 14px 16px; margin-top: 8px;">
-        <p class="box-label" style="color: var(--olive); margin-bottom: 6px;">Evolution loop</p>
-        <p class="box-title" style="margin-bottom: 8px; font-size: 20px;">Self-improving skills</p>
-
-        <p class="mono" style="color: var(--olive); font-size: 11px; letter-spacing: 1.2px; margin: 0 0 3px;">SCHEMA GAPS</p>
-        <p class="box-sub" style="font-size: 13px; line-height: 1.4; margin: 0 0 8px;">PostToolUse hook → file‑schema‑gap CLI → GH issue → schema.tql PR</p>
-
-        <p class="mono" style="color: var(--olive); font-size: 11px; letter-spacing: 1.2px; margin: 0 0 3px;">DATA AUDITS</p>
-        <p class="box-sub" style="font-size: 13px; line-height: 1.4; margin: 0 0 8px;">quality-checks.yaml → audit_runner → GH issue (finding · root cause · prevention) → repair PR</p>
-
-        <p class="mono" style="color: var(--olive); font-size: 11px; letter-spacing: 1.2px; margin: 0 0 3px;">SKILL REDESIGN</p>
-        <p class="box-sub" style="font-size: 13px; line-height: 1.4; margin: 0 0 8px;">friction in workflow → SKILL.md / CLI / dashboard refactor → PR upstream</p>
-
-        <hr class="rule" style="margin: 4px 0 6px;"/>
-        <p class="box-sub" style="font-size: 12px; line-height: 1.35; color: var(--fg-faint); font-style: italic;">every loop closes with code merged on the skill repo — the skill gets smarter</p>
-      </div>
-
-      <!-- Skills row -->
-      <div class="box" style="grid-column: 2; padding: 12px 18px;">
-        <p class="box-label" style="margin-bottom: 2px;">Skill dispatch</p>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:8px 10px;"><p class="mono" style="font-size:16px; color: var(--teal);">curation-skill-builder</p><p class="box-sub" style="margin-top:1px; font-size:12px;">SKILL.md · .tql · CLI</p></div>
-          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:8px 10px;"><p class="mono" style="font-size:16px; color: var(--teal);">jobhunt</p><p class="box-sub" style="margin-top:1px; font-size:12px;">SKILL.md · .tql · CLI</p></div>
-          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:8px 10px;"><p class="mono" style="font-size:16px; color: var(--teal);">tech-recon</p><p class="box-sub" style="margin-top:1px; font-size:12px;">SKILL.md · .tql · CLI</p></div>
-          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:8px 10px;"><p class="mono" style="font-size:16px; color: var(--teal);">dismech-notebook</p><p class="box-sub" style="margin-top:1px; font-size:12px;">GLAV mapping rules from monarch/dismech source</p></div>
-        </div>
-      </div>
-
-      <!-- Storage row -->
-      <div class="box teal" style="grid-column: 2; padding: 12px 18px;">
-        <p class="box-label" style="color: var(--teal); margin-bottom: 2px;">Typed memory + spillover</p>
-        <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px;">
-          <div><p class="box-title">TypeDB&nbsp;3.x</p><p class="box-sub">typed entity hierarchy · skill‑namespaced</p></div>
-          <div><p class="box-title">Artifact cache</p><p class="box-sub"><span class="mono">~/.alhazen/cache/</span></p></div>
-          <div><p class="box-title">Qdrant</p><p class="box-sub">semantic search · scilit</p></div>
-        </div>
-      </div>
-
-      <!-- Dashboards row (output) -->
-      <div class="box" style="grid-column: 2; padding: 12px 18px; border-color: rgba(200,122,74,0.42); background: rgba(200,122,74,0.04);">
-        <p class="box-label" style="color: var(--rust); margin-bottom: 4px;">Dashboards · <span style="color: var(--rust);">output</span> — read‑only views over typed memory</p>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:8px 10px;"><p class="mono" style="font-size:15px; color: var(--rust);">Alhazen Notebook</p><p class="box-sub" style="margin-top:1px; font-size:12px;">schema + data inspector</p></div>
-          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:8px 10px;"><p class="mono" style="font-size:15px; color: var(--rust);">Jobhunt</p><p class="box-sub" style="margin-top:1px; font-size:12px;">simple semantics · real utility</p></div>
-          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:8px 10px;"><p class="mono" style="font-size:15px; color: var(--rust);">Tech Recon</p><p class="box-sub" style="margin-top:1px; font-size:12px;">comparative tech investigations</p></div>
-          <div style="border:1px solid var(--border-dim); border-radius:4px; padding:8px 10px;"><p class="mono" style="font-size:15px; color: var(--rust);">Disease Mechanism</p><p class="box-sub" style="margin-top:1px; font-size:12px;">Monarch dismech integration</p></div>
-        </div>
-      </div>
-
-      <!-- Audit loop row removed -->
+    <div style="margin-top: 16px; display: flex; justify-content: center; align-items: center; flex: 1;">
+      <img src="uploads/architecture.png"
+           alt="4-layer architecture: Agent, Skills, TypeDB Ontological Memory, Dashboard"
+           style="max-width: 100%; max-height: 720px; object-fit: contain;" />
     </div>
 
     <div class="footer">
       <span>05 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Architecture</span>
     </div>
   </section>
+
 
   <!-- ── 06 · Notebook model ──────────────────────────────── -->
   <section data-label="06 Notebook model">
@@ -454,18 +300,11 @@
 
     <div class="footer">
       <span>06 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Notebook model</span>
     </div>
   </section>
 
   <!-- ── 07 · Skills ──────────────────────────────────────── -->
   <section data-label="07 Skills as the unit of extension">
-    <div class="chrome">
-      <span>07</span><span class="num">·</span><span class="accent">SKILLS</span>
-      <span class="rule"></span>
-      <span>The unit of extension</span>
-    </div>
 
     <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 60px;">
       <div>
@@ -514,18 +353,66 @@
 
     <div class="footer">
       <span>07 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Skills</span>
     </div>
   </section>
 
-<!-- ── 08 · Hard problem 1 ──────────────────────────────── -->
-  <section data-label="08 Hard problem 1 — Ontological distinctions">
-    <div class="chrome">
-      <span>08</span><span class="num">·</span><span class="accent">HARD PROBLEM · 1</span>
-      <span class="rule"></span>
-      <span>Ontological distinctions create clarity</span>
+  <!-- ── 09 · Curation process ────────────────────────────── -->
+  <section data-label="08 Curation process">
+
+    <div style="display: flex; flex-direction: column; gap: 40px; margin-top: 60px;">
+      <div>
+        <p class="eyebrow" style="margin-bottom: 16px;">The curation process</p>
+        <h2 class="title" style="font-size: 48px;">Every skill follows the same <span class="italic" style="color: var(--olive);">six-stage pipeline</span>.</h2>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 24px; margin-top: 16px;">
+        <div class="panel" style="padding: 24px 20px; text-align: center; border-color: rgba(90,173,175,0.42); background: rgba(90,173,175,0.04);">
+          <p class="mono" style="font-size: 14px; color: var(--teal); letter-spacing: 1.4px; margin: 0 0 10px;">01</p>
+          <p class="lead" style="font-size: 24px; margin: 0 0 12px;">Goal Definition</p>
+          <p class="body" style="font-size: 18px; color: var(--fg-dim); margin: 0;">Interview to define success criteria</p>
+        </div>
+        <div class="panel" style="padding: 24px 20px; text-align: center;">
+          <p class="mono" style="font-size: 14px; color: var(--fg-faint); letter-spacing: 1.4px; margin: 0 0 10px;">02</p>
+          <p class="lead" style="font-size: 24px; margin: 0 0 12px;">Discovery</p>
+          <p class="body" style="font-size: 18px; color: var(--fg-dim); margin: 0;">Identify candidates, confirm for investigation</p>
+        </div>
+        <div class="panel" style="padding: 24px 20px; text-align: center;">
+          <p class="mono" style="font-size: 14px; color: var(--fg-faint); letter-spacing: 1.4px; margin: 0 0 10px;">03</p>
+          <p class="lead" style="font-size: 24px; margin: 0 0 12px;">Ingestion</p>
+          <p class="body" style="font-size: 18px; color: var(--fg-dim); margin: 0;">Collect artifacts: repos, docs, pages, PDFs</p>
+        </div>
+        <div class="panel" style="padding: 24px 20px; text-align: center;">
+          <p class="mono" style="font-size: 14px; color: var(--fg-faint); letter-spacing: 1.4px; margin: 0 0 10px;">04</p>
+          <p class="lead" style="font-size: 24px; margin: 0 0 12px;">Sensemaking</p>
+          <p class="body" style="font-size: 18px; color: var(--fg-dim); margin: 0;">Structured note-taking, typed knowledge</p>
+        </div>
+        <div class="panel" style="padding: 24px 20px; text-align: center;">
+          <p class="mono" style="font-size: 14px; color: var(--fg-faint); letter-spacing: 1.4px; margin: 0 0 10px;">05</p>
+          <p class="lead" style="font-size: 24px; margin: 0 0 12px;">Analysis</p>
+          <p class="body" style="font-size: 18px; color: var(--fg-dim); margin: 0;">Visualizations, queries, comparisons</p>
+        </div>
+        <div class="panel" style="padding: 24px 20px; text-align: center; border-color: rgba(184,200,74,0.42); background: rgba(184,200,74,0.04);">
+          <p class="mono" style="font-size: 14px; color: var(--olive); letter-spacing: 1.4px; margin: 0 0 10px;">06</p>
+          <p class="lead" style="font-size: 24px; margin: 0 0 12px;">Reporting</p>
+          <p class="body" style="font-size: 18px; color: var(--fg-dim); margin: 0;">Synthesis report, evaluation against criteria</p>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 18px; padding: 22px 28px; border: 1px dashed var(--border-dim); border-radius: 6px;">
+        <span class="mono" style="letter-spacing: 1.6px; text-transform: uppercase; color: var(--fg-faint);">example</span>
+        <span class="lead" style="font-size: 24px;"><span class="mono fg" style="color: var(--teal);">tech-recon</span> — scoping interview defines what "better" means, then the skill discovers systems, ingests their codebases, makes typed notes, runs comparative analyses, and writes a synthesis report evaluated against the original criteria.</span>
+      </div>
     </div>
+
+    <div class="footer">
+      <span>08 / 15</span>
+      <span class="rule"></span>
+      <span>Skillful Alhazen &middot; Curation process</span>
+    </div>
+  </section>
+
+<!-- ── 10 · Hard problem 1 ──────────────────────────────── -->
+  <section data-label="09 Hard problem 1 — Ontological distinctions">
 
     <div style="display: flex; flex-direction: column; gap: 24px; margin-top: 30px;">
       <div style="display: flex; align-items: baseline; gap: 36px;">
@@ -623,20 +510,13 @@
     </div>
 
     <div class="footer">
-      <span>08 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen &middot; Hard problem 1</span>
+      <span>09 / 15</span>
     </div>
   </section>
 
 
-  <!-- ── 09 · Hard problem 2 ──────────────────────────────── -->
-  <section data-label="09 Hard problem 2 — Schema as living artifact">
-    <div class="chrome">
-      <span>09</span><span class="num">·</span><span class="accent">HARD PROBLEM · 2</span>
-      <span class="rule"></span>
-      <span>Schema as a living artifact</span>
-    </div>
+  <!-- ── 10 · Hard problem 2 ──────────────────────────────── -->
+  <section data-label="10 Hard problem 2 — Schema as living artifact">
 
     <div style="display: flex; flex-direction: column; gap: 56px; margin-top: 70px;">
       <div style="display: flex; align-items: baseline; gap: 36px;">
@@ -703,19 +583,12 @@
     </div>
 
     <div class="footer">
-      <span>09 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Hard problem 2</span>
+      <span>10 / 15</span>
     </div>
   </section>
 
-  <!-- ── 10 · Hard problem 3 ──────────────────────────────── -->
-  <section data-label="10 Hard problem 3 — Lightweight runtime">
-    <div class="chrome">
-      <span>10</span><span class="num">·</span><span class="accent">HARD PROBLEM · 3</span>
-      <span class="rule"></span>
-      <span>A lightweight runtime, on purpose</span>
-    </div>
+  <!-- ── 11 · Hard problem 3 ──────────────────────────────── -->
+  <section data-label="11 Hard problem 3 — Lightweight runtime">
 
     <div style="display: flex; flex-direction: column; gap: 56px; margin-top: 70px;">
       <div style="display: flex; align-items: baseline; gap: 36px;">
@@ -771,19 +644,12 @@
     </div>
 
     <div class="footer">
-      <span>10 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Hard problem 3</span>
+      <span>11 / 15</span>
     </div>
   </section>
 
   <!-- ── 12 · Skill marketplace ───────────────────────────── -->
   <section data-label="12 Skill marketplace">
-    <div class="chrome">
-      <span>12</span><span class="num">·</span><span class="accent">SKILL MARKETPLACE</span>
-      <span class="rule"></span>
-      <span>Six domains, one shell</span>
-    </div>
 
     <div style="display: flex; flex-direction: column; gap: 28px; margin-top: 40px;">
       <div>
@@ -811,7 +677,7 @@
           </tr>
           <tr>
             <td><span class="skill-name">curation-skill-builder</span></td>
-            <td><span class="tag-pill ext">external</span></td>
+            <td><span class="tag-pill ext">core</span></td>
             <td>skill creation</td>
             <td>Brainstorm and eval schema (collection, entities, relationships, artifacts, fragments, notes), scripts, dashboard for a skill </td>
             <td style="text-align: right;" class="teal">✓</td>
@@ -859,18 +725,11 @@
 
     <div class="footer">
       <span>12 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Skill marketplace</span>
     </div>
   </section>
 
-  <!-- ── 13 · Practice ────────────────────────────────────── -->
+  <!-- ── 14 · Practice ────────────────────────────────────── -->
   <section data-label="13 In practice">
-    <div class="chrome">
-      <span>13</span><span class="num">·</span><span class="accent">IN PRACTICE</span>
-      <span class="rule"></span>
-      <span>A dossier in the wild</span>
-    </div>
 
     <div style="display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 80px; margin-top: 70px; align-items: center; height: calc(100% - 200px);">
       <div style="display: flex; flex-direction: column; gap: 32px;">
@@ -912,18 +771,11 @@
 
     <div class="footer">
       <span>13 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · In practice</span>
     </div>
   </section>
 
-  <!-- ── 14 · Outcomes ────────────────────────────────────── -->
+  <!-- ── 15 · Outcomes ────────────────────────────────────── -->
   <section data-label="14 Outcomes">
-    <div class="chrome">
-      <span>14</span><span class="num">·</span><span class="accent">OUTCOMES</span>
-      <span class="rule"></span>
-      <span>Where we are · honest lessons</span>
-    </div>
 
     <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 70px;">
       <div>
@@ -983,25 +835,17 @@
 
     <div class="footer">
       <span>14 / 15</span>
-      <span class="rule"></span>
-      <span>Skillful Alhazen · Outcomes</span>
     </div>
   </section>
 
   <!-- ── 15 · What's next ─────────────────────────────────── -->
   <section data-label="15 What's next — Q&amp;A">
-    <div class="chrome">
-      <span>15</span><span class="num">·</span><span class="accent">Q &amp; A</span>
-      <span class="rule"></span>
-      <span>Open questions for the next 40 minutes</span>
-    </div>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 80px; align-items: start; height: calc(100% - 220px);">
       <div style="display: flex; flex-direction: column; gap: 32px; justify-content: center; height: 100%;">
         <p class="eyebrow">Q &amp; A · 40 min</p>
         <h2 class="title-display" style="font-size: 104px;">
-          Where would <span class="italic" style="color: var(--olive);">you</span><br/>
-          push this?
+          Any <span class="italic" style="color: var(--olive);">Questions</span>?
         </h2>
         <p class="body" style="font-size: 28px;"></p>
       </div>
@@ -1040,7 +884,7 @@
     <div class="footer">
       <span>15 / 15</span>
       <span class="rule"></span>
-      <span>Thank you · Gully Burns · github.com/GullyBurns/skillful-alhazen</span>
+      <span>Thank you · Gully Burns · <a href="https://github.com/sciknow-io/skillful-alhazen">github.com/sciknow-io/skillful-alhazen</a></span>
     </div>
   </section>
 
