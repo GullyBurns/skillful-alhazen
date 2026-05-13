@@ -1,0 +1,21 @@
+A technical architecture diagram in the style of a dark-theme code editor. Dark navy background (#070d1c). Three stacked horizontal tier boxes with teal/cyan borders and small-caps tier labels, connected by downward arrows with short italic labels. Monospace font throughout. No photorealism.
+
+Top box — label "DOMAIN LAYER":
+Contents in two columns:
+Left: "Collections" with bullet list: search-campaign, shortlist, watchlist
+Right: "Entities · Relations" with bullet list: person, company, role — connected by "works-at", "applied-to", "interviewed-by"
+Small flat icons inline: person silhouette, building, briefcase
+
+Downward arrow labeled "supports definition of"
+
+Middle box — label "INFORMATION LAYER":
+Contents: "Artifacts" — job-posting PDF, LinkedIn page, email thread. "Fragments" — extracted requirements, salary range, company summary.
+Small flat icons inline: document, globe, envelope
+
+Downward arrow labeled "informs"
+
+Bottom box — label "NOTES LAYER [LLM output]":
+Contents: fit-analysis-note, skill-gap-note, interview-debrief-note
+Three small card outlines with short italic text snippets inside each
+
+Overall aesthetic: teal borders, monospace text, minimal flat icons, dark terminal feel. 16:9 aspect ratio, suitable for a presentation slide.

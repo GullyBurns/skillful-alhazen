@@ -201,7 +201,7 @@
 
     <div style="margin-top: 8px;">
       <p class="eyebrow" style="margin-bottom: 32px;">The Realization</p>
-      <h2 class="title" style="font-size: 64px; margin: 0;">When building <span style="color: var(--olive);">agents</span>, we have to build <span style="color: var(--olive);">platforms</span></h2>
+      <h2 class="title" style="font-size: 64px; margin: 0;">When building <span style="color: var(--olive);">agents</span>, we must think of <span style="color: var(--olive);">platforms</span></h2>
     </div>
 
     <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; gap: 32px;">
@@ -240,13 +240,8 @@
 
   <!-- ── 06 · Notebook model ──────────────────────────────── -->
   <section data-label="06 Notebook model">
-    <div class="chrome">
-      <span>06</span><span class="num">·</span><span class="accent">NOTEBOOK MODEL</span>
-      <span class="rule"></span>
-      <span>One identifiable‑entity hierarchy</span>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1.1fr; gap: 80px; margin-top: 80px; align-items: start;">
+   
+    <div style="display: grid; grid-template-columns: 1fr 1.1fr; gap: 80px; margin-top: 80px; align-items: stretch;">
       <div style="display: flex; flex-direction: column; gap: 32px;">
         <p class="eyebrow">The notebook model</p>
         <h2 class="title">One typed hierarchy.<br/>Three branches.</h2>
@@ -257,44 +252,24 @@
         </p>
         <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 8px;">
           <div style="display: flex; gap: 18px; align-items: baseline;">
-            <span class="kind-chip" style="color: var(--teal); min-width: 130px; justify-content: center;">DOMAIN</span>
-            <span class="body" style="color: var(--fg); font-size: 22px">Real‑world objects — papers, diseases, genes, jobs, people.</span>
+            <span class="kind-chip" style="color: var(--teal); min-width: 130px; justify-content: center;">COLLECTIONS · ENTITIES · RELATIONS</span>
+            <span class="body" style="color: var(--fg); font-size: 22px">Standard KG representation of things in the domain — corpora, papers, diseases, genes, jobs, people.</span>
           </div>
           <div style="display: flex; gap: 18px; align-items: baseline;">
-            <span class="kind-chip" style="color: var(--blue); min-width: 130px; justify-content: center;">COLLECT</span>
-            <span class="body" style="color: var(--fg); font-size: 22px">Typed sets — corpora, search campaigns, case files.</span>
+            <span class="kind-chip" style="color: var(--blue); min-width: 130px; justify-content: center;">ARTIFACTS · FRAGMENTS</span>
+            <span class="body" style="color: var(--fg); font-size: 22px">Information entities that provide evidence for the definition of KG elements.</span>
           </div>
           <div style="display: flex; gap: 18px; align-items: baseline;">
-            <span class="kind-chip" style="color: var(--olive); min-width: 130px; justify-content: center;">CONTENT</span>
-            <span class="body" style="color: var(--fg); font-size: 22px">Artifacts (raw), fragments (extracted), notes (Claude's analysis).</span>
+            <span class="kind-chip" style="color: var(--olive); min-width: 130px; justify-content: center;">NOTES</span>
+            <span class="body" style="color: var(--fg); font-size: 22px">LLM analysis output saved to the knowledge graph.</span>
           </div>
         </div>
       </div>
 
-      <div class="panel" style="padding: 36px 40px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <p class="panel-label">Schema</p>
-          <span class="schema-tag"><span class="bracket">&lt;/&gt;</span>&nbsp;alh-identifiable-entity</span>
-        </div>
-<pre class="code" style="font-size: 21px; line-height: 1.55;">alh-identifiable-entity        <span class="c">// abstract root</span>
-├── <span style="color: var(--teal);">alh-domain-thing</span>           <span class="c">// real-world objects</span>
-│   ├── <span style="color: var(--teal);">agent</span>                  <span class="c">// person · ai-agent</span>
-│   │   └── <span style="color: var(--teal);">person</span>             <span class="c">// linkedin · email · bio</span>
-│   ├── <span style="color: var(--teal);">alh-role</span>               <span class="c">// anti-rigid (BFO/UFO)</span>
-│   ├── <span style="color: var(--teal);">organization</span>
-│   └── <span style="color: var(--teal);">interaction</span>            <span class="c">// meeting · email · interview</span>
-├── <span style="color: var(--blue);">alh-collection</span>             <span class="c">// typed sets</span>
-│   ├── <span style="color: var(--blue);">scilit-corpus</span>
-│   ├── <span style="color: var(--blue);">jhunt-search</span>
-│   └── <span style="color: var(--blue);">apm-case-file</span>
-└── <span style="color: var(--olive);">alh-information-content</span>    <span class="c">// content-bearing</span>
-    ├── <span style="color: var(--olive);">artifact</span>               <span class="c">// raw — pdf · html · email</span>
-    ├── <span style="color: var(--olive);">fragment</span>               <span class="c">// extracted piece</span>
-    └── <span style="color: var(--olive);">note</span>                   <span class="c">// Claude's analysis</span>
-</pre>
-        <p class="mono" style="font-size: 18px; color: var(--fg-faint); margin-top: 4px;">
-          local_resources/typedb/alhazen_notebook.tql
-        </p>
+      <div class="panel" style="padding: 0; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--fg-faint); overflow: hidden;">
+      <img src="uploads/schema_1.png"
+           alt="Schema diagram for Alhazen Notebook, with examples from 'Jobhunt' demo. "
+           style="max-width: 100%; max-height: 720px; object-fit: contain;" />
       </div>
     </div>
 
@@ -303,51 +278,34 @@
     </div>
   </section>
 
-  <!-- ── 07 · Skills ──────────────────────────────────────── -->
-  <section data-label="07 Skills as the unit of extension">
+  <!-- ── 07 · Skill deployment ───────────────────────────── -->
+  <section data-label="07 Skill deployment">
 
-    <div style="display: flex; flex-direction: column; gap: var(--gap-title); margin-top: 60px;">
-      <div>
-        <p class="eyebrow" style="margin-bottom: 22px;">Anatomy of a skill</p>
-        <h2 class="title">A skill is a self‑contained directory — and a marketplace entry.</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 80px; margin-top: 80px; align-items: stretch;">
+      <div style="display: flex; flex-direction: column; gap: 32px;">
+        <p class="eyebrow">Skill marketplace</p>
+        <h2 class="title">One command to load a skill.<br/>Three interfaces to use it.</h2>
+        <p class="body" style="font-size: 22px; line-height: 1.5;">
+          Skills are git repos. Register a URL, run <span class="mono fg">make build-skills</span> — schema loads into TypeDB, CLI mounts into Claude, dashboard wires into the UI.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 4px;">
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="kind-chip" style="color: var(--teal); min-width: 110px; justify-content: center;">CLAUDE CODE</span>
+            <span class="body" style="color: var(--fg); font-size: 22px">Natural language → skill CLI → TypeDB writes.</span>
+          </div>
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="kind-chip" style="color: var(--blue); min-width: 110px; justify-content: center;">TYPEDB</span>
+            <span class="body" style="color: var(--fg); font-size: 22px">Dockerized notebook — runs locally, zero cloud dependency.</span>
+          </div>
+          <div style="display: flex; gap: 18px; align-items: baseline;">
+            <span class="kind-chip" style="color: var(--olive); min-width: 110px; justify-content: center;">DASHBOARD</span>
+            <span class="body" style="color: var(--fg); font-size: 22px">Next.js UI — typed entities rendered live from the graph.</span>
+          </div>
+        </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 64px; align-items: start;">
-        <div class="panel" style="padding: 30px 36px;">
-          <p class="panel-label">Anatomy</p>
-<pre class="code" style="font-size: 22px; line-height: 1.55; color: rgb(184, 200, 74)">skills/jobhunt/
-├── SKILL.md            // triggers · workflows · commands
-├── skill.yaml          // metadata · namespace prefix
-├── schema.tql          // TypeDB extension
-├── jobhunt.py          // the commands that Claude calls
-├── quality-checks.yaml
-└── dashboard/          // optional Next.js
-</pre>
-          <hr class="rule" />
-          <p class="body" style="font-size: 22px; line-height: 1.5;">
-            Single source of truth: <span class="mono fg">skills-registry.yaml</span>.
-            Core skills with <span class="mono">path:</span>, externals with <span class="mono">git:</span>.
-            <span class="mono">make build-skills</span> resolves the registry, drops symlinks, loads schemas.
-          </p>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 24px;">
-          <div class="panel">
-            <p class="panel-label" style="color: var(--teal);">Contract</p>
-            <p class="lead" style="font-size: 26px;">Every skill contributes four things:</p>
-            <div style="display: grid; grid-template-columns: 28px 1fr; row-gap: 14px; column-gap: 18px; align-items: baseline;">
-              <span class="mono fg">①</span><span class="body" style="font-size: 22px;">A typed schema namespace — every type prefixed.</span>
-              <span class="mono fg">②</span><span class="body" style="font-size: 22px;">A Python CLI — scripts + functions the agent invokes.</span>
-              <span class="mono fg">③</span><span class="body" style="font-size: 22px;">Agent‑readable SKILL.md — triggers, workflows, commands.</span>
-              <span class="mono fg">④</span><span class="body" style="font-size: 22px;">Optional dashboard — Next.js components wired at build.</span>
-            </div>
-          </div>
-
-          <div class="panel" style="background: rgba(90,173,175,0.04); border-color: rgba(90,173,175,0.42);">
-            <p class="panel-label" style="color: var(--teal);">Marketplace pattern</p>
-            <p class="body" style="font-size: 22px; line-height: 1.5; color: var(--fg);">Skills live in their own git repos - requiring simple registration into local config.</p>
-          </div>
-        </div>
+      <div class="panel" style="padding: 0; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--fg-faint); overflow: hidden;">
+        <p class="body" style="color: var(--fg-faint); font-size: 20px; text-align: center;">[ image placeholder ]</p>
       </div>
     </div>
 

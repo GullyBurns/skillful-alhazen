@@ -1,0 +1,41 @@
+A technical architecture diagram in the style of a dark-theme code editor. Dark navy background (#070d1c). Teal/cyan bordered boxes with small-caps labels, monospace font, minimal flat icons, labeled arrows between components. 16:9 aspect ratio, suitable for a presentation slide.
+
+Layout: three horizontal rows, reading top to bottom.
+
+TOP ROW — label "SKILL REGISTRY":
+A single wide box containing two items side by side:
+- Left: a git branch icon + "github.com/sciknow-io/jobhunt" (an external skill repo URL in monospace)
+- Right: a YAML file icon + "skills-registry.yaml" with text "git: url / path: local"
+A downward arrow from this box labeled "make build-skills"
+
+MIDDLE ROW — label "LOCAL RUNTIME" — three boxes side by side connected by horizontal arrows:
+
+Box 1 (teal border) — label "CLAUDE CODE":
+- Anthropic star logo (flat white asterisk/spark icon)
+- Text: "natural language interface"
+- Bullet: "· skill CLI mounted"
+- Bullet: "· SKILL.md loaded"
+
+Arrow pointing right labeled "TypeQL writes"
+
+Box 2 (blue border) — label "TYPEDB [DOCKER]":
+- Docker whale flat icon
+- Text: "notebook database"
+- Bullet: "· schema loaded"
+- Bullet: "· runs locally"
+- Bullet: "· zero cloud dependency"
+
+Arrow pointing right labeled "live query"
+
+Box 3 (olive border) — label "DASHBOARD":
+- Browser/window flat icon
+- Text: "Next.js UI"
+- Bullet: "· typed entities"
+- Bullet: "· rendered live"
+- Bullet: "· skill contributes components"
+
+BOTTOM ROW — a single teal-tinted callout box:
+Text: "git clone → register → make build-skills → done."
+Monospace font, subtle teal glow.
+
+Overall aesthetic: matches a dark terminal / architecture diagram. Same style as the reference: teal borders on boxes, small-caps layer labels, monospace bullet text, flat line-art icons, downward and rightward labeled arrows. No gradients, no photorealism.
