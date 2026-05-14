@@ -526,10 +526,12 @@ const mdComponents: Record<string, React.ComponentType<any>> = {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function MarkdownContent({ content, style }: MarkdownContentProps) {
+  // Content from TypeDB may have literal \n sequences instead of real newlines
+  const unescaped = content.replace(/\\n/g, '\n');
   return (
     <div style={style}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-        {content}
+        {unescaped}
       </ReactMarkdown>
     </div>
   );

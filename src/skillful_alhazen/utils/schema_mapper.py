@@ -230,7 +230,7 @@ def substitute_variables(
 def _entity_exists(tx, skolem_id: str) -> bool:
     """Check if an entity with the given id already exists in the target db."""
     query = (
-        f'match $x isa identifiable-entity, has id "{escape_string(skolem_id)}";'
+        f'match $x isa alh-identifiable-entity, has id "{escape_string(skolem_id)}";'
         f' fetch {{ "id": $x.id }};'
     )
     try:

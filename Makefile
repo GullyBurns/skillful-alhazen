@@ -220,17 +220,24 @@ db-stop: ## Stop TypeDB container
 db-init: ## Create database and load schemas
 	@echo "$(BLUE)Initializing TypeDB database '$(TYPEDB_DATABASE)'...$(NC)"
 	@SCHEMAS="$(TYPEDB_SCHEMAS_DIR)/alhazen_notebook.tql"; \
+	SCHEMAS_LATE=""; \
 	if [ -d "$(LOCAL_SKILLS_DIR)" ]; then \
 		for skill_dir in $(LOCAL_SKILLS_DIR)/*/; do \
+			[ -f "$$skill_dir/.standalone-db" ] && continue; \
 			schema=$$(readlink -f $$skill_dir)/schema.tql; \
 			[ -f "$$schema" ] || continue; \
-			SCHEMAS="$$SCHEMAS $$schema"; \
+			if [ -f "$$skill_dir/schema.deps" ]; then \
+				SCHEMAS_LATE="$$SCHEMAS_LATE $$schema"; \
+			else \
+				SCHEMAS="$$SCHEMAS $$schema"; \
+			fi; \
 		done; \
 	fi; \
 	for schema in $(TYPEDB_SCHEMAS_DIR)/namespaces/*.tql; do \
 		[ -f "$$schema" ] || continue; \
 		SCHEMAS="$$SCHEMAS $$schema"; \
 	done; \
+	SCHEMAS="$$SCHEMAS $$SCHEMAS_LATE"; \
 	uv run python scripts/db_init.py $$SCHEMAS
 	@echo "$(GREEN)✓ Database initialized$(NC)"
 
