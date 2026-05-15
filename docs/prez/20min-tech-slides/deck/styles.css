@@ -33,8 +33,8 @@
   --border-hi: rgba(90, 173, 175, 0.42);
   --border-dim:rgba(200, 221, 232, 0.08);
   --fg:        #c8dde8;
-  --fg-dim:    #8ba4b8;
-  --fg-faint:  #5e7387;
+  --fg-dim:    #aec4d4;
+  --fg-faint:  #8ba4b8;
 
   --teal:   #5aadaf;
   --teal-d: rgba(90, 173, 175, 0.18);
@@ -215,6 +215,9 @@ deck-stage section > * { position: relative; z-index: 1; }
 .blue   { color: var(--blue) !important; }
 .mint   { color: var(--mint) !important; }
 .rust   { color: var(--rust) !important; }
+
+a { color: var(--rust); text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--fg); }
 
 /* ── schema-tag motif (lifted from atoms.jsx) ──────────────── */
 .schema-tag {

@@ -124,11 +124,11 @@
 
       <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; margin-top: 32px; align-items: stretch;">
         <div class="panel">
-          <p class="panel-label">— 2025</p>
+          <p class="panel-label">— 2023</p>
           <p class="lead" style="font-size: 28px;">Literature curation</p>
           <p class="body" style="font-size: 22px; line-height: 1.5;">
             Hand‑curated metadata + Pre LLM NLP pipelines for biomedical papers.
-            Brittle, expensive, single‑domain.
+            Brittle, limited, specializes.
           </p>
         </div>
         <div class="panel">
@@ -149,7 +149,7 @@
           <p class="lead" style="font-size: 28px;">CAIS 2026 Demo Paper</p>
           <p class="body" style="font-size: 22px; line-height: 1.5;">
             Demos: <br/>
-            · Jobhunt — simple<br/>
+            · Jobhunt — demo<br/>
             · Tech‑recon — curate<br/>
             · Skill‑builder — model
           </p>
@@ -179,8 +179,7 @@
         <div>
           <p class="mono" style="color: var(--teal); letter-spacing: 1.6px; text-transform: uppercase; margin: 0 0 14px;">— WHAT SKILLFUL ALHAZEN DOES</p>
           <p class="body" style="font-size: 28px; color: var(--fg);">
-            Typed entities, typed relations, typed notes — persistent across sessions,
-            queryable across skills.
+            Use Claude Skills to store agentic context to a next-generation ontologically-powered knowledge graph (TypeDB).
           </p>
         </div>
         <div>
@@ -480,19 +479,19 @@
       <div style="display: flex; flex-direction: column; gap: 32px; justify-content: center;">
         <div>
           <p class="eyebrow" style="margin-bottom: 14px;">Hard problem &middot; three</p>
-          <h2 class="title" style="font-size: 48px; line-height: 1.15;">Mapping memory data between schemas.</h2>
+          <h2 class="title" style="font-size: 48px; line-height: 1.15;"><span class="italic" style="color: var(--olive);">Mapping</span> memory data between schemas.</h2>
         </div>
         <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 20px;">
-          <li class="body" style="font-size: 24px; line-height: 1.45; color: var(--fg-dim);">
+          <li class="body" style="font-size: 28px; line-height: 1.45; color: var(--fg-dim);">
             <span style="color: var(--teal); font-weight: 700;">A &middot; EXTERNAL INTEGRATION</span><br>
-            Map complex data from external schemas into an Alhazen Notebook — e.g. DisMech disease mechanisms via a local TypeDB staging copy.
+            Map complex data from external schemas into an Alhazen Notebook — e.g. Monarch's DisMech via a local TypeDB staging copy.
           </li>
-          <li class="body" style="font-size: 24px; line-height: 1.45; color: var(--fg-dim);">
+          <li class="body" style="font-size: 28px; line-height: 1.45; color: var(--fg-dim);">
             <span style="color: var(--olive); font-weight: 700;">B &middot; SCHEMA MIGRATION</span><br>
             Migrate notebook data between schema versions as the model evolves.
           </li>
         </ul>
-        <p class="body" style="font-size: 19px; line-height: 1.5; color: var(--fg-faint);">Claude authors GLAV mapping rules (Fagin, Kolaitis, Miller, Popa 2005) — TypeDB's expressive type system makes both cases tractable.</p>
+        <p class="body" style="font-size: 26px; line-height: 1.5; color: var(--fg-faint);">Claude authors GLAV mapping rules (Fagin, Kolaitis, Miller, Popa 2005) — TypeDB's expressive type system makes both cases tractable.</p>
       </div>
       <div class="panel" style="padding: 0; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--fg-faint); overflow: hidden; align-self: stretch;">
         <img src="uploads/integration_1x1.png"
@@ -523,7 +522,7 @@
             <th style="width: 16%;">Domain</th>
             <th style="width: 40%;">What it does</th>
             <th style="width: 8%; text-align: right;">UI</th>
-          </tr>Prov
+          </tr>
         </thead>
         <tbody>
           <tr>
@@ -583,38 +582,34 @@
     <div style="display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 80px; margin-top: 70px; align-items: center; height: calc(100% - 200px);">
       <div style="display: flex; flex-direction: column; gap: 32px;">
         <p class="eyebrow">In practice</p>
-        <h2 class="title" style="font-size: 60px;">Agentic <span class="italic" style="color: var(--olive);">'memory'</span> consists of rendered views over the knowledge graph.</h2>
-        <p class="body" style="font-size: 26px;">
-          Position · contact · interview · fit‑analysis‑note — all live in TypeDB.
-          The dashboard is one of the skill's optional contributions.
-          Same backend powers the dismech mechanism browser and the
-          <span class="mono fg">scientific-literature</span> corpora views.
+        <h2 class="title" style="font-size: 54px; line-height: 1.1;">Agentic <span class="italic" style="color: var(--olive);">'memory'</span> consists of rendered views over the knowledge graph.</h2>
+        <p class="body" style="font-size: 24px; line-height: 1.5;">
+          Disease mechanisms, scientific literature, competitive intelligence, career tracking — one schema-validated store.
+          Each skill contributes its own typed namespace. You can load and combine any of them.
         </p>
         <div style="display: flex; flex-direction: column; gap: 12px;">
           <div style="display: flex; gap: 14px; align-items: center;">
-            <span class="kind-chip" style="color: var(--teal);">POS</span>
-            <span class="mono fg-dim">jhunt-position</span>
+            <span class="kind-chip" style="color: var(--teal);">DM</span>
+            <span class="mono fg-dim">Monarch's dismech &middot; 46,942 entities</span>
           </div>
           <div style="display: flex; gap: 14px; align-items: center;">
-            <span class="kind-chip" style="color: var(--olive);">BRIEF</span>
-            <span class="mono fg-dim">jobhunt-cc-brief-note</span>
+            <span class="kind-chip" style="color: var(--olive);">SCILIT</span>
+            <span class="mono fg-dim">Scientific literature &middot; 11,875 entities</span>
           </div>
           <div style="display: flex; gap: 14px; align-items: center;">
-            <span class="kind-chip" style="color: var(--blue);">TALK</span>
-            <span class="mono fg-dim">jobhunt-interaction-note</span>
+            <span class="kind-chip" style="color: var(--blue);">TREC</span>
+            <span class="mono fg-dim">tech reconnaissance &middot; 809 entities</span>
           </div>
           <div style="display: flex; gap: 14px; align-items: center;">
-            <span class="kind-chip" style="color: var(--mint);">FIT</span>
-            <span class="mono fg-dim">jobhunt-fit-analysis-note</span>
+            <span class="kind-chip" style="color: var(--mint);">JHUNT</span>
+            <span class="mono fg-dim">jhunt &middot; 822 entities</span>
           </div>
         </div>
       </div>
 
       <div class="image-slot" style="height: 100%; min-height: 720px;">
-        <div>
-          [ screenshot · jobhunt opportunity dossier ]<br/><br/>
-          <span style="text-transform: none; letter-spacing: 0;" class="italic">replace with: dashboard render at 1240×1700 — Augura Health position</span>
-        </div>
+        <a href="https://gullys-mac-mini.tail7a88f0.ts.net:3001/"><img src="uploads/tech_recon_screenshot.png"
+          style="max-width: 100%; max-height: 720px; object-fit: contain; border-radius: 8px;" /></a>
       </div>
     </div>
 
@@ -635,49 +630,27 @@
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;">
         <div class="panel elevated" style="padding: 32px 34px; gap: 14px;">
           <p class="panel-label" style="color: var(--olive);">Recognition</p>
-          <p class="title-display" style="font-size: 96px; color: var(--olive); line-height: 0.95;">CAIS</p>
-          <p class="lead" style="font-size: 28px;">Accepted at CAIS&nbsp;2026.</p>
+          <p class="title-display" style="font-size: 96px; color: var(--olive); line-height: 0.95;">CAIS&nbsp;2026</p>
+          <p class="lead" style="font-size: 28px;">Accepted Demo paper 1st ACM Conference on Agents and Agentic Systems.</p>
           <p class="body" style="font-size: 22px;">
-            ACM Conference on Agents and Agent Systems.
+            <a href="https://www.caisconf.org/program/2026/demos/ontological-notebook-memory/" class="link">Conference Page.</a>.
           </p>
         </div>
         <div class="panel" style="padding: 32px 34px; gap: 14px;">
-          <p class="panel-label" style="color: var(--teal);">Working demos</p>
-          <div style="display:flex; align-items:baseline; gap: 16px;">
-            <span class="title-display" style="font-size: 96px; color: var(--teal); line-height: 0.95;">6</span>
-            <span class="body" style="font-size: 26px;">skill demos</span>
-          </div>
+          <p class="panel-label" style="color: var(--teal);">Examples</p>
+          <span class="title-display" style="font-size: 96px; color: var(--teal); line-height: 0.95;">Working Demos</span>
+          <span class="body" style="font-size: 26px;">Live examples across domains</span>
           <p class="body" style="font-size: 22px;">
-            Across biomedicine, careers, journalism — three deploy targets, one codebase.
+            Potential use cases for philanthropy, competitive analysis, biocuration, journalism - a viable open source approach for rapid development and prototyping.
           </p>
         </div>
         <div class="panel" style="padding: 32px 34px; gap: 14px;">
-          <p class="panel-label" style="color: var(--blue);">Adoption surface</p>
-          <div style="display:flex; align-items:baseline; gap: 16px;">
-            <span class="title-display" style="font-size: 96px; color: var(--blue); line-height: 0.95;">1</span>
-            <span class="body" style="font-size: 26px;">runtime, many skills</span>
-          </div>
+          <p class="panel-label" style="color: var(--blue);">Platform</p>
+          <span class="title-display" style="font-size: 96px; color: var(--blue); line-height: 0.95;">Pragmatic Agentic Toolkit</span>
+          <span class="body" style="font-size: 26px;">An open source toolkit based on a novel idea</span>
           <p class="body" style="font-size: 22px;">
-            Claude Code is the host — deploy is <span class="mono fg">git clone &amp;&amp; make build</span>.
+            Get started with <span class="mono fg">git clone &amp;&amp; make build</span>.
           </p>
-        </div>
-      </div>
-
-      <div class="panel" style="padding: 28px 32px;">
-        <p class="panel-label" style="color: var(--rust);">Honest lessons — open work</p>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;">
-          <div>
-            <p class="lead" style="font-size: 24px; color: var(--fg);">Schema migration</p>
-            <p class="body" style="font-size: 20px; line-height: 1.5;">When an attribute type changes, existing data needs migration. Today: re‑ingest. Need a real path.</p>
-          </div>
-          <div>
-            <p class="lead" style="font-size: 24px; color: var(--fg);">Concurrent gap PRs</p>
-            <p class="body" style="font-size: 20px; line-height: 1.5;">Two open gap fixes can touch the same entity. No tooling to detect the conflict yet.</p>
-          </div>
-          <div>
-            <p class="lead" style="font-size: 24px; color: var(--fg);">Proposed vs. committed</p>
-            <p class="body" style="font-size: 20px; line-height: 1.5;">All schema changes go straight to <span class="mono fg">schema.tql</span>. Want a real intermediate state.</p>
-          </div>
         </div>
       </div>
     </div>
@@ -687,7 +660,7 @@
     </div>
   </section>
 
-  <!-- ── 15 · What's next ─────────────────────────────────── -->
+  <!-- ── 15 · Questions's next ─────────────────────────────────── -->
   <section data-label="15 What's next — Q&amp;A">
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 96px; margin-top: 80px; align-items: start; height: calc(100% - 220px);">
@@ -699,35 +672,7 @@
         <p class="body" style="font-size: 28px;"></p>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 28px; padding-top: 8px;">
-        <div class="panel" style="padding: 28px 32px;">
-          <div style="display: flex; gap: 18px; align-items: baseline;">
-            <span class="mono" style="color: var(--olive); font-size: 40px; line-height: 1;">①</span>
-            <div>
-              <p class="lead" style="font-size: 30px; color: var(--fg); margin-bottom: 8px;">Domain coverage</p>
-              <p class="body" style="font-size: 22px;">What does this notebook look like sitting under a real research workflow?</p>
-            </div>
-          </div>
-        </div>
-        <div class="panel" style="padding: 28px 32px;">
-          <div style="display: flex; gap: 18px; align-items: baseline;">
-            <span class="mono" style="color: var(--teal); font-size: 40px; line-height: 1;">②</span>
-            <div>
-              <p class="lead" style="font-size: 30px; color: var(--fg); margin-bottom: 8px;">Schema governance at scale</p>
-              <p class="body" style="font-size: 22px;">When twenty skills share the core hierarchy, who arbitrates? What's the review cadence?</p>
-            </div>
-          </div>
-        </div>
-        <div class="panel" style="padding: 28px 32px;">
-          <div style="display: flex; gap: 18px; align-items: baseline;">
-            <span class="mono" style="color: var(--blue); font-size: 40px; line-height: 1;">③</span>
-            <div>
-              <p class="lead" style="font-size: 30px; color: var(--fg); margin-bottom: 8px;">Notebook ↔ lab memory</p>
-              <p class="body" style="font-size: 22px;">Where's the boundary between agent memory and the systems of record — LIMS, ELN, sequencing pipelines?</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div style="display: flex; flex-direction: column; gap: 28px; padding-top: 8px;"/>
     </div>
 
     <div class="footer">
