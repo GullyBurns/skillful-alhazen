@@ -526,12 +526,23 @@ const mdComponents: Record<string, React.ComponentType<any>> = {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function MarkdownContent({ content, style }: MarkdownContentProps) {
-  // Content from TypeDB may have literal \n sequences instead of real newlines
-  const unescaped = content.replace(/\\n/g, '\n');
+  // Prepare TypeDB content for markdown rendering:
+  // 1. Unescape literal \n sequences
+  // 2. Convert bare URLs not already in markdown link syntax to clickable links
+  // 3. Convert bare internal dashboard paths to clickable links
+  let text = content.replace(/\\n/g, '\n');
+  text = text.replace(
+    /(?<!\]\()(?<!\()(?<![<"'])(https?:\/\/[^\s)>\]"']+)/g,
+    '[$1]($1)'
+  );
+  text = text.replace(
+    /(?<!\]\()(?<!\()(?<![<"'])(?:^|(?<=\s))(\/(?:tech-recon|jobhunt|dismech|agentic-memory|coach|skill-builder)\/[^\s)>\]"']+)/gm,
+    '[$1]($1)'
+  );
   return (
     <div style={style}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-        {unescaped}
+        {text}
       </ReactMarkdown>
     </div>
   );
