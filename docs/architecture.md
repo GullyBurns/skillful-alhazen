@@ -203,3 +203,5 @@ Run locally with:
 ```bash
 cd dashboard && npm install && npm run dev
 ```
+
+For a full guide to building a new skill dashboard, see [`docs/dashboard-guide.md`](dashboard-guide.md).
