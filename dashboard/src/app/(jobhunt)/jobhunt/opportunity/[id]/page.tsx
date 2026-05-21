@@ -5,6 +5,26 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+/** Prepare TypeDB content for markdown rendering:
+ *  1. Unescape literal \n sequences
+ *  2. Convert bare URLs (https://...) not already in markdown links to clickable links
+ *  3. Convert bare internal paths (/skill/...) to clickable links
+ */
+function unesc(s: string | undefined | null): string {
+  let text = (s ?? '').replace(/\\n/g, '\n');
+  // Convert bare URLs not already inside markdown link syntax [...](...) or <...>
+  text = text.replace(
+    /(?<!\]\()(?<!\()(?<![<"'])(https?:\/\/[^\s)>\]"']+)/g,
+    '[$1]($1)'
+  );
+  // Convert bare internal paths like /tech-recon/investigation/... to links
+  text = text.replace(
+    /(?<!\]\()(?<!\()(?<![<"'])(?:^|(?<=\s))(\/(?:tech-recon|jobhunt|dismech|agentic-memory|coach|skill-builder)\/[^\s)>\]"']+)/gm,
+    '[$1]($1)'
+  );
+  return text;
+}
+
 /* ── Starry Night palette ── */
 const T = {
   bg: '#070d1c',
@@ -192,9 +212,17 @@ export default function OpportunityDossierPage({ params }: OpportunityPageProps)
 
         {/* Description */}
         {opp.description && (
-          <p style={{ fontSize: 13.5, color: T.fgDim, margin: '8px 0 0', lineHeight: 1.55, maxWidth: 720 }}>
-            {opp.description}
-          </p>
+          <div style={{ fontSize: 13.5, color: T.fgDim, margin: '8px 0 0', lineHeight: 1.55, maxWidth: 720 }}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => <p style={{ margin: '4px 0' }}>{children}</p>,
+                a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: T.teal, textDecoration: 'underline', textUnderlineOffset: 3 }}>{children}</a>,
+                strong: ({ children }) => <strong style={{ color: T.fg }}>{children}</strong>,
+              }}
+            >
+              {unesc(opp.description)}
+            </ReactMarkdown>
+          </div>
         )}
 
         {/* Status row */}
@@ -286,7 +314,7 @@ export default function OpportunityDossierPage({ params }: OpportunityPageProps)
                   strong: ({ children }) => <strong style={{ color: T.fg }}>{children}</strong>,
                 }}
               >
-                {summaryNote.content}
+                {unesc(summaryNote.content)}
               </ReactMarkdown>
             </div>
           </div>
@@ -440,7 +468,7 @@ export default function OpportunityDossierPage({ params }: OpportunityPageProps)
                           td: ({ children }) => <td style={{ border: `1px solid ${T.borderDim}`, padding: '4px 8px' }}>{children}</td>,
                         }}
                       >
-                        {note.content}
+                        {unesc(note.content)}
                       </ReactMarkdown>
                     </div>
                   )}

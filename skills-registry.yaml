@@ -77,9 +77,6 @@ schema_map:
   - coach
   - curation-skill-builder
   - dismech-notebook
-  - jobhunt
-  - literature-trends
-  - scientific-literature
   - tech-recon
   namespaces:
     nbmem:
@@ -93,18 +90,6 @@ schema_map:
     dm:
       skill: curation-skill-builder
       schema: skills/curation-skill-builder/schema.tql
-      depends_on: []
-    jhunt:
-      skill: jobhunt
-      schema: local_skills/jobhunt/schema.tql
-      depends_on: []
-    sltrend:
-      skill: literature-trends
-      schema: local_skills/literature-trends/schema.tql
-      depends_on: []
-    scilit:
-      skill: scientific-literature
-      schema: local_skills/scientific-literature/schema.tql
       depends_on: []
     trec:
       skill: tech-recon

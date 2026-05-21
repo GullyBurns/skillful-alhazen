@@ -4,6 +4,24 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
+
+/** Prepare TypeDB content for markdown rendering:
+ *  1. Unescape literal \n sequences
+ *  2. Convert bare URLs (https://...) not already in markdown links to clickable links
+ *  3. Convert bare internal paths (/skill/...) to clickable links
+ */
+function unesc(s: string | undefined | null): string {
+  let text = (s ?? '').replace(/\\n/g, '\n');
+  text = text.replace(
+    /(?<!\]\()(?<!\()(?<![<"'])(https?:\/\/[^\s)>\]"']+)/g,
+    '[$1]($1)'
+  );
+  text = text.replace(
+    /(?<!\]\()(?<!\()(?<![<"'])(?:^|(?<=\s))(\/(?:tech-recon|jobhunt|dismech|agentic-memory|coach|skill-builder)\/[^\s)>\]"']+)/gm,
+    '[$1]($1)'
+  );
+  return text;
+}
 import { EmbeddingMap, MapItem } from '@/components/jobhunt/embedding-map';
 import { OpportunityList } from '@/components/jobhunt/opportunity-list';
 // SchemaInspector removed — use Alhazen Notebook for schema browsing
@@ -1071,7 +1089,7 @@ function LearningTab() {
             lineHeight: 1.7,
           }}>
             <div className="prose prose-sm prose-invert max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{learningPlanContent}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{unesc(learningPlanContent)}</ReactMarkdown>
             </div>
           </div>
         ) : (
