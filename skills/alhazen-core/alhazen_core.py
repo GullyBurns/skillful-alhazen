@@ -87,38 +87,9 @@ def _dashboard_container_status():
         return ""
 
 
-def _start_services():
-    """Start TypeDB + dashboard via docker compose. Returns True on success."""
-    typedb_status = _container_status()
-    dashboard_status = _dashboard_container_status()
-
-    # If TypeDB is running standalone (not via compose), start only the dashboard
-    # with TYPEDB_HOST pointing to the host machine so dashboard can reach it
-    if typedb_status == "running" and dashboard_status != "running":
-        env = os.environ.copy()
-        env["TYPEDB_HOST"] = "host.docker.internal"
-        env["TYPEDB_PORT"] = str(TYPEDB_PORT)
-        try:
-            cmd = ["docker", "compose", "-f", str(COMPOSE_FILE), "-p", COMPOSE_PROJECT,
-                   "up", "-d", "--build", "dashboard"]
-            subprocess.run(cmd, env=env, check=True)
-        except subprocess.CalledProcessError:
-            print("Dashboard start failed (TypeDB standalone mode)", file=sys.stderr)
-        return True  # TypeDB is already running
-
-    # If both are already running, nothing to do
-    if typedb_status == "running" and dashboard_status == "running":
-        return True
-
-    # Start all services via compose (builds dashboard image on first run)
-    try:
-        _compose("up", "-d", "--build", capture=False)
-    except subprocess.CalledProcessError:
-        print("docker compose up failed", file=sys.stderr)
-        return False
-
-    # Wait for TypeDB to become ready (up to 90s — first build takes time)
-    for _ in range(90):
+def _wait_for_typedb(timeout=90):
+    """Wait for TypeDB to accept connections. Returns True on success."""
+    for _ in range(timeout):
         time.sleep(1)
         try:
             from typedb.driver import Credentials, DriverOptions, TypeDB
@@ -132,6 +103,40 @@ def _start_services():
         except Exception:
             pass
     return False
+
+
+def _start_services():
+    """Start TypeDB + dashboard via docker compose. Returns True on success."""
+    typedb_status = _container_status()
+    dashboard_status = _dashboard_container_status()
+
+    # Both already running — nothing to do
+    if typedb_status == "running" and dashboard_status == "running":
+        return True
+
+    # TypeDB running but no dashboard — start dashboard only, pointing to host TypeDB
+    if typedb_status == "running" and dashboard_status != "running":
+        print("TypeDB already running standalone. Starting dashboard only...", flush=True)
+        env = os.environ.copy()
+        env["TYPEDB_HOST"] = "host.docker.internal"
+        env["TYPEDB_PORT"] = str(TYPEDB_PORT)
+        try:
+            cmd = ["docker", "compose", "-f", str(COMPOSE_FILE), "-p", COMPOSE_PROJECT,
+                   "up", "-d", "--build", "dashboard"]
+            subprocess.run(cmd, env=env, check=True)
+        except subprocess.CalledProcessError:
+            print("Dashboard start failed. Check: docker logs alhazen-dashboard", file=sys.stderr)
+        return True  # TypeDB is reachable regardless
+
+    # Neither running — start everything via compose
+    try:
+        _compose("up", "-d", "--build", capture=False)
+    except subprocess.CalledProcessError:
+        print("docker compose up failed", file=sys.stderr)
+        return False
+
+    # Wait for TypeDB to become ready
+    return _wait_for_typedb(timeout=90)
 
 
 def _start_typedb():

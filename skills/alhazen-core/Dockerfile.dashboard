@@ -22,14 +22,15 @@ COPY --from=dashboard-src /src/dashboard/package*.json ./
 RUN ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
 COPY --from=dashboard-src /src/dashboard/ ./
 
-# Strip ALL skill-specific pages/components/routes/libs — they arrive later
-# via wire-dashboard. Without this, the source tree has broken imports.
-RUN find src/app -maxdepth 1 -name '(*' -type d -exec rm -rf {} + 2>/dev/null || true
-RUN find src/app/api -maxdepth 1 -mindepth 1 -not -name 'typedb-status' -exec rm -rf {} + 2>/dev/null || true
-RUN find src/components -maxdepth 1 -mindepth 1 -not -name 'ui' -exec rm -rf {} + 2>/dev/null || true
-RUN find src/lib -maxdepth 1 -name '*.ts' -not -name 'utils.ts' -exec rm -f {} + 2>/dev/null || true
+# Wire agentic-memory dashboard (core infrastructure — always included)
+# It's the knowledge graph browser that ships with every alhazen-core install.
+COPY --from=dashboard-src /src/skills/agentic-memory/dashboard/components/ ./src/components/agentic-memory/
+COPY --from=dashboard-src /src/skills/agentic-memory/dashboard/pages/ ./src/app/(agentic-memory)/
+COPY --from=dashboard-src /src/skills/agentic-memory/dashboard/routes/ ./src/app/api/agentic-memory/
+COPY --from=dashboard-src /src/skills/agentic-memory/dashboard/lib.ts ./src/lib/agentic-memory.ts
 
-# Empty configs — no skills wired yet
+# Skills config — just agentic-memory in the base image
+RUN echo '[{"slug":"agentic-memory","enabled":true,"name":"Alhazen Notebook","description":"Browse the knowledge graph","url_path":"/agentic-memory","icon":"Brain","color":"teal"}]' > public/skills-config.json
 RUN echo '[]' > public/skills-config.json
 RUN echo '{}' > public/namespace-config.json
 
