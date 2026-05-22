@@ -9,6 +9,14 @@
   },
   "plugins": [
     {
+      "name": "alhazen-core",
+      "source": "./local_skills/alhazen-core",
+      "description": "TypeDB infrastructure -- auto-starts via Docker, creates database, loads base schema. Install this first before any other Alhazen skill.",
+      "version": "1.0.0",
+      "license": "Apache-2.0",
+      "keywords": ["typedb", "infrastructure", "setup"]
+    },
+    {
       "name": "typedb-notebook",
       "source": "./skills/typedb-notebook",
       "description": "Store and retrieve knowledge in the Alhazen TypeDB knowledge graph — remember, recall, organize notes and collections",
