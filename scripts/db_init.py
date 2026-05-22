@@ -2,11 +2,13 @@
 """
 TypeDB 3.x database initialization script.
 
-Creates the database (if it doesn't exist) and loads all schemas using
-the TypeDB Python driver. This replaces the console-based approach.
+Thin wrapper around skills/alhazen-core/alhazen_core.py — shares the same
+TypeDB connection and schema loading logic. Kept for backward compatibility
+with Makefile targets and docker-compose init services.
 
 Usage:
     uv run python scripts/db_init.py [--wait-only]
+    uv run python scripts/db_init.py schema1.tql schema2.tql ...
     uv run python scripts/db_init.py --host localhost --port 1729 --database alhazen_notebook
 
 Environment:
@@ -18,11 +20,19 @@ Environment:
 """
 
 import argparse
-import glob
 import os
 import sys
 import time
 from pathlib import Path
+
+# Import shared TypeDB logic from alhazen-core
+_core_dir = Path(__file__).parent.parent / "skills" / "alhazen-core"
+if not _core_dir.exists():
+    # Fallback: check local_skills (after make build-skills)
+    _core_dir = Path(__file__).parent.parent / "local_skills" / "alhazen-core"
+sys.path.insert(0, str(_core_dir))
+
+import alhazen_core as core  # noqa: E402
 
 
 def wait_for_typedb(host, port, username, password, timeout=60):
@@ -46,48 +56,6 @@ def wait_for_typedb(host, port, username, password, timeout=60):
     return False
 
 
-def init_database(host, port, username, password, database, schema_files):
-    """Create database and load schemas."""
-    from typedb.driver import Credentials, DriverOptions, TransactionType, TypeDB
-
-    driver = TypeDB.driver(
-        f"{host}:{port}",
-        Credentials(username, password),
-        DriverOptions(is_tls_enabled=False),
-    )
-
-    try:
-        # Create database if it doesn't exist
-        if not driver.databases.contains(database):
-            driver.databases.create(database)
-            print(f"Created database: {database}", flush=True)
-        else:
-            print(f"Database already exists: {database}", flush=True)
-
-        # Load each schema file
-        for schema_path in schema_files:
-            schema_path = Path(schema_path)
-            if not schema_path.exists():
-                print(f"Warning: schema not found: {schema_path}", flush=True)
-                continue
-
-            print(f"Loading schema: {schema_path.name} ...", end=" ", flush=True)
-            with open(schema_path) as f:
-                schema = f.read()
-
-            try:
-                with driver.transaction(database, TransactionType.SCHEMA) as tx:
-                    tx.query(schema).resolve()
-                    tx.commit()
-                print("OK", flush=True)
-            except Exception as e:
-                print(f"FAILED: {e}", flush=True)
-                raise
-
-    finally:
-        driver.close()
-
-
 def main():
     parser = argparse.ArgumentParser(description="Initialize TypeDB 3.x database")
     parser.add_argument("--host", default=os.getenv("TYPEDB_HOST", "localhost"))
@@ -103,6 +71,13 @@ def main():
                         help="Schema .tql files to load (in order)")
     args = parser.parse_args()
 
+    # Override core module's globals with our args
+    core.TYPEDB_HOST = args.host
+    core.TYPEDB_PORT = args.port
+    core.TYPEDB_DATABASE = args.database
+    core.TYPEDB_USERNAME = args.username
+    core.TYPEDB_PASSWORD = args.password
+
     # Wait for TypeDB to be ready
     print(f"Waiting for TypeDB at {args.host}:{args.port} ...", flush=True)
     if not wait_for_typedb(args.host, args.port, args.username, args.password, args.timeout):
@@ -116,7 +91,26 @@ def main():
         print("No schema files specified. Use: scripts/db_init.py schema1.tql schema2.tql ...", flush=True)
         sys.exit(1)
 
-    init_database(args.host, args.port, args.username, args.password, args.database, args.schemas)
+    # Use alhazen_core's shared driver and schema loading
+    with core._get_driver() as driver:
+        # Create database if needed
+        core._create_database(driver)
+
+        # Load each schema file
+        for schema_path in args.schemas:
+            schema_path = Path(schema_path)
+            if not schema_path.exists():
+                print(f"Warning: schema not found: {schema_path}", flush=True)
+                continue
+
+            print(f"Loading schema: {schema_path.name} ...", end=" ", flush=True)
+            try:
+                core._load_extra_schema(driver, schema_path)
+                print("OK", flush=True)
+            except Exception as e:
+                print(f"FAILED: {e}", flush=True)
+                raise
+
     print(f"\nDatabase '{args.database}' initialized successfully.", flush=True)
 
 
