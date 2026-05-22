@@ -1,0 +1,71 @@
+# =============================================================================
+# Alhazen Dashboard — Lightweight base image for plugin users
+# =============================================================================
+# Builds a dashboard with just the hub page and TypeDB status.
+# Skill-specific pages are wired in later via `alhazen_core.py wire-dashboard`.
+#
+# Build context: this directory (skills/alhazen-core/)
+# The Dockerfile clones skillful-alhazen to get the dashboard source.
+# =============================================================================
+
+# Stage 1: Clone dashboard source from skillful-alhazen
+FROM alpine/git AS dashboard-src
+ARG REPO=https://github.com/sciknow-io/skillful-alhazen.git
+ARG REF=main
+RUN git clone --depth=1 --branch $REF $REPO /src
+
+# Stage 2: Node.js build (hub page only — no skill pages yet)
+FROM node:20-slim AS builder
+WORKDIR /app
+COPY --from=dashboard-src /src/dashboard/package*.json ./
+RUN ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
+COPY --from=dashboard-src /src/dashboard/ ./
+# Empty skills-config.json — no skills wired yet
+RUN echo '[]' > public/skills-config.json
+# Empty namespace-config.json
+RUN echo '{}' > public/namespace-config.json
+RUN npm run build
+
+# Stage 3: Runtime (Node.js + Python + uv for skill CLI execution)
+FROM python:3.11-slim AS runner
+
+# Install Node.js and curl
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /app
+
+# Copy the built Next.js app
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+
+# Keep source files for rebuilds when skills are wired in later
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/next.config.ts ./
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/postcss.config.mjs ./
+
+# Create directories for skill wiring
+RUN mkdir -p .claude/skills
+
+# Environment
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV TYPEDB_HOST=typedb
+ENV TYPEDB_PORT=1729
+ENV TYPEDB_DATABASE=alhazen_notebook
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+EXPOSE 3000
+
+CMD ["npm", "start"]

@@ -1,0 +1,54 @@
+# =============================================================================
+# Alhazen Core — Docker Compose for plugin users
+# =============================================================================
+# Starts TypeDB + Dashboard. Used by alhazen_core.py init.
+#
+# Usage:
+#   docker compose -f docker-compose.alhazen.yml up -d
+#
+# Services:
+#   - TypeDB: localhost:1729
+#   - Dashboard: http://localhost:3001
+# =============================================================================
+
+services:
+  typedb:
+    image: typedb/typedb:3.8.0
+    container_name: alhazen-typedb
+    ports:
+      - "127.0.0.1:1729:1729"
+    volumes:
+      - typedb-data:/var/lib/typedb/data
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c 'echo > /dev/tcp/localhost/1729' 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - alhazen-network
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: alhazen-dashboard
+    depends_on:
+      typedb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - TYPEDB_HOST=typedb
+      - TYPEDB_PORT=1729
+      - TYPEDB_DATABASE=alhazen_notebook
+    restart: unless-stopped
+    networks:
+      - alhazen-network
+
+networks:
+  alhazen-network:
+
+volumes:
+  typedb-data:
