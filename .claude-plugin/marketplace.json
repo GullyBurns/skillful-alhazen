@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Core skills for Skillful Alhazen — TypeDB-powered agentic knowledge notebook",
-    "version": "1.0.0"
+    "version": "0.1.0"
   },
   "plugins": [
     {
       "name": "alhazen-core",
       "source": "./skills/alhazen-core",
       "description": "TypeDB infrastructure -- auto-starts via Docker, creates database, loads base schema. Install this first before any other Alhazen skill.",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "keywords": ["typedb", "infrastructure", "setup"]
     },
@@ -20,7 +20,7 @@
       "name": "typedb-notebook",
       "source": "./skills/typedb-notebook",
       "description": "Store and retrieve knowledge in the Alhazen TypeDB knowledge graph — remember, recall, organize notes and collections",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "keywords": ["typedb", "knowledge-graph", "memory", "notes"]
     },
@@ -28,7 +28,7 @@
       "name": "web-search",
       "source": "./skills/web-search",
       "description": "Search the web using SearXNG (self-hosted metasearch — no API key needed)",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "keywords": ["search", "web", "searxng"]
     },
@@ -36,7 +36,7 @@
       "name": "curation-skill-builder",
       "source": "./skills/curation-skill-builder",
       "description": "Design and implement TypeDB-backed curation skills using the Skillful Alhazen 6-phase methodology",
-      "version": "1.0.0",
+      "version": "0.1.0",
       "license": "Apache-2.0",
       "keywords": ["typedb", "skill-design", "curation", "meta-skill"]
     },
