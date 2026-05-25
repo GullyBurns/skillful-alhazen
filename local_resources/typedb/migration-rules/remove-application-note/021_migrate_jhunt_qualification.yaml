@@ -1,0 +1,10 @@
+name: migrate_jhunt_qualification
+description: 'Migrate jhunt-qualification: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-qualification;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-qualification, has id $id;
+skolem_keys:
+- id

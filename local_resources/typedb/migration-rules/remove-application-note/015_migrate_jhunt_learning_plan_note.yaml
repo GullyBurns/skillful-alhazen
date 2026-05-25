@@ -1,0 +1,10 @@
+name: migrate_jhunt_learning_plan_note
+description: 'Migrate jhunt-learning-plan-note: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-learning-plan-note;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-learning-plan-note, has id $id;
+skolem_keys:
+- id

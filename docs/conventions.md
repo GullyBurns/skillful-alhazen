@@ -24,41 +24,13 @@ Skills can define data quality checks in `quality-checks.yaml` (declarative Type
 
 ## Schema Gap Reporting
 
-A **schema gap** is when Claude tries to represent a concept, relationship, or entity type that has no place in the current TypeDB schema. Schema gaps are the primary signal for knowledge graph evolution — they reveal what the schema needs to grow to support.
+See [`docs/schema-lifecycle.md`](schema-lifecycle.md) for the full schema gap detection, migration, and PR workflow.
 
-**Two detection paths:**
-1. **TypeDB error code in output** — the PostToolUse hook prints a `[SCHEMA-GAP-HINT]` when it detects `[SYR1]`, `[TYR01]`, `[FEX1]`, etc. in a skill's output. Follow the hint.
-2. **Claude recognizes it** — during sensemaking, you realize a concept can't be stored. File immediately (don't wait until after the session).
-
-**File a schema gap:**
+Quick reference — file a gap:
 ```bash
 uv run python local_resources/skilllog/skill_logger.py file-slog-schema-gap \
-  --skill <slog-skill-name> \
-  --concept "<concept Claude tried to represent>" \
-  --missing "<which TypeDB entity/relation/attribute is absent>" \
-  --suggested "<proposed TypeQL snippet, or 'unknown'>" \
-  [--dry-run]
-```
-
-Repo routing is automatic: core skills (`typedb-notebook`, `web-search`, `curation-skill-builder`, `tech-recon`) -> `GullyBurns/skillful-alhazen`; external skills (`jobhunt`, `scientific-literature`, `alg-precision-therapeutics`, `literature-trends`, `they-said-whaaa`) -> `sciknow-io/alhazen-skill-examples`.
-
-**Also file issues for design gaps discovered during planning** (missing constraints, schema mismatches, dashboard/schema mismatches):
-```bash
-gh issue create \
-  --repo <repo> \
-  --title "Gap [moderate][entity-schema]: <one-sentence summary>" \
-  --body $'## What was missing\n<...>\n\n## What broke\n<...>\n\n## Suggested fix\n<...>\n\n## Generalizable pattern\n<...>\n\n---\n**Skill:** <skill>\n**Phase:** entity-schema\n**Severity:** moderate' \
-  --label "gap:open"
-```
-
-**Severity:** `minor` = cosmetic, `moderate` = feature broken but workaround exists, `critical` = data loss or crash.
-
-**List open gaps:** `gh issue list --repo <repo> --label "gap:open" --json number,title,url,labels`
-
-**One-time setup** (if repo lacks labels/workflows):
-```bash
-uv run python .claude/skills/curation-skill-builder/skill_builder.py \
-  scaffold-improvement-loop --repo <owner/name> [--skill <name>]
+  --skill <skill-name> \
+  --concept "<concept>" --missing "<what's absent>" --suggested "<fix>"
 ```
 
 ## External Skill Fixes Must Go Upstream

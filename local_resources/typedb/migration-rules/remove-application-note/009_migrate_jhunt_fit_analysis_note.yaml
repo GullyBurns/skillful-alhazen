@@ -1,0 +1,12 @@
+name: migrate_jhunt_fit_analysis_note
+description: 'Migrate jhunt-fit-analysis-note: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-fit-analysis-note;
+
+  fetch { "id": $x.id, "jhunt-fit-score": $x.jhunt-fit-score, "jhunt-fit-summary":
+  $x.jhunt-fit-summary };'
+target_insert: insert $x isa jhunt-fit-analysis-note, has id $id, has jhunt-fit-score
+  $jhunt-fit-score, has jhunt-fit-summary $jhunt-fit-summary;
+skolem_keys:
+- id

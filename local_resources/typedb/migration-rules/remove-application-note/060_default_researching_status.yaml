@@ -1,0 +1,18 @@
+name: default_researching_status
+description: "Set positions without any status to 'researching'"
+depends_on: [position_status_from_note]
+idempotent: true
+source_match: |
+  match
+    $p isa jhunt-position, has id $pid;
+    not { (note: $n, subject: $p) isa alh-aboutness; $n isa jhunt-application-note; };
+    not { $p has jhunt-opportunity-status $s; };
+  fetch {
+    "pid": $pid
+  };
+target_insert: |
+  match
+    $p isa jhunt-position, has id $pid;
+  insert
+    $p has jhunt-opportunity-status "researching";
+skolem_keys: [pid]

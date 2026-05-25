@@ -1,0 +1,22 @@
+name: migrate_jhunt_contact_for_opportunity
+description: Migrate relation jhunt-contact-for-opportunity
+depends_on:
+- migrate_jhunt_opportunity
+idempotent: true
+source_match: 'match (contact: $contact, opportunity: $opportunity) isa jhunt-contact-for-opportunity;
+
+  $contact has id $contact_id;
+
+  $opportunity has id $opportunity_id;
+
+  fetch { "jhunt-contact-role": $rel.jhunt-contact-role, "contact_id": $contact.id,
+  "opportunity_id": $opportunity.id };'
+target_insert: 'match $contact has id $contact_id;
+
+  match $opportunity has id $opportunity_id;
+
+  insert (contact: $contact, opportunity: $opportunity) isa jhunt-contact-for-opportunity,
+  has jhunt-contact-role $jhunt-contact-role;'
+skolem_keys:
+- $contact_id
+- $opportunity_id

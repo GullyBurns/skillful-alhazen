@@ -1,0 +1,23 @@
+name: migrate_jhunt_addresses_requirement
+description: Migrate relation jhunt-addresses-requirement
+depends_on:
+- migrate_jhunt_learning_resource
+- migrate_jhunt_requirement
+idempotent: true
+source_match: 'match (resource: $resource, requirement: $requirement) isa jhunt-addresses-requirement;
+
+  $resource has id $resource_id;
+
+  $requirement has id $requirement_id;
+
+  fetch { "confidence": $rel.confidence, "resource_id": $resource.id, "requirement_id":
+  $requirement.id };'
+target_insert: 'match $resource has id $resource_id;
+
+  match $requirement has id $requirement_id;
+
+  insert (resource: $resource, requirement: $requirement) isa jhunt-addresses-requirement,
+  has confidence $confidence;'
+skolem_keys:
+- $resource_id
+- $requirement_id

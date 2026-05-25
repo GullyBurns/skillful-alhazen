@@ -1,0 +1,12 @@
+name: migrate_jhunt_interaction_note
+description: 'Migrate jhunt-interaction-note: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-interaction-note;
+
+  fetch { "id": $x.id, "alh-interaction-type": $x.alh-interaction-type, "alh-interaction-date":
+  $x.alh-interaction-date };'
+target_insert: insert $x isa jhunt-interaction-note, has id $id, has alh-interaction-type
+  $alh-interaction-type, has alh-interaction-date $alh-interaction-date;
+skolem_keys:
+- id

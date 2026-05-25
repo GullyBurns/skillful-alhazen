@@ -1,0 +1,21 @@
+name: migrate_jhunt_requirement_for
+description: Migrate relation jhunt-requirement-for
+depends_on:
+- migrate_jhunt_position
+- migrate_jhunt_requirement
+idempotent: true
+source_match: 'match (requirement: $requirement, position: $position) isa jhunt-requirement-for;
+
+  $requirement has id $requirement_id;
+
+  $position has id $position_id;
+
+  fetch { "requirement_id": $requirement.id, "position_id": $position.id };'
+target_insert: 'match $requirement has id $requirement_id;
+
+  match $position has id $position_id;
+
+  insert (requirement: $requirement, position: $position) isa jhunt-requirement-for;'
+skolem_keys:
+- $requirement_id
+- $position_id

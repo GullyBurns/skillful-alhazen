@@ -1,0 +1,22 @@
+name: migrate_jhunt_opportunity_at_organization
+description: Migrate relation jhunt-opportunity-at-organization
+depends_on:
+- migrate_jhunt_company
+- migrate_jhunt_opportunity
+idempotent: true
+source_match: 'match (opportunity: $opportunity, organization: $organization) isa
+  jhunt-opportunity-at-organization;
+
+  $opportunity has id $opportunity_id;
+
+  $organization has id $organization_id;
+
+  fetch { "opportunity_id": $opportunity.id, "organization_id": $organization.id };'
+target_insert: 'match $opportunity has id $opportunity_id;
+
+  match $organization has id $organization_id;
+
+  insert (opportunity: $opportunity, organization: $organization) isa jhunt-opportunity-at-organization;'
+skolem_keys:
+- $opportunity_id
+- $organization_id

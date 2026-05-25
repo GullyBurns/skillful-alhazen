@@ -1,0 +1,14 @@
+name: migrate_jhunt_your_skill
+description: 'Migrate jhunt-your-skill: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-your-skill;
+
+  fetch { "id": $x.id, "jhunt-skill-name": $x.jhunt-skill-name, "jhunt-skill-level":
+  $x.jhunt-skill-level, "jhunt-skill-evidence": $x.jhunt-skill-evidence, "jhunt-skill-recency":
+  $x.jhunt-skill-recency, "jhunt-last-updated": $x.jhunt-last-updated };'
+target_insert: insert $x isa jhunt-your-skill, has id $id, has jhunt-skill-name $jhunt-skill-name,
+  has jhunt-skill-level $jhunt-skill-level, has jhunt-skill-evidence $jhunt-skill-evidence,
+  has jhunt-skill-recency $jhunt-skill-recency, has jhunt-last-updated $jhunt-last-updated;
+skolem_keys:
+- id

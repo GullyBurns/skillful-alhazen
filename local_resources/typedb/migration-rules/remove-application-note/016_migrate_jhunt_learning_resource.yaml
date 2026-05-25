@@ -1,0 +1,14 @@
+name: migrate_jhunt_learning_resource
+description: 'Migrate jhunt-learning-resource: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-learning-resource;
+
+  fetch { "id": $x.id, "jhunt-resource-type": $x.jhunt-resource-type, "jhunt-resource-url":
+  $x.jhunt-resource-url, "jhunt-estimated-hours": $x.jhunt-estimated-hours, "jhunt-completion-status":
+  $x.jhunt-completion-status };'
+target_insert: insert $x isa jhunt-learning-resource, has id $id, has jhunt-resource-type
+  $jhunt-resource-type, has jhunt-resource-url $jhunt-resource-url, has jhunt-estimated-hours
+  $jhunt-estimated-hours, has jhunt-completion-status $jhunt-completion-status;
+skolem_keys:
+- id

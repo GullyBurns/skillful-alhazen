@@ -96,8 +96,8 @@ Read these **before** the relevant task — they are NOT auto-loaded:
 | [`docs/makefile.md`](docs/makefile.md) | Running `make` targets, backups, CLI usage |
 | [`docs/typedb.md`](docs/typedb.md) | Writing ANY TypeQL query or schema definition |
 | [`docs/architecture.md`](docs/architecture.md) | Understanding data model, skills, agents, dashboards, cache |
-| [`docs/schema-evolution.md`](docs/schema-evolution.md) | Migrating schema, GLAV integration |
-| [`docs/conventions.md`](docs/conventions.md) | Audit process, schema gaps, dashboard work, external skill fixes |
+| [`docs/schema-lifecycle.md`](docs/schema-lifecycle.md) | Schema gaps, migration methods (in-place, GLAV, binary), PR workflow |
+| [`docs/conventions.md`](docs/conventions.md) | Audit process, dashboard work, external skill fixes |
 | [`docs/dashboard-guide.md`](docs/dashboard-guide.md) | Building a new skill dashboard (Python CLI → lib → API → pages) |
 | [`docs/deployment.md`](docs/deployment.md) | Deploying to Mac Mini or VPS |
 | `local_resources/typedb/llms.txt` | Full TypeDB 3.x query reference (load on demand) |

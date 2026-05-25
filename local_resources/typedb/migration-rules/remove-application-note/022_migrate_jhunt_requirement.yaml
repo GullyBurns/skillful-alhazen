@@ -1,0 +1,12 @@
+name: migrate_jhunt_requirement
+description: 'Migrate jhunt-requirement: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-requirement;
+
+  fetch { "id": $x.id, "jhunt-skill-name": $x.jhunt-skill-name, "jhunt-skill-level":
+  $x.jhunt-skill-level, "jhunt-your-level": $x.jhunt-your-level };'
+target_insert: insert $x isa jhunt-requirement, has id $id, has jhunt-skill-name $jhunt-skill-name,
+  has jhunt-skill-level $jhunt-skill-level, has jhunt-your-level $jhunt-your-level;
+skolem_keys:
+- id

@@ -1,0 +1,15 @@
+name: migrate_jhunt_search_source
+description: 'Migrate jhunt-search-source: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-search-source;
+
+  fetch { "id": $x.id, "jhunt-board-token": $x.jhunt-board-token, "jhunt-board-platform":
+  $x.jhunt-board-platform, "alh-company-url": $x.alh-company-url, "jhunt-search-query":
+  $x.jhunt-search-query, "jhunt-search-location": $x.jhunt-search-location };'
+target_insert: insert $x isa jhunt-search-source, has id $id, has jhunt-board-token
+  $jhunt-board-token, has jhunt-board-platform $jhunt-board-platform, has alh-company-url
+  $alh-company-url, has jhunt-search-query $jhunt-search-query, has jhunt-search-location
+  $jhunt-search-location;
+skolem_keys:
+- id

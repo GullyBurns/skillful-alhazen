@@ -1,0 +1,16 @@
+name: migrate_jhunt_job_seeker_role
+description: 'Migrate jhunt-job-seeker-role: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-job-seeker-role;
+
+  fetch { "id": $x.id, "jhunt-target-role": $x.jhunt-target-role, "jhunt-target-industries":
+  $x.jhunt-target-industries, "jhunt-salary-expectations": $x.jhunt-salary-expectations,
+  "jhunt-location-preference": $x.jhunt-location-preference, "jhunt-search-focus":
+  $x.jhunt-search-focus };'
+target_insert: insert $x isa jhunt-job-seeker-role, has id $id, has jhunt-target-role
+  $jhunt-target-role, has jhunt-target-industries $jhunt-target-industries, has jhunt-salary-expectations
+  $jhunt-salary-expectations, has jhunt-location-preference $jhunt-location-preference,
+  has jhunt-search-focus $jhunt-search-focus;
+skolem_keys:
+- id

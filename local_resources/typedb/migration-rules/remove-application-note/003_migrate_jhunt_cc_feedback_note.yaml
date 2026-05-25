@@ -1,0 +1,10 @@
+name: migrate_jhunt_cc_feedback_note
+description: 'Migrate jhunt-cc-feedback-note: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-cc-feedback-note;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-cc-feedback-note, has id $id;
+skolem_keys:
+- id

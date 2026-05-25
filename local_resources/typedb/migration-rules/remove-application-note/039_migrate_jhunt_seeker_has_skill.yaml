@@ -1,0 +1,21 @@
+name: migrate_jhunt_seeker_has_skill
+description: Migrate relation jhunt-seeker-has-skill
+depends_on:
+- migrate_jhunt_job_seeker_role
+- migrate_jhunt_your_skill
+idempotent: true
+source_match: 'match (seeker: $seeker, skill: $skill) isa jhunt-seeker-has-skill;
+
+  $seeker has id $seeker_id;
+
+  $skill has id $skill_id;
+
+  fetch { "seeker_id": $seeker.id, "skill_id": $skill.id };'
+target_insert: 'match $seeker has id $seeker_id;
+
+  match $skill has id $skill_id;
+
+  insert (seeker: $seeker, skill: $skill) isa jhunt-seeker-has-skill;'
+skolem_keys:
+- $seeker_id
+- $skill_id

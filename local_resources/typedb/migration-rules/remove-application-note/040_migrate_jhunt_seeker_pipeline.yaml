@@ -1,0 +1,21 @@
+name: migrate_jhunt_seeker_pipeline
+description: Migrate relation jhunt-seeker-pipeline
+depends_on:
+- migrate_jhunt_job_seeker_role
+- migrate_jhunt_opportunity
+idempotent: true
+source_match: 'match (seeker: $seeker, opportunity: $opportunity) isa jhunt-seeker-pipeline;
+
+  $seeker has id $seeker_id;
+
+  $opportunity has id $opportunity_id;
+
+  fetch { "seeker_id": $seeker.id, "opportunity_id": $opportunity.id };'
+target_insert: 'match $seeker has id $seeker_id;
+
+  match $opportunity has id $opportunity_id;
+
+  insert (seeker: $seeker, opportunity: $opportunity) isa jhunt-seeker-pipeline;'
+skolem_keys:
+- $seeker_id
+- $opportunity_id

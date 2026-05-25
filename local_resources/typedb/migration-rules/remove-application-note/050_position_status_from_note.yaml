@@ -1,0 +1,19 @@
+name: position_status_from_note
+description: "Extract jhunt-application-status from application notes and set as jhunt-opportunity-status on linked positions"
+depends_on: [migrate_jhunt_position]
+idempotent: true
+source_match: |
+  match
+    $p isa jhunt-position, has id $pid;
+    (note: $n, subject: $p) isa alh-aboutness;
+    $n isa jhunt-application-note, has jhunt-application-status $status;
+  fetch {
+    "pid": $pid,
+    "status": $status
+  };
+target_insert: |
+  match
+    $p isa jhunt-position, has id $pid;
+  insert
+    $p has jhunt-opportunity-status $status;
+skolem_keys: [pid]

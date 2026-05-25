@@ -1,0 +1,10 @@
+name: migrate_jhunt_proposal
+description: 'Migrate jhunt-proposal: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-proposal;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-proposal, has id $id;
+skolem_keys:
+- id

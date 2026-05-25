@@ -1,0 +1,16 @@
+name: migrate_jhunt_venture
+description: 'Migrate jhunt-venture: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-venture;
+
+  fetch { "id": $x.id, "jhunt-short-name": $x.jhunt-short-name, "jhunt-venture-stage":
+  $x.jhunt-venture-stage, "jhunt-equity-type": $x.jhunt-equity-type, "jhunt-opportunity-status":
+  $x.jhunt-opportunity-status, "jhunt-priority-level": $x.jhunt-priority-level, "jhunt-deadline":
+  $x.jhunt-deadline };'
+target_insert: insert $x isa jhunt-venture, has id $id, has jhunt-short-name $jhunt-short-name,
+  has jhunt-venture-stage $jhunt-venture-stage, has jhunt-equity-type $jhunt-equity-type,
+  has jhunt-opportunity-status $jhunt-opportunity-status, has jhunt-priority-level
+  $jhunt-priority-level, has jhunt-deadline $jhunt-deadline;
+skolem_keys:
+- id

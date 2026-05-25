@@ -1,7 +1,14 @@
 # Schema Lifecycle Management
 
 **Date:** 2026-05-04
-**Status:** Design
+**Status:** Archived (2026-05-25)
+**Outcome:** ~85% implemented. Parts 1-3, 5-7 complete. Part 4 (db-init topological sort from registry) is a minor gap — db-init still uses filesystem discovery instead of `schema_map.load_order`. Filed as a standalone issue rather than retaining this spec.
+
+Schema evolution workflow unified into [`docs/schema-lifecycle.md`](../../schema-lifecycle.md). Namespace governance is operational via `skills-registry.yaml`, `make db-retire-skill`, and `make db-audit`.
+
+---
+
+*Original spec below for historical reference.*
 **Problem:** The TypeDB schema is purely additive — skills add types but can never remove them. 5 dead namespaces (111 types, 0 instances) bloat the schema. No dependency tracking, no retirement path, no namespace documentation.
 
 ## Part 1: Clean House

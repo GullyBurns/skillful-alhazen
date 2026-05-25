@@ -1,0 +1,10 @@
+name: migrate_alh_person
+description: 'Migrate alh-person: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa alh-person;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa alh-person, has id $id;
+skolem_keys:
+- id

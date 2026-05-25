@@ -1,0 +1,11 @@
+name: migrate_jhunt_skill_concept
+description: 'Migrate jhunt-skill-concept: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-skill-concept;
+
+  fetch { "id": $x.id, "jhunt-alt-label": $x.jhunt-alt-label };'
+target_insert: insert $x isa jhunt-skill-concept, has id $id, has jhunt-alt-label
+  $jhunt-alt-label;
+skolem_keys:
+- id

@@ -1,0 +1,23 @@
+name: migrate_jhunt_background_reading
+description: Migrate relation jhunt-background-reading
+depends_on: []
+idempotent: true
+source_match: 'match (opportunity: $opportunity, reading-material: $reading_material)
+  isa jhunt-background-reading;
+
+  $opportunity has id $opportunity_id;
+
+  $reading_material has id $reading_material_id;
+
+  fetch { "created-at": $rel.created-at, "description": $rel.description, "provenance":
+  $rel.provenance, "opportunity_id": $opportunity.id, "reading_material_id": $reading_material.id
+  };'
+target_insert: 'match $opportunity has id $opportunity_id;
+
+  match $reading_material has id $reading_material_id;
+
+  insert (opportunity: $opportunity, reading-material: $reading_material) isa jhunt-background-reading,
+  has created-at $created-at, has description $description, has provenance $provenance;'
+skolem_keys:
+- $opportunity_id
+- $reading_material_id

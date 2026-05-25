@@ -1,0 +1,10 @@
+name: migrate_jhunt_cover_letter
+description: 'Migrate jhunt-cover-letter: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-cover-letter;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-cover-letter, has id $id;
+skolem_keys:
+- id

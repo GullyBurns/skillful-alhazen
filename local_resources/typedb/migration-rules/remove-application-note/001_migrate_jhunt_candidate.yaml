@@ -1,0 +1,16 @@
+name: migrate_jhunt_candidate
+description: 'Migrate jhunt-candidate: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-candidate;
+
+  fetch { "id": $x.id, "jhunt-job-url": $x.jhunt-job-url, "jhunt-external-job-id":
+  $x.jhunt-external-job-id, "alh-location": $x.alh-location, "jhunt-discovered-at":
+  $x.jhunt-discovered-at, "jhunt-relevance-score": $x.jhunt-relevance-score, "jhunt-candidate-status":
+  $x.jhunt-candidate-status, "jhunt-triage-reason": $x.jhunt-triage-reason };'
+target_insert: insert $x isa jhunt-candidate, has id $id, has jhunt-job-url $jhunt-job-url,
+  has jhunt-external-job-id $jhunt-external-job-id, has alh-location $alh-location,
+  has jhunt-discovered-at $jhunt-discovered-at, has jhunt-relevance-score $jhunt-relevance-score,
+  has jhunt-candidate-status $jhunt-candidate-status, has jhunt-triage-reason $jhunt-triage-reason;
+skolem_keys:
+- id

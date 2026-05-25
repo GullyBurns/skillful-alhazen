@@ -1,0 +1,13 @@
+name: migrate_jhunt_opportunity
+description: 'Migrate jhunt-opportunity: added owns: [''jhunt-applied-date'', ''jhunt-response-date'']'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-opportunity;
+
+  fetch { "id": $x.id, "jhunt-opportunity-status": $x.jhunt-opportunity-status, "jhunt-priority-level":
+  $x.jhunt-priority-level, "jhunt-deadline": $x.jhunt-deadline };'
+target_insert: insert $x isa jhunt-opportunity, has id $id, has jhunt-opportunity-status
+  $jhunt-opportunity-status, has jhunt-priority-level $jhunt-priority-level, has jhunt-deadline
+  $jhunt-deadline;
+skolem_keys:
+- id

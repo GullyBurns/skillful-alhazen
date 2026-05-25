@@ -1,0 +1,22 @@
+name: migrate_jhunt_skill_hierarchy
+description: Migrate relation jhunt-skill-hierarchy
+depends_on:
+- migrate_jhunt_skill_concept
+idempotent: true
+source_match: 'match (broader-skill: $broader_skill, narrower-skill: $narrower_skill)
+  isa jhunt-skill-hierarchy;
+
+  $broader_skill has id $broader_skill_id;
+
+  $narrower_skill has id $narrower_skill_id;
+
+  fetch { "broader_skill_id": $broader_skill.id, "narrower_skill_id": $narrower_skill.id
+  };'
+target_insert: 'match $broader_skill has id $broader_skill_id;
+
+  match $narrower_skill has id $narrower_skill_id;
+
+  insert (broader-skill: $broader_skill, narrower-skill: $narrower_skill) isa jhunt-skill-hierarchy;'
+skolem_keys:
+- $broader_skill_id
+- $narrower_skill_id

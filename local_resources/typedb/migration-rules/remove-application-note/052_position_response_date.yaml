@@ -1,0 +1,19 @@
+name: position_response_date
+description: "Transfer jhunt-response-date from application note to position"
+depends_on: [position_status_from_note]
+idempotent: true
+source_match: |
+  match
+    $p isa jhunt-position, has id $pid;
+    (note: $n, subject: $p) isa alh-aboutness;
+    $n isa jhunt-application-note, has jhunt-response-date $d;
+  fetch {
+    "pid": $pid,
+    "response_date": $d
+  };
+target_insert: |
+  match
+    $p isa jhunt-position, has id $pid;
+  insert
+    $p has jhunt-response-date $response_date;
+skolem_keys: [pid]

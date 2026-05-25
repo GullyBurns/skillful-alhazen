@@ -1,0 +1,10 @@
+name: migrate_jhunt_strategy_note
+description: 'Migrate jhunt-strategy-note: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-strategy-note;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-strategy-note, has id $id;
+skolem_keys:
+- id

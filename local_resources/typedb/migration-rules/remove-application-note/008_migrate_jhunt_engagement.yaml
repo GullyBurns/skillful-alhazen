@@ -1,0 +1,16 @@
+name: migrate_jhunt_engagement
+description: 'Migrate jhunt-engagement: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-engagement;
+
+  fetch { "id": $x.id, "jhunt-short-name": $x.jhunt-short-name, "jhunt-engagement-type":
+  $x.jhunt-engagement-type, "jhunt-rate-info": $x.jhunt-rate-info, "jhunt-opportunity-status":
+  $x.jhunt-opportunity-status, "jhunt-priority-level": $x.jhunt-priority-level, "jhunt-deadline":
+  $x.jhunt-deadline };'
+target_insert: insert $x isa jhunt-engagement, has id $id, has jhunt-short-name $jhunt-short-name,
+  has jhunt-engagement-type $jhunt-engagement-type, has jhunt-rate-info $jhunt-rate-info,
+  has jhunt-opportunity-status $jhunt-opportunity-status, has jhunt-priority-level
+  $jhunt-priority-level, has jhunt-deadline $jhunt-deadline;
+skolem_keys:
+- id

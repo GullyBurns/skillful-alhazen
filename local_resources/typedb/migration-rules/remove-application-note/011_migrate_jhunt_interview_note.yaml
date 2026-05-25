@@ -1,0 +1,11 @@
+name: migrate_jhunt_interview_note
+description: 'Migrate jhunt-interview-note: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-interview-note;
+
+  fetch { "id": $x.id, "jhunt-interview-date": $x.jhunt-interview-date };'
+target_insert: insert $x isa jhunt-interview-note, has id $id, has jhunt-interview-date
+  $jhunt-interview-date;
+skolem_keys:
+- id

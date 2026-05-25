@@ -1,0 +1,10 @@
+name: migrate_jhunt_resume
+description: 'Migrate jhunt-resume: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-resume;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-resume, has id $id;
+skolem_keys:
+- id

@@ -1,0 +1,21 @@
+name: migrate_jhunt_position_at_company
+description: Migrate relation jhunt-position-at-company
+depends_on:
+- migrate_jhunt_company
+- migrate_jhunt_position
+idempotent: true
+source_match: 'match (position: $position, employer: $employer) isa jhunt-position-at-company;
+
+  $position has id $position_id;
+
+  $employer has id $employer_id;
+
+  fetch { "position_id": $position.id, "employer_id": $employer.id };'
+target_insert: 'match $position has id $position_id;
+
+  match $employer has id $employer_id;
+
+  insert (position: $position, employer: $employer) isa jhunt-position-at-company;'
+skolem_keys:
+- $position_id
+- $employer_id

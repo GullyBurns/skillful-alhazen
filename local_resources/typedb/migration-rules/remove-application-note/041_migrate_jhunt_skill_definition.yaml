@@ -1,0 +1,22 @@
+name: migrate_jhunt_skill_definition
+description: Migrate relation jhunt-skill-definition
+depends_on:
+- migrate_jhunt_requirement
+- migrate_jhunt_skill_concept
+- migrate_jhunt_your_skill
+idempotent: true
+source_match: 'match (concept: $concept, defined-skill: $defined_skill) isa jhunt-skill-definition;
+
+  $concept has id $concept_id;
+
+  $defined_skill has id $defined_skill_id;
+
+  fetch { "concept_id": $concept.id, "defined_skill_id": $defined_skill.id };'
+target_insert: 'match $concept has id $concept_id;
+
+  match $defined_skill has id $defined_skill_id;
+
+  insert (concept: $concept, defined-skill: $defined_skill) isa jhunt-skill-definition;'
+skolem_keys:
+- $concept_id
+- $defined_skill_id

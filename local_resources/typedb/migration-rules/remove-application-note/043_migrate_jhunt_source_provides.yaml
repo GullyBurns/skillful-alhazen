@@ -1,0 +1,21 @@
+name: migrate_jhunt_source_provides
+description: Migrate relation jhunt-source-provides
+depends_on:
+- migrate_jhunt_candidate
+- migrate_jhunt_search_source
+idempotent: true
+source_match: 'match (source: $source, candidate: $candidate) isa jhunt-source-provides;
+
+  $source has id $source_id;
+
+  $candidate has id $candidate_id;
+
+  fetch { "source_id": $source.id, "candidate_id": $candidate.id };'
+target_insert: 'match $source has id $source_id;
+
+  match $candidate has id $candidate_id;
+
+  insert (source: $source, candidate: $candidate) isa jhunt-source-provides;'
+skolem_keys:
+- $source_id
+- $candidate_id

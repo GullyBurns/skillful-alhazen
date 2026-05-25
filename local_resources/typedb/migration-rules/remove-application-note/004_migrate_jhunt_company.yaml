@@ -1,0 +1,10 @@
+name: migrate_jhunt_company
+description: 'Migrate jhunt-company: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-company;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-company, has id $id;
+skolem_keys:
+- id

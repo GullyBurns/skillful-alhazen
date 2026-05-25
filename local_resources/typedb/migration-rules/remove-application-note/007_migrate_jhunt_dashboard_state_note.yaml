@@ -1,0 +1,10 @@
+name: migrate_jhunt_dashboard_state_note
+description: 'Migrate jhunt-dashboard-state-note: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-dashboard-state-note;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-dashboard-state-note, has id $id;
+skolem_keys:
+- id

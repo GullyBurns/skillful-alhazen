@@ -1,0 +1,10 @@
+name: migrate_jhunt_job_description
+description: 'Migrate jhunt-job-description: identity migration (unchanged)'
+depends_on: []
+idempotent: true
+source_match: 'match $x isa jhunt-job-description;
+
+  fetch { "id": $x.id };'
+target_insert: insert $x isa jhunt-job-description, has id $id;
+skolem_keys:
+- id
