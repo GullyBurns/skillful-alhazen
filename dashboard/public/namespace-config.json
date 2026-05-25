@@ -22,6 +22,16 @@
     "color": "blue",
     "skill": "curation-skill-builder"
   },
+  "jhunt": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "jobhunt"
+  },
+  "scilit": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "scientific-literature"
+  },
   "trec": {
     "badge": "SKILL",
     "color": "blue",
