@@ -1,0 +1,1060 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Skillful Alhazen — CAIS 2026 Poster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── print setup ─────────────────────────────────────────── */
+@page {
+  size: 36in 42in;
+  margin: 0;
+}
+
+/* ── variables (Starry Night palette) ────────────────────── */
+:root {
+  --bg:        #070d1c;
+  --bg-raised: #0c1628;
+  --bg-sunken: #050a16;
+  --panel:     rgba(12, 22, 40, 0.72);
+  --panel-hi:  rgba(20, 34, 58, 0.85);
+  --border:    rgba(90, 173, 175, 0.22);
+  --border-hi: rgba(90, 173, 175, 0.42);
+  --border-dim:rgba(200, 221, 232, 0.08);
+  --fg:        #c8dde8;
+  --fg-dim:    #aec4d4;
+  --fg-faint:  #8ba4b8;
+
+  --teal:   #5aadaf;
+  --teal-d: rgba(90, 173, 175, 0.18);
+  --blue:   #5b8ab8;
+  --blue-d: rgba(91, 138, 184, 0.18);
+  --olive:  #b8c84a;
+  --olive-d:rgba(184, 200, 74, 0.18);
+  --mint:   #62c4bc;
+  --rust:   #c87a4a;
+  --rust-d: rgba(200, 122, 74, 0.18);
+
+  --mono:  ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+  --serif: "DM Serif Display", "Iowan Old Style", Georgia, serif;
+  --sans:  "DM Sans", -apple-system, system-ui, sans-serif;
+}
+
+/* ── base ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 36in;
+  height: 42in;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* watermark grid — subtle starfield */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(200,221,232,0.04) 1px, transparent 0);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+a { color: var(--teal); text-decoration: none; }
+
+/* ── poster grid ─────────────────────────────────────────── */
+.poster {
+  position: relative;
+  z-index: 1;
+  width: 36in;
+  height: 42in;
+  padding: 0.6in 0.75in;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2in;
+}
+
+/* ── section boxes ───────────────────────────────────────── */
+.section {
+  break-inside: avoid;
+}
+
+/* ── typographic primitives ──────────────────────────────── */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 18pt;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.title {
+  font-family: var(--serif);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  text-wrap: balance;
+}
+
+.lead {
+  font-family: var(--sans);
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--fg);
+}
+
+.body-text {
+  font-family: var(--sans);
+  font-weight: 400;
+  line-height: 1.42;
+  color: var(--fg-dim);
+}
+
+.mono {
+  font-family: var(--mono);
+  letter-spacing: 0.4px;
+  color: var(--fg-dim);
+}
+
+.italic {
+  font-family: var(--serif);
+  font-style: italic;
+}
+
+/* ── panel ────────────────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel.elevated {
+  border-color: rgba(184,200,74,0.32);
+  background: rgba(184,200,74,0.04);
+}
+
+.panel-label {
+  font-family: var(--mono);
+  font-size: 14pt;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+/* ── kind chip ────────────────────────────────────────────── */
+.kind-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 12pt;
+  letter-spacing: 1.4px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+/* ── schema tag ───────────────────────────────────────────── */
+.schema-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 14pt;
+  letter-spacing: 0.6px;
+  color: var(--fg-faint);
+  padding: 4px 10px;
+  border: 1px dashed var(--border-dim);
+  border-radius: 4px;
+}
+
+/* ── skill table ──────────────────────────────────────────── */
+table.skill-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  color: var(--fg);
+}
+table.skill-table thead th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 12pt;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  font-weight: 600;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-dim);
+}
+table.skill-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-dim);
+  vertical-align: top;
+  line-height: 1.4;
+  font-size: 16pt;
+}
+table.skill-table tbody tr:last-child td { border-bottom: none; }
+.skill-name {
+  font-family: var(--mono);
+  color: var(--teal);
+  letter-spacing: 0.5px;
+}
+.tag-pill {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11pt;
+  padding: 2px 8px;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  color: var(--fg-dim);
+  letter-spacing: 0.6px;
+}
+.tag-pill.core { color: var(--teal); border-color: rgba(90,173,175,0.4); }
+.tag-pill.ext  { color: var(--olive); border-color: rgba(184,200,74,0.4); }
+
+/* ── utility ──────────────────────────────────────────────── */
+.rule-h {
+  width: 100%;
+  height: 1px;
+  background: var(--border-dim);
+}
+
+.img-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(200,221,232,0.12);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.img-frame img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION-SPECIFIC LAYOUTS
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── A. Header ────────────────────────────────────────────── */
+.header-section {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 0.5in;
+  align-items: center;
+  padding-bottom: 0.2in;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header-title {
+  font-size: 60pt;
+}
+
+.header-subtitle {
+  font-size: 22pt;
+  max-width: 12in;
+}
+
+.header-meta {
+  display: flex;
+  gap: 0.4in;
+  margin-top: 8px;
+}
+
+.header-meta .kv {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.header-meta .k {
+  font-family: var(--mono);
+  font-size: 11pt;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+.header-meta .v {
+  font-family: var(--sans);
+  font-size: 16pt;
+  color: var(--fg);
+}
+
+.header-tags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.header-quote {
+  font-size: 17pt;
+  line-height: 1.45;
+  color: var(--fg);
+}
+
+.header-quote-attr {
+  font-family: var(--mono);
+  font-size: 12pt;
+  text-align: right;
+  color: var(--fg-faint);
+}
+
+/* ── B. Thesis ────────────────────────────────────────────── */
+.thesis-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2in;
+}
+
+.thesis-headline {
+  font-size: 30pt;
+}
+
+.thesis-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.3in;
+}
+
+.thesis-col-label {
+  font-family: var(--mono);
+  font-size: 11pt;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.thesis-col-body {
+  font-size: 16pt;
+  line-height: 1.45;
+}
+
+/* ── C. Architecture ──────────────────────────────────────── */
+.arch-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15in;
+  align-items: center;
+}
+
+.arch-section .img-frame {
+  width: 100%;
+  max-width: 28in;
+}
+.arch-section .img-frame img {
+  max-height: 5.5in;
+  width: auto;
+  max-width: 100%;
+}
+
+/* ── D. Notebook Model ────────────────────────────────────── */
+.notebook-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3in;
+  align-items: center;
+}
+.notebook-section .img-frame img {
+  max-height: 5.5in;
+  width: auto;
+  max-width: 100%;
+}
+
+.notebook-text {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.notebook-text .title {
+  font-size: 30pt;
+}
+
+.notebook-text .body-text {
+  font-size: 16pt;
+}
+
+.notebook-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.notebook-branch {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.notebook-branch .body-text {
+  font-size: 14pt;
+}
+
+/* ── E. Curation Pipeline ─────────────────────────────────── */
+.pipeline-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12in;
+}
+
+.pipeline-steps {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+}
+
+.pipeline-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 10px;
+  text-align: center;
+  border: 1px solid var(--border-dim);
+  border-right: none;
+  background: rgba(255,255,255,0.02);
+}
+
+.pipeline-step:first-child {
+  border-radius: 6px 0 0 6px;
+  background: var(--teal-d);
+}
+.pipeline-step:last-child {
+  border-radius: 0 6px 6px 0;
+  border-right: 1px solid var(--border-dim);
+  background: var(--olive-d);
+}
+
+.pipeline-num {
+  font-family: var(--mono);
+  font-size: 10pt;
+  color: var(--fg-faint);
+  letter-spacing: 1.6px;
+}
+
+.pipeline-name {
+  font-family: var(--sans);
+  font-size: 16pt;
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.pipeline-desc {
+  font-family: var(--sans);
+  font-size: 11pt;
+  color: var(--fg-dim);
+  line-height: 1.3;
+}
+
+.pipeline-arrow {
+  display: flex;
+  align-items: center;
+  font-size: 20pt;
+  color: var(--teal);
+  margin: 0 -1px;
+  z-index: 1;
+}
+
+/* ── F. Hard Problems ─────────────────────────────────────── */
+.problems-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12in;
+}
+
+.problems-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 0.9fr;
+  gap: 0.25in;
+  align-items: stretch;
+}
+
+.problem-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.problem-card .panel {
+  flex: 1;
+}
+
+.problem-num {
+  font-family: var(--mono);
+  font-size: 11pt;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.problem-title {
+  font-family: var(--serif);
+  font-size: 22pt;
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--fg);
+}
+
+.problem-body {
+  font-size: 14pt;
+  line-height: 1.45;
+}
+
+.problem-img {
+  margin-top: 6px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-dim);
+}
+
+.problem-img img {
+  width: 100%;
+  max-height: 4in;
+  object-fit: contain;
+  display: block;
+}
+
+.problem-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.problem-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.problem-signal {
+  font-family: var(--mono);
+  font-size: 10pt;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.problem-signal-desc {
+  font-size: 13pt;
+  color: var(--fg-dim);
+}
+
+/* ── G. Skills ────────────────────────────────────────────── */
+.skills-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1in;
+}
+
+/* ── H. Results ───────────────────────────────────────────── */
+.results-section {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 0.3in;
+  align-items: center;
+}
+.results-section .img-frame img {
+  max-height: 5.5in;
+  width: auto;
+  max-width: 100%;
+}
+
+.results-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.results-stats .title {
+  font-size: 28pt;
+}
+
+.stat-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.stat-count {
+  font-family: var(--mono);
+  font-size: 14pt;
+  color: var(--fg-dim);
+}
+
+.results-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.outcome-item {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.outcome-label {
+  font-family: var(--serif);
+  font-size: 18pt;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.outcome-desc {
+  font-size: 14pt;
+  color: var(--fg-dim);
+}
+
+/* ── I. Contact ───────────────────────────────────────────── */
+.contact-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4in;
+  padding-top: 0.2in;
+  border-top: 1px solid var(--border-dim);
+  margin-top: auto;
+}
+
+.contact-items {
+  display: flex;
+  gap: 0.5in;
+  align-items: center;
+}
+
+.contact-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contact-label {
+  font-family: var(--mono);
+  font-size: 11pt;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+
+.contact-value {
+  font-family: var(--sans);
+  font-size: 16pt;
+  color: var(--teal);
+}
+
+.contact-value a {
+  color: var(--teal);
+}
+
+.qr-placeholder {
+  width: 1.6in;
+  height: 1.6in;
+  border: 1px dashed var(--border-dim);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 10pt;
+  color: var(--fg-faint);
+  text-align: center;
+  background: var(--bg-raised);
+}
+
+/* ── print overrides ──────────────────────────────────────── */
+@media print {
+  html, body {
+    width: 36in;
+    height: 42in;
+  }
+  body::before {
+    position: absolute;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="poster">
+
+  <!-- ═══ A. HEADER ═══════════════════════════════════════════ -->
+  <div class="section header-section">
+    <div class="header-left">
+      <p class="eyebrow" style="font-size: 14pt;"><span style="opacity:0.55">&lt;/&gt;</span>&nbsp;&nbsp;CAIS 2026 &middot; DEMO PAPER</p>
+      <h1 class="title header-title">
+        <span style="color: var(--fg);">Skillful</span><br/>
+        <span class="italic" style="color: var(--olive); font-size: 0.94em;">Alhazen</span>
+      </h1>
+      <p class="lead header-subtitle">
+        A TypeDB-powered, ontology-backed notebook for agentic curation &mdash;
+        one framework, many domains.
+      </p>
+      <div class="header-tags">
+        <span class="schema-tag"><span style="opacity:0.55">&lt;/&gt;</span>&nbsp;ontology</span>
+        <span class="schema-tag"><span style="opacity:0.55">&lt;/&gt;</span>&nbsp;agentic-memory</span>
+        <span class="schema-tag"><span style="opacity:0.55">&lt;/&gt;</span>&nbsp;knowledge-graph</span>
+        <span class="schema-tag"><span style="opacity:0.55">&lt;/&gt;</span>&nbsp;biomedicine</span>
+      </div>
+      <div class="header-meta">
+        <div class="kv"><span class="k">Author</span><span class="v">Gully Burns</span></div>
+        <div class="kv"><span class="k">Conference</span><span class="v">1st ACM Conf. on Agents &amp; Agentic Systems</span></div>
+        <div class="kv"><span class="k">DOI</span><span class="v"><a href="https://doi.org/10.1145/3786335.3813226">10.1145/3786335.3813226</a></span></div>
+      </div>
+    </div>
+
+    <div class="panel elevated" style="align-self: center;">
+      <p class="panel-label" style="color: var(--olive);">Brief</p>
+      <p class="italic header-quote">
+        "The duty of the man who investigates the writings of scientists,
+        if learning the truth is his goal, is to make himself an enemy of all
+        that he reads, and, applying his mind to the core and margins of its content,
+        attack it from every side."
+      </p>
+      <p class="header-quote-attr">&mdash; Ibn al-Haytham &middot; 965&ndash;1039 AD</p>
+    </div>
+  </div>
+
+  <!-- ═══ B. THESIS ═══════════════════════════════════════════ -->
+  <div class="section thesis-section">
+    <div>
+      <p class="eyebrow" style="margin-bottom: 8px;">The Thesis</p>
+      <h2 class="title thesis-headline">
+        Scientists need <span class="italic" style="color: var(--olive);">structured notebooks</span>, not just memory of conversations or plain-text notes.
+      </h2>
+    </div>
+
+    <div class="thesis-cols">
+      <div>
+        <p class="thesis-col-label" style="color: var(--rust);">&mdash; What most agent harnesses do</p>
+        <p class="body-text thesis-col-body">Save context to MD files or a RAG index. Adequate for chat, but breaks down when you need structured questions or tracking complex context at scale.</p>
+      </div>
+      <div>
+        <p class="thesis-col-label" style="color: var(--teal);">&mdash; What Skillful Alhazen does</p>
+        <p class="body-text thesis-col-body">Use Claude Skills to store agentic context to a next-generation ontologically-powered knowledge graph (TypeDB).</p>
+      </div>
+      <div>
+        <p class="thesis-col-label" style="color: var(--olive);">&mdash; The lesson, recalled</p>
+        <p class="body-text thesis-col-body">Bioinformatics taught us data hygiene 20 years ago. This was the justification for biomedical ontologies &mdash; the same issues apply now.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ C. ARCHITECTURE ═════════════════════════════════════ -->
+  <div class="section arch-section">
+    <div style="display: flex; align-items: baseline; gap: 0.3in; width: 100%;">
+      <p class="eyebrow">System Architecture</p>
+      <div class="rule-h" style="flex: 1;"></div>
+    </div>
+    <div class="img-frame">
+      <img src="uploads/architecture.png" alt="4-layer architecture: Agent, Skills, TypeDB Ontological Memory, Dashboard" />
+    </div>
+  </div>
+
+  <!-- ═══ D. NOTEBOOK MODEL ═══════════════════════════════════ -->
+  <div class="section notebook-section">
+    <div class="notebook-text">
+      <p class="eyebrow">The Notebook Model</p>
+      <h2 class="title" style="font-size: 30pt;">A simple, general high-level schema for curation.</h2>
+      <p class="body-text" style="font-size: 15pt;">
+        The Alhazen notebook schema is a type hierarchy. Everything inherits from
+        <span class="mono" style="color: var(--fg);">alh-identifiable-entity</span>.
+        Each skill extends this basic model with its own typed namespace.
+      </p>
+      <div class="notebook-branches">
+        <div class="notebook-branch">
+          <span class="kind-chip" style="color: var(--teal);">COLLECTIONS &middot; ENTITIES</span>
+          <span class="body-text" style="font-size: 13pt;">KG representation &mdash; corpora, papers, diseases, genes, jobs, people.</span>
+        </div>
+        <div class="notebook-branch">
+          <span class="kind-chip" style="color: var(--blue);">ARTIFACTS &middot; FRAGMENTS</span>
+          <span class="body-text" style="font-size: 13pt;">Information entities providing evidence for KG elements.</span>
+        </div>
+        <div class="notebook-branch">
+          <span class="kind-chip" style="color: var(--olive);">NOTES</span>
+          <span class="body-text" style="font-size: 13pt;">LLM analysis output saved to the knowledge graph.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="img-frame">
+      <img src="uploads/schema_1.png" alt="Schema diagram for Alhazen Notebook" />
+    </div>
+  </div>
+
+  <!-- ═══ E. CURATION PIPELINE ════════════════════════════════ -->
+  <div class="section pipeline-section">
+    <div style="display: flex; align-items: baseline; gap: 0.3in; width: 100%;">
+      <p class="eyebrow">Curation Pipeline</p>
+      <div class="rule-h" style="flex: 1;"></div>
+    </div>
+
+    <div class="pipeline-steps">
+      <div class="pipeline-step">
+        <span class="pipeline-num">01</span>
+        <span class="pipeline-name">Goal Definition</span>
+        <span class="pipeline-desc">Interview to define success criteria</span>
+      </div>
+      <div class="pipeline-arrow">&rsaquo;</div>
+      <div class="pipeline-step">
+        <span class="pipeline-num">02</span>
+        <span class="pipeline-name">Discovery</span>
+        <span class="pipeline-desc">Identify candidates for investigation</span>
+      </div>
+      <div class="pipeline-arrow">&rsaquo;</div>
+      <div class="pipeline-step">
+        <span class="pipeline-num">03</span>
+        <span class="pipeline-name">Ingestion</span>
+        <span class="pipeline-desc">Collect artifacts: repos, docs, PDFs</span>
+      </div>
+      <div class="pipeline-arrow">&rsaquo;</div>
+      <div class="pipeline-step">
+        <span class="pipeline-num">04</span>
+        <span class="pipeline-name">Sensemaking</span>
+        <span class="pipeline-desc">Structured note-taking, typed knowledge</span>
+      </div>
+      <div class="pipeline-arrow">&rsaquo;</div>
+      <div class="pipeline-step">
+        <span class="pipeline-num">05</span>
+        <span class="pipeline-name">Analysis</span>
+        <span class="pipeline-desc">Visualizations, queries, comparisons</span>
+      </div>
+      <div class="pipeline-arrow">&rsaquo;</div>
+      <div class="pipeline-step">
+        <span class="pipeline-num">06</span>
+        <span class="pipeline-name">Reporting</span>
+        <span class="pipeline-desc">Synthesis against criteria</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ F. THREE HARD PROBLEMS ══════════════════════════════ -->
+  <div class="section problems-section">
+    <div style="display: flex; align-items: baseline; gap: 0.3in; width: 100%;">
+      <p class="eyebrow">Three Hard Problems</p>
+      <div class="rule-h" style="flex: 1;"></div>
+    </div>
+
+    <div class="problems-grid">
+      <!-- HP1: Ontological Distinctions -->
+      <div class="problem-card">
+        <div class="panel" style="flex: 1;">
+          <p class="problem-num" style="color: var(--teal);">Hard Problem &middot; One</p>
+          <h3 class="problem-title">Use ontological distinctions to create <span class="italic" style="color: var(--olive);">clarity</span>.</h3>
+          <p class="body-text problem-body">
+            Most schemas conflate person with role. We apply BFO/UFO patterns: a person is rigid and intrinsic;
+            a role is anti-rigid and externally grounded. Strip the institution &mdash; the role evaporates, the person remains.
+          </p>
+          <div class="problem-img">
+            <img src="uploads/role_modeling.png" alt="Person vs. Role ontological modeling" />
+          </div>
+        </div>
+      </div>
+
+      <!-- HP2: Schema Evolution -->
+      <div class="problem-card">
+        <div class="panel" style="flex: 1;">
+          <p class="problem-num" style="color: var(--teal);">Hard Problem &middot; Two</p>
+          <h3 class="problem-title"><span class="italic" style="color: var(--olive);">Evolve</span> domain models with experience.</h3>
+          <p class="body-text problem-body">
+            Most agent stacks treat "I can't represent this" as a silent skip. We treat it as the most important signal.
+          </p>
+          <ul class="problem-list">
+            <li>
+              <span class="problem-signal" style="color: var(--fg-faint);">Execution Failure</span>
+              <span class="body-text problem-signal-desc">Crash, timeout, empty result.</span>
+            </li>
+            <li>
+              <span class="problem-signal" style="color: var(--teal);">Schema Gap</span>
+              <span class="body-text problem-signal-desc">Claude detects missing concepts &rarr; filed as GitHub issue.</span>
+            </li>
+            <li>
+              <span class="problem-signal" style="color: var(--teal);">User Request</span>
+              <span class="body-text problem-signal-desc">User requests schema or code changes.</span>
+            </li>
+          </ul>
+          <p class="body-text" style="font-size: 13pt; color: var(--fg-faint); margin-top: 4px;">Gaps are signal &mdash; how the graph grows from use.</p>
+        </div>
+      </div>
+
+      <!-- HP3: Schema Mapping -->
+      <div class="problem-card">
+        <div class="panel" style="flex: 1;">
+          <p class="problem-num" style="color: var(--teal);">Hard Problem &middot; Three</p>
+          <h3 class="problem-title"><span class="italic" style="color: var(--olive);">Map</span> memory data between schemas.</h3>
+          <p class="body-text problem-body" style="margin-bottom: 6px;">
+            Claude authors GLAV mapping rules (Fagin, Kolaitis, Miller, Popa 2005) for two cases:
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div>
+              <p class="body-text" style="font-size: 14pt;"><span style="color: var(--teal); font-weight: 600;">A &middot; External Integration</span></p>
+              <p class="body-text" style="font-size: 13pt;">Map complex data from external schemas into the notebook &mdash; e.g. Monarch's DisMech via TypeDB staging.</p>
+            </div>
+            <div>
+              <p class="body-text" style="font-size: 14pt;"><span style="color: var(--olive); font-weight: 600;">B &middot; Schema Migration</span></p>
+              <p class="body-text" style="font-size: 13pt;">Migrate notebook data between schema versions as the model evolves.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ G. SKILLS TABLE ═════════════════════════════════════ -->
+  <div class="section skills-section">
+    <div style="display: flex; align-items: baseline; gap: 0.3in; width: 100%;">
+      <p class="eyebrow">Deployed Skills</p>
+      <div class="rule-h" style="flex: 1;"></div>
+    </div>
+
+    <table class="skill-table">
+      <thead>
+        <tr>
+          <th style="width: 20%;">Skill</th>
+          <th style="width: 12%;">Type</th>
+          <th style="width: 18%;">Domain</th>
+          <th style="width: 50%;">What it does</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="skill-name">tech-recon</span></td>
+          <td><span class="tag-pill core">core</span></td>
+          <td>technology reconnaissance</td>
+          <td>Goal-driven investigation over code repos, papers, docs, web-pages</td>
+        </tr>
+        <tr>
+          <td><span class="skill-name">curation-skill-builder</span></td>
+          <td><span class="tag-pill core">core</span></td>
+          <td>domain modeling</td>
+          <td>Create schema, scripts, and dashboard for a new curation skill</td>
+        </tr>
+        <tr>
+          <td><span class="skill-name">jobhunt</span></td>
+          <td><span class="tag-pill ext">external</span></td>
+          <td>career tracking</td>
+          <td>Track positions, fit analysis, skill-gap identification</td>
+        </tr>
+        <tr>
+          <td><span class="skill-name">coach</span></td>
+          <td><span class="tag-pill ext">external</span></td>
+          <td>health tracking</td>
+          <td>Unify Apple Watch, lab reports, doctor notes into one schema</td>
+        </tr>
+        <tr>
+          <td><span class="skill-name">dismech</span></td>
+          <td><span class="tag-pill ext">external</span></td>
+          <td>disease mechanisms</td>
+          <td>Ingest Monarch Initiative's DisMech (1000+ curated mechanisms)</td>
+        </tr>
+        <tr>
+          <td><span class="skill-name">scilit</span></td>
+          <td><span class="tag-pill ext">external</span></td>
+          <td>scientific literature</td>
+          <td>Functionality for scientific publications (used by other skills)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══ H. RESULTS ══════════════════════════════════════════ -->
+  <div class="section results-section">
+    <div class="results-stats">
+      <p class="eyebrow">In Practice</p>
+      <h2 class="title" style="font-size: 28pt;">Agentic <span class="italic" style="color: var(--olive);">'memory'</span> rendered from the knowledge graph.</h2>
+      <p class="body-text" style="font-size: 15pt;">
+        Disease mechanisms, scientific literature, competitive intelligence, career tracking &mdash; one schema-validated store.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+        <div class="stat-row">
+          <span class="kind-chip" style="color: var(--teal); font-size: 10pt;">DM</span>
+          <span class="stat-count">Monarch dismech &middot; 46,942 entities</span>
+        </div>
+        <div class="stat-row">
+          <span class="kind-chip" style="color: var(--olive); font-size: 10pt;">SCILIT</span>
+          <span class="stat-count">Scientific literature &middot; 11,875 entities</span>
+        </div>
+        <div class="stat-row">
+          <span class="kind-chip" style="color: var(--blue); font-size: 10pt;">TREC</span>
+          <span class="stat-count">Tech reconnaissance &middot; 809 entities</span>
+        </div>
+        <div class="stat-row">
+          <span class="kind-chip" style="color: var(--mint); font-size: 10pt;">JHUNT</span>
+          <span class="stat-count">Job hunting &middot; 822 entities</span>
+        </div>
+      </div>
+
+      <div class="results-outcomes" style="margin-top: 10px;">
+        <p class="eyebrow" style="font-size: 11pt;">Outcomes</p>
+        <div class="outcome-item">
+          <span class="outcome-label" style="color: var(--olive);">CAIS&nbsp;2026</span>
+          <span class="body-text outcome-desc">Accepted demo paper at 1st ACM Conference on Agents &amp; Agentic Systems</span>
+        </div>
+        <div class="outcome-item">
+          <span class="outcome-label" style="color: var(--teal);">Demos</span>
+          <span class="body-text outcome-desc">Live examples across biomedical, career, and journalism domains</span>
+        </div>
+        <div class="outcome-item">
+          <span class="outcome-label" style="color: var(--blue);">Open&nbsp;Source</span>
+          <span class="body-text outcome-desc" style="font-family: var(--mono); color: var(--fg);">git clone && make build</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="img-frame">
+      <img src="uploads/tech_recon_screenshot.png" alt="Dashboard screenshot showing tech-recon dossier" />
+    </div>
+  </div>
+
+  <!-- ═══ I. CONTACT ══════════════════════════════════════════ -->
+  <div class="section contact-section">
+    <div class="contact-items">
+      <div class="contact-item">
+        <span class="contact-label">Email</span>
+        <span class="contact-value"><a href="mailto:gullyburns@gmail.com">gullyburns@gmail.com</a></span>
+      </div>
+      <div class="contact-item">
+        <span class="contact-label">GitHub</span>
+        <span class="contact-value"><a href="https://github.com/sciknow-io/skillful-alhazen">github.com/sciknow-io/skillful-alhazen</a></span>
+      </div>
+      <div class="contact-item">
+        <span class="contact-label">Paper</span>
+        <span class="contact-value"><a href="https://doi.org/10.1145/3786335.3813226">doi.org/10.1145/3786335.3813226</a></span>
+      </div>
+    </div>
+    <div style="width: 1.6in; height: 1.6in; display: flex; align-items: center; justify-content: center; background: var(--bg-raised); border-radius: 6px; border: 1px solid var(--border-dim); padding: 8px;">
+      <img src="uploads/qr_github.svg" alt="QR code to GitHub repo" style="width: 100%; height: 100%;" />
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,113 @@
+This work was supported by the Intelligence Advanced Research Projects Activity (IARPA) via the Air Force Research Laboratory. The U.S. Government is authorized to reproduce and distribute reprints for Govern-
+mental purposes notwithstanding any copyright annotation thereon. Disclaimer: The views and conclusions contained herein are those of the authors and should not be interpreted as necessarily representing the
+official policies or endorsements, either expressed or implied, of IARPA, AFRL, or the U.S. Government.
+Modeling concept dependencies in a scientific corpus
+JONATHAN GORDON, LINHONG ZHU, ARAM GALSTYAN, PREM NATARAJAN, GULLY BURNS
+Annotations, concept graphs, and implementations: 	http://techknacq.isi.edu
+Motivation We want to help you learn scientific & technical
+concepts. How could we could generate a reading
+list like an expert does?
+We need to discover what concepts help you to
+understand others.
+First order logic
+“What do I need to know
+about before I start reading
+about ... Markov logic
+networks?”
+Approach From a scientific corpus, generate a 	concept
+graph. 	Concepts can be learned using latent
+Dirichlet allocation (LDA).
+Each document is linked to the concepts it
+discusses, and each concept is linked to the other
+concepts it depends upon.
+Cross-entropy
+If most instances of concept 	ci can be explained
+by occurrences of concept 	cj – but not vice versa –
+predict 	ci depends on 	cj.
+Most of the time, documents that mention
+MLNs 	also mention 	Probability. The reverse
+is not true. 	So, maybe 	MLNs 	depends on
+Probability!
+Probability
+Markov logic
+networks
+Information flow
+Predict 	ci depends on 	cj if 	ci receives less navigation
+traffic than cj and the traffic from 	ci to 	cj is stronger
+than that to another non-dependent concept 	ck.
+Use random walks over the concept co-occurrence
+graph to approximate human navigation.
+Word similarity
+More similar concepts are more likely to be
+connected by dependency relations. We compute
+the Jaccard similarity coefficient based on the top-
+20 words in a concept’s word distribution.
+Hierarchy
+How close does identifying hierarchical relations
+come to identifying dependency relations? We
+tried agglomerative clustering over the concept co-
+occurrence graph.
+Information-theoretic
+measures
+Baseline methods
+Citation-based
+If documents that are highly related to 	cj are cited
+by most instances of 	ci, 	ci may depend on 	cj. We
+adapt the method of Wang et al. (2013).
+Data: ACL Anthology We use the text of papers from the ACL Anthology
+Network (2013), with additional automatic and
+manual text clean up.
+We inferred a 300-topic Mallet LDA topic model
+over the bigrams.
+Human Evaluation We sampled 285 pairs of concepts, biased
+for coverage of the strongest and weakest
+dependencies predicted by the different methods.
+They were evaluated by 8 human judges with
+varying levels of domain expertise. Agreement
+was higher for domain experts, but in all cases
+moderate.
+Relevant phrases:
+machine translation, translation system, mt system,
+transfer rules, mt systems, lexical transfer,
+analysis transfer, translation process,
+transfer generation, transfer component,
+analysis synthesis, transfer phase, analysis generation,
+structural transfer, transfer approach, human translation,
+transfer grammar, analysis phase, translation systems,
+transfer process
+Relevant documents:
+• 	Slocum: Machine Translation: Its History, Current Status,
+and Future Prospects (89%)
+• 	Slocum: A Survey of Machine Translation: Its History,
+Current Status, and Future Prospects (89%)
+• 	Wilks, Carbonnell, Farwell, Hovy, Nirenburg: Machine
+Translation Again? (56%)
+• 	Slocum: An Experiment in Machine Translation (55%)
+• 	Krauwer, Des Tombe: Transfer in a Multilingual MT
+System (54%)
+Results
+The results verify the feasability of automatic
+approaches for inferring concepts and their
+dependencies.
+Word similarity is a strong baseline, but when
+we compare the strongest edges predicted
+by each method (Top 20 in table), the cross-
+entropy method is most precise.
+Judges are asked:
+Would Topic 1 help you to understand Topic 2?
+Would Topic 2 help you to understand Topic 1?
+– I don’t know
+– Not at all
+– Somewhat
+– Very much
+Top 20 	Top 150 	All scores > 0
+Prec. 	Prec. 	Rec. 	f1 	Prec. 	Rec. 	f1
+Cross entropy 	0.851 	0.765 	0.358 	0.487 	0.693 	0.670 	0.681
+Information flow 	0.793 	0.696 	0.311 	0.429 	0.693 	0.323 	0.441
+Word similarity 	0.808 	0.768 	0.382 	0.511 	0.768 	0.382 	0.511
+Hierarchy 	0.680 	0.692 	0.297 	0.416 	0.686 	0.638 	0.661
+Cite 	0.693 	0.718 	0.343 	0.465 	0.693 	0.670 	0.681
+Random 	0.659 	0.661 	0.580 	0.500 	0.658 	1.000 	0.794
+
+-- 1 of 1 --
+
