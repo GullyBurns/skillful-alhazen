@@ -40,6 +40,16 @@ skills:
     url_path: /jobhunt
     icon: Briefcase
     color: indigo
+- name: single-paper-deep-dive
+  path: skills/single-paper-deep-dive
+  dashboard:
+    enabled: true
+    name: Paper Deep Dive
+    description: "Structured analysis of research papers \u2014 claims, evidence tracing,\
+      \ and citation impact."
+    url_path: /dive
+    icon: Microscope
+    color: teal
 - name: tech-recon
   path: skills/tech-recon
   dashboard:
@@ -81,6 +91,7 @@ schema_map:
   - dismech-notebook
   - jobhunt
   - scientific-literature
+  - single-paper-deep-dive
   - tech-recon
   namespaces:
     nbmem:
@@ -102,6 +113,10 @@ schema_map:
     scilit:
       skill: scientific-literature
       schema: local_skills/scientific-literature/schema.tql
+      depends_on: []
+    dive:
+      skill: single-paper-deep-dive
+      schema: skills/single-paper-deep-dive/schema.tql
       depends_on: []
     trec:
       skill: tech-recon

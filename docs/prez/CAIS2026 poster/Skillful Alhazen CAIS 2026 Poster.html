@@ -119,7 +119,7 @@ strong, b { font-weight: 700; }
 }
 .head-c .title {
   font-family: var(--sans);
-  font-size: 60pt;
+  font-size: 56pt;
   font-weight: 700;
   letter-spacing: -1pt;
   line-height: 1.0;
@@ -290,7 +290,7 @@ strong, b { font-weight: 700; }
 }
 .skill-block:last-child { border-bottom: none; padding-bottom: 0; }
 .skill-num {
-  font-size: 18pt; font-weight: 700; letter-spacing: 2.5pt; color: var(--accent); text-transform: uppercase;
+  font-size: 28pt; font-weight: 700; letter-spacing: 2.5pt; color: var(--accent); text-transform: uppercase;
 }
 .skill-name { font-size: 30pt; font-weight: 700; line-height: 1.05; color: var(--ink); }
 .skill-tagline { font-size: 21pt; line-height: 1.25; color: var(--ink); font-style: italic; }
@@ -313,6 +313,21 @@ strong, b { font-weight: 700; }
   margin-bottom: 4pt;
 }
 .skill-prompt .q { font-style: italic; color: var(--ink); }
+
+/* ── benchmark table ─────────────────────────────────────── */
+.bm-table { width: 100%; border-collapse: collapse; }
+.bm-table th, .bm-table td { border: 2pt solid var(--ink); padding: 8pt 12pt; }
+.bm-table thead th {
+  font-size: 24pt; font-weight: 700; text-align: center;
+  background: #f0f0f0;
+}
+.bm-table thead th.tdb { color: var(--accent); }
+.bm-table thead th.rag { color: var(--rust); }
+.bm-table td.row-label { font-size: 22pt; font-weight: 700; line-height: 1.2; }
+.bm-table td.row-label .q { display: block; font-size: 18pt; font-weight: 400; font-style: italic; color: var(--ink-soft); margin-top: 3pt; line-height: 1.3; }
+.bm-table td.score { text-align: center; font-size: 30pt; font-weight: 700; }
+.bm-table td.score.tdb { color: var(--accent); }
+.bm-table td.score.rag { color: var(--rust); }
 
 /* ── benchmark chart ─────────────────────────────────────── */
 .bm {
@@ -369,6 +384,59 @@ strong, b { font-weight: 700; }
   color: var(--ink-mid);
   border-top: 1.5pt solid var(--rule-soft);
   padding-top: 10pt;
+}
+
+/* ── schema kind chips ───────────────────────────────────── */
+.kind-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 18pt;
+  letter-spacing: 1.5pt;
+  font-weight: 700;
+  padding: 8pt 10pt;
+  border: 2pt solid currentColor;
+  width: 2.1in;
+  flex-shrink: 0;
+  text-align: center;
+  line-height: 1.3;
+}
+.kind-row {
+  display: flex; gap: 16pt; align-items: flex-start;
+}
+.kind-row .kind-desc {
+  font-size: 24pt; line-height: 1.3; color: var(--ink);
+  padding-top: 3pt;
+}
+
+/* ── curation pipeline ───────────────────────────────────── */
+.pipeline { display: flex; flex-direction: column; margin-top: 12pt; }
+.pipe-step {
+  display: flex; flex-direction: row;
+  align-items: center; gap: 12pt;
+}
+.pipe-box {
+  display: inline-flex; align-items: stretch; flex-shrink: 0;
+  border: 3pt solid var(--rule-soft);
+  width: 3.8in;
+}
+.pipe-step.s-first .pipe-box { border-color: var(--accent); }
+.pipe-step.s-last  .pipe-box { border-color: var(--olive); }
+.pipe-num {
+  font-family: var(--mono); font-size: 28pt; font-weight: 700;
+  color: var(--ink-soft);
+  padding: 5pt 7pt; display: flex; align-items: center;
+  border-right: 3pt solid var(--rule-soft);
+}
+.pipe-step.s-first .pipe-num { color: var(--accent); border-right-color: var(--accent); }
+.pipe-step.s-last  .pipe-num { color: var(--olive);  border-right-color: var(--olive); }
+.pipe-name {
+  font-size: 28pt; font-weight: 700; color: var(--ink);
+  line-height: 1.1; padding: 5pt 10pt; display: flex; align-items: center;
+}
+.pipe-desc { font-size: 24pt; color: var(--ink-soft); line-height: 1.3; }
+.pipe-arrow {
+  font-size: 32pt; color: var(--ink-soft);
+  padding: 1pt 0 1pt 10pt; line-height: 1;
 }
 
 /* ── schema evolution diagram ────────────────────────────── */
@@ -515,55 +583,110 @@ strong, b { font-weight: 700; }
         </div>
       </div>
 
-      <!-- Skills as modular domain models -->
-      <div class="sec">
-        <div class="sec-head">
-          <div class="sec-num">02 · Skills</div>
-          <div class="sec-title">Skills bundle their own Domain Models with Dashboards.</div>
-          <div class="sec-rule"></div>
-        </div>
-        <div class="sec-body">
-          <p>Each use case (with its own domain model) is packaged as a <strong>skill</strong> — a self-contained module that extends the base notebook schema with its own typed namespace. Skills are the unit of reuse: install or build one to give the agent a new domain vocabulary.</p>
-        </div>
-
-        <div class="schema-ice-wrap">
-          <div class="label">A skill bundles</div>
-          <div class="schema-ice-row">
-            <div class="k">Schema</div>
-            <div class="v">TypeDB type definitions — entities, relations, and attributes scoped to the domain (e.g. <em>jobhunt-position</em>, <em>trec-system</em>).</div>
-          </div>
-          <div class="schema-ice-row">
-            <div class="k">Scripts</div>
-            <div class="v">Python CLI commands for ingestion, querying, and external API access.</div>
-          </div>
-          <div class="schema-ice-row">
-            <div class="k">Instructions</div>
-            <div class="v">Agent prompts — a <strong>SKILL.md</strong> filel.</div>
-          </div>
-          <div class="schema-ice-row">
-            <div class="k">Dashboard</div>
-            <div class="v">Optional Next.js components for browsing the knowledge graph visually.</div>
-          </div>
-        </div>
-
-        <div class="sec-body" style="margin-top: 10pt;">
-          <p>All skills share a common backbone: <strong>domain things</strong> (real-world entities), <strong>artifacts</strong> (raw captured content), <strong>fragments</strong> (structured extractions), and <strong>notes</strong> (agent analysis). The skill adds domain-specific subtypes on top.</p>
-        </div>
-      </div>
-
       <!-- System architecture -->
       <div class="sec">
         <div class="sec-head">
-          <div class="sec-num">03 · System Architecture</div>
-          <div class="sec-title">Three layers, one schema.</div>
+          <div class="sec-num">02 · Systems Architecture</div>
+          <div class="sec-title">Introducing Skillful Alhazen.</div>
           <div class="sec-rule"></div>
         </div>
         <div class="sec-body">
-          <p>Skills are composable: each bundles a TypeDB schema extension, Python scripts for external APIs, and two-tier instructions (a slim <strong>SKILL.md</strong> for selection, full <strong>USAGE.md</strong> for execution).</p>
+          <p>The system is based on standard <strong>agentic skills</strong>. 
+            Each bundles a TypeDB schema extension, Python scripts, and prompts 
+            (SKILL.md).</p>
         </div>
 
         <div style="margin-top: 6pt; border: 2pt solid var(--rule-soft); border-radius: 6pt; overflow: hidden;">
-          <img src="uploads/architecture.png" alt="System architecture: Agent → Skills → TypeDB → Dashboard" style="width: 100%; height: auto; display: block;" />
+          <img src="uploads/deployment.png" alt="System architecture: Agent → Skills → TypeDB → Dashboard" style="width: 100%; height: auto; display: block;" />
+        </div>
+      
+      </div>
+
+      <!-- Skills as modular domain models -->
+      <div class="sec">
+        <div class="sec-head">
+          <div class="sec-num">03 · Skills = Domain Models</div>
+          <div class="sec-title">'Skills' are Curation Apps.</div>
+          <div class="sec-rule"></div>
+        </div>
+        <div class="sec-body" style="margin-bottom: 10pt;">
+          <p><strong>Curation</strong> — organizing disparate information into a well-formed knowledge representation.</p>
+        </div>
+
+        <div style="font-size:20pt; font-weight:700; letter-spacing:2pt; text-transform:uppercase; color:var(--ink-mid); border-bottom:1.5pt solid var(--rule-soft); padding-bottom:4pt; margin-bottom:4pt;">Schema</div>
+
+        <div class="sec-body" style="margin-bottom: 10pt;">
+          <p>The notebook schema is a type hierarchy with three high level categories of entities.</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14pt;">
+          <div class="kind-row">
+            <span class="kind-chip" style="color: var(--accent);">COLLECTIONS THINGS RELATIONS </span>
+            <span class="kind-desc">Standard KG representation of domain objects — corpora, papers, diseases, genes, jobs, people.</span>
+          </div>
+          <div class="kind-row">
+            <span class="kind-chip" style="color: var(--blue);">ARTIFACTS FRAGMENTS</span>
+            <span class="kind-desc">Information entities that provide evidence for the definition of KG elements.</span>
+          </div>
+          <div class="kind-row">
+            <span class="kind-chip" style="color: var(--olive);">NOTES</span>
+            <span class="kind-desc">LLM analysis output saved to the knowledge graph.</span>
+          </div>
+        </div>
+
+        <div style="font-size:20pt; font-weight:700; letter-spacing:2pt; text-transform:uppercase; color:var(--ink-mid); border-bottom:1.5pt solid var(--rule-soft); padding-bottom:4pt; margin-bottom:4pt;">Process</div>
+        <div class="sec-body" style="margin-bottom: 10pt;">
+          <p>The curation process depends on the skill, but generally consists of a well-ordered pattern.</p>
+        </div>
+
+        <div class="pipeline">
+          <div class="pipe-step s-first">
+            <div class="pipe-box">
+              <span class="pipe-num">01</span>
+              <span class="pipe-name">Goal Definition</span>
+            </div>
+            <span class="pipe-desc">Interview to define success criteria</span>
+          </div>
+          <div class="pipe-arrow">↓</div>
+          <div class="pipe-step">
+            <div class="pipe-box">
+              <span class="pipe-num">02</span>
+              <span class="pipe-name">Discovery</span>
+            </div>
+            <span class="pipe-desc">Identify candidates, confirm for investigation</span>
+          </div>
+          <div class="pipe-arrow">↓</div>
+          <div class="pipe-step">
+            <div class="pipe-box">
+              <span class="pipe-num">03</span>
+              <span class="pipe-name">Ingestion</span>
+            </div>
+            <span class="pipe-desc">Collect artifacts: repos, docs, pages, PDFs</span>
+          </div>
+          <div class="pipe-arrow">↓</div>
+          <div class="pipe-step">
+            <div class="pipe-box">
+              <span class="pipe-num">04</span>
+              <span class="pipe-name">Sensemaking</span>
+            </div>
+            <span class="pipe-desc">Structured note-taking, typed knowledge</span>
+          </div>
+          <div class="pipe-arrow">↓</div>
+          <div class="pipe-step">
+            <div class="pipe-box">
+              <span class="pipe-num">05</span>
+              <span class="pipe-name">Analysis</span>
+            </div>
+            <span class="pipe-desc">Visualizations, queries, comparisons</span>
+          </div>
+          <div class="pipe-arrow">↓</div>
+          <div class="pipe-step s-last">
+            <div class="pipe-box">
+              <span class="pipe-num">06</span>
+              <span class="pipe-name">Reporting</span>
+            </div>
+            <span class="pipe-desc">Synthesis against success criteria</span>
+          </div>
         </div>
       </div>
     </div>
@@ -571,52 +694,81 @@ strong, b { font-weight: 700; }
     <!-- ── COLUMN 2 ─────────────────────────────────────────── -->
     <div class="col">
 
+      <!-- Core skills -->
       <div class="sec">
         <div class="sec-head">
-          <div class="sec-num" style="color: var(--olive);">04 · Three Demonstrations</div>
-          <div class="sec-title">One schema, three working domains.</div>
-          <div class="sec-rule accent" style="background: var(--olive);"></div>
-        </div>
-        <div class="sec-body" style="margin-bottom: 4pt;">
-          <p>Each skill ingests artifacts, extracts fragments, and writes agent notes — against the <em>same</em> ontological backbone.</p>
+          <div class="sec-num">04 · Skills</div>
+          <div class="sec-title">Core skills ship with the framework.</div>
+          <div class="sec-rule accent"></div>
         </div>
 
-        <!-- Skill A: Job Hunt -->
         <div class="skill-block">
-          <div class="skill-num" style="color: var(--accent);">Skill A</div>
-          <div class="skill-name">Job Hunt</div>
-          <p class="skill-tagline">Personal career tracking.</p>
-          <p class="skill-desc">Ingest a job posting URL → artifact. Extract requirements → fragments. Generate a fit-analysis note against a user-maintained skill profile. Over time, accumulate a queryable landscape of the job market.</p>
+          <div class="skill-num" style="color: var(--accent);">Tech Recon</div>
+          <p class="skill-tagline">Goal-driven technology investigation.</p>
+          <p class="skill-desc">Success criteria are first-class entities. Candidates flow through a typed pipeline — <strong>candidate → confirmed → ingested → analyzed</strong> — so progress is itself a queryable graph property.</p>
+          <div class="skill-prompt" style="border-left-color: var(--accent);">
+            <span class="ask" style="color: var(--accent);">Ask Claude</span>
+            <span class="q">"Map agentic memory systems against my success criteria — how do MemGPT, Mem0, Zep compare?"</span>
+          </div>
+          <div style="border: 2pt solid var(--rule-soft); border-radius: 4pt; overflow: hidden; margin-top: 4pt;">
+            <img src="uploads/tech_recon_screenshot.png" alt="Tech Recon dashboard" style="width: 100%; height: auto; display: block;" />
+          </div>
+        </div>
+
+        <div class="skill-block">
+          <div class="skill-num" style="color: var(--accent);">Curation Skill Builder</div>
+          <p class="skill-tagline">Create schema, scripts, prompts, and dashboard for a new skill.</p>
+          <p class="skill-desc">Success criteria are first-class entities. Candidates flow through a typed pipeline — <strong>candidate → confirmed → ingested → analyzed</strong> — so progress is itself a queryable graph property.</p>
+          <div class="skill-prompt" style="border-left-color: var(--accent);">
+            <span class="ask" style="color: var(--accent);">Ask Claude</span>
+            <span class="q">"Map agentic memory systems against my success criteria — how do MemGPT, Mem0, Zep compare?"</span>
+          </div>
+        </div>
+
+        <div class="skill-block">
+          <div class="skill-num" style="color: var(--blue);">Agentic Memory</div>
+          <p class="skill-tagline">TypeDB-backed ontological memory.</p>
+          <p class="skill-desc">Introspects the live schema, composes TypeQL queries dynamically, and combines graph traversal with semantic search for three-stage retrieval: plan, execute, organize with provenance.</p>
+          <div class="skill-prompt" style="border-left-color: var(--blue);">
+            <span class="ask" style="color: var(--blue);">Ask Claude</span>
+            <span class="q">"What do I know about schema evolution approaches for TypeDB?"</span>
+          </div>
+          <div style="border: 2pt solid var(--rule-soft); border-radius: 4pt; margin-top: 4pt;
+                      background: #f5f5f5; display: flex; align-items: center; justify-content: center">
+            <img src="uploads/screenshot_agentic_memory.png" alt="Tech Recon dashboard" style="width: 100%; height: auto; display: block;" />
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Demo skills -->
+      <div class="sec">
+        <div class="sec-head">
+          <div class="sec-num" style="color: var(--olive);">05 · Demo Skills</div>
+          <div class="sec-title">Domain skills show breadth.</div>
+          <div class="sec-rule accent" style="background: var(--olive);"></div>
+        </div>
+
+        <div class="skill-block">
+          <div class="skill-num" style="color: var(--accent);">Job Hunt</div>
+          <p class="skill-tagline">Personal career pipeline tracking.</p>
           <div class="skill-prompt" style="border-left-color: var(--accent);">
             <span class="ask" style="color: var(--accent);">Ask Claude</span>
             <span class="q">"What skill gaps appear across my top 5 prospects?"</span>
           </div>
         </div>
 
-        <!-- Skill B: Tech Recon -->
         <div class="skill-block">
-          <div class="skill-num" style="color: var(--olive);">Skill B</div>
-          <div class="skill-name">Tech Recon</div>
-          <p class="skill-tagline">Goal-driven technology investigation.</p>
-          <p class="skill-desc">Success criteria are <em>first-class entities</em>. Candidate systems flow through a typed pipeline — <strong>candidate → confirmed → ingested → analyzed</strong> — so investigation progress is itself a queryable graph property.</p>
-          <div class="skill-prompt" style="border-left-color: var(--olive);">
-            <span class="ask" style="color: var(--olive);">Ask Claude</span>
-            <span class="q">"Map agentic memory systems against my four success criteria — how do MemGPT, Mem0, Zep, Letta compare?"</span>
-          </div>
-        </div>
-
-        <!-- Skill C: DisMech -->
-        <div class="skill-block">
-          <div class="skill-num" style="color: var(--blue);">Skill C</div>
-          <div class="skill-name">DisMech</div>
+          <div class="skill-num" style="color: var(--blue);">DisMech</div>
           <p class="skill-tagline">Rare-disease mechanism curation.</p>
-          <p class="skill-desc">Mirrors the Monarch Initiative's DisMech LinkML schema into TypeDB. <strong>797 disorders</strong> with phenotypes (HPO), causal genes, treatments (MAXO), and PubMed evidence — now a single typed graph rather than YAML files scanned per query.</p>
+          <p class="skill-desc">Monarch Initiative DisMech data mapped to Alhazen Notebook via Claude-generated GLAV rules. <strong>1,068 disorders</strong> with phenotypes (HPO), causal genes, treatments (MAXO), and PubMed evidence.</p>
           <div class="skill-prompt" style="border-left-color: var(--blue);">
             <span class="ask" style="color: var(--blue);">Ask Claude</span>
-            <span class="q">"Which diseases involve WNT/β-catenin mechanisms but have no documented treatment?"</span>
+            <span class="q">"Which diseases involve WNT/β-catenin but have no documented treatment?"</span>
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- ── COLUMN 3 ─────────────────────────────────────────── -->
@@ -625,103 +777,94 @@ strong, b { font-weight: 700; }
       <!-- Benchmark -->
       <div class="sec">
         <div class="sec-head">
-          <div class="sec-num" style="color: var(--blue);">05 · Result</div>
-          <div class="sec-title">When the question is structural, RAG cannot reach it.</div>
+          <div class="sec-num" style="color: var(--blue);">05 · Compare RAG vs TypeDB </div>
+          <div class="sec-title">RAG fails for structural queries.</div>
           <div class="sec-rule accent" style="background: var(--blue);"></div>
         </div>
         <div class="sec-body" style="margin-bottom: 6pt;">
           <p>DisMech benchmark — 13 questions, 3 categories, same corpus. Ground truth computed deterministically by scanning YAML (no LLM in scoring).</p>
         </div>
 
-        <div class="bm">
-          <div class="bm-row">
-            <div class="label">Pathway aggregation<span class="sub">"How many diseases involve WNT/β-catenin mechanisms?"</span></div>
-            <div class="bm-bars">
-              <div class="bm-bar tdb">
-                <div class="who">TypeDB</div>
-                <div class="track"><div class="fill" style="width: 75%;"></div></div>
-                <div class="val">0.75</div>
-              </div>
-              <div class="bm-bar rag">
-                <div class="who">RAG</div>
-                <div class="track"><div class="fill" style="width: 0%;"></div></div>
-                <div class="val">0.00</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="bm-row">
-            <div class="label">Absence detection<span class="sub">"Which diseases have phenotypes but no genetic entries?"</span></div>
-            <div class="bm-bars">
-              <div class="bm-bar tdb">
-                <div class="who">TypeDB</div>
-                <div class="track"><div class="fill" style="width: 68%;"></div></div>
-                <div class="val">0.68</div>
-              </div>
-              <div class="bm-bar rag">
-                <div class="who">RAG</div>
-                <div class="track"><div class="fill" style="width: 0%;"></div></div>
-                <div class="val">0.00</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="bm-row">
-            <div class="label">Global ranking<span class="sub">"Top 5 diseases by number of mechanisms?"</span></div>
-            <div class="bm-bars">
-              <div class="bm-bar tdb">
-                <div class="who">TypeDB</div>
-                <div class="track"><div class="fill" style="width: 77%;"></div></div>
-                <div class="val">0.77</div>
-              </div>
-              <div class="bm-bar rag">
-                <div class="who">RAG</div>
-                <div class="track"><div class="fill" style="width: 3%;"></div></div>
-                <div class="val">0.03</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <table class="bm-table">
+          <thead>
+            <tr>
+              <th style="text-align: left;">Question type</th>
+              <th class="tdb">TypeDB</th>
+              <th class="rag">RAG</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="row-label">Pathway aggregation<span class="q">"How many diseases involve WNT/β-catenin mechanisms?"</span></td>
+              <td class="score tdb">0.75</td>
+              <td class="score rag">0.00</td>
+            </tr>
+            <tr>
+              <td class="row-label">Absence detection<span class="q">"Which diseases have phenotypes but no genetic entries?"</span></td>
+              <td class="score tdb">0.68</td>
+              <td class="score rag">0.00</td>
+            </tr>
+            <tr>
+              <td class="row-label">Global ranking<span class="q">"Top 5 diseases by number of mechanisms?"</span></td>
+              <td class="score tdb">0.77</td>
+              <td class="score rag">0.03</td>
+            </tr>
+          </tbody>
+        </table>
 
         <p class="bm-note">RAG's failures are <strong>architectural</strong> — aggregation requires counting; absence requires evidence of non-existence; ranking requires ordering by structural property. Typed graphs have these primitives natively.</p>
+      </div>
+
+      <!-- Ontology design -->
+      <div class="sec">
+        <div class="sec-head">
+          <div class="sec-num">06 · Ontology Design</div>
+          <div class="sec-title">Distinctions create clarity.</div>
+          <div class="sec-rule"></div>
+        </div>
+        <div class="sec-body">
+          <p>What is the best way to model a <em>person</em> in the system? As an author, a job-hunter, a company contact? The answer is <strong>all three</strong> — via formal role-bearing relations (UFO/OntoUML).</p>
+          <ul>
+            <li>A <strong>person</strong> is rigid — strip the institution, they remain.</li>
+            <li>A <strong>role</strong> is anti-rigid — it comes and goes with context.</li>
+            <li>Role-specific data sits on the role, never polluting the person node.</li>
+          </ul>
+        </div>
       </div>
 
       <!-- Schema evolution -->
       <div class="sec">
         <div class="sec-head">
-          <div class="sec-num">06 · Schema Evolution</div>
-          <div class="sec-title">The graph grows from use.</div>
+          <div class="sec-num">07 · Schema Evolution</div>
+          <div class="sec-title">The notebook learns from from experience.</div>
           <div class="sec-rule"></div>
         </div>
         <div class="sec-body">
-          <p>When the agent encounters something the current schema cannot represent, it records the gap as a note <em>and</em> files a GitHub issue. The coding agent then extends the schema; GLAV mapping rules migrate prior data; curation continues.</p>
+          <p>When the agent encounters something the current
+            schema cannot represent, it records the gap as
+             a note <em>and</em> files a GitHub issue. 
+             The coding agent then extends the schema; 
+             GLAV mapping rules migrate prior data; 
+             curation continues.</p>
         </div>
 
-        <div class="loop">
-          <div class="box">Curating</div>
-          <div class="arrow h">→</div>
-          <div class="box gap">Schema gap detected</div>
-
-          <div></div><div class="arrow v">↓</div><div></div>
-
-          <div class="box">Old data migrated</div>
-          <div class="arrow h">←</div>
-          <div class="box">Schema extended<br/>by coding agent</div>
+        <div style="border: 2pt solid var(--rule-soft); border-radius: 4pt; overflow: hidden;">
+          <img src="uploads/evolution.png" alt="Schema evolution loop" style="width: 100%; height: auto; display: block;" />
         </div>
       </div>
 
       <!-- Try it -->
       <div class="sec">
         <div class="sec-head">
-          <div class="sec-num">07 · Try it at the booth</div>
-          <div class="sec-title">Scan, ask, watch the graph grow.</div>
+          <div class="sec-num">08 · Try it at the booth</div>
+          <div class="sec-title">Clone the repo, build a skill.</div>
           <div class="sec-rule"></div>
         </div>
 
         <div class="try-prompts">
-          <div class="try-prompt"><span class="n">1</span><span class="q">"Ingest this URL as a job posting and show me the fit analysis."</span></div>
-          <div class="try-prompt"><span class="n">2</span><span class="q">"Show the provenance chain from this note back to its source."</span></div>
-          <div class="try-prompt"><span class="n">3</span><span class="q">"Switch to tech-recon and map a topic of your choice."</span></div>
+          <div class="try-prompt"><span class="n">1</span><span class="q">"Develop a job-search for a fictious person."</span></div>
+          <div class="try-prompt"><span class="n">2</span><span class="q">"Run a tech recon on a research question of interest."</span></div>
+          <div class="try-prompt"><span class="n">3</span><span class="q">"Build a novel curation skill that serves a need."</span></div>
         </div>
 
         <div class="qr-row">

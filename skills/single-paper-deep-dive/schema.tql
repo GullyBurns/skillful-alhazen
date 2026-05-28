@@ -1,0 +1,86 @@
+define
+
+# === SINGLE PAPER DEEP DIVE NAMESPACE (dive-) ===
+# Structured analysis of a research paper: claims, evidence, citation impact.
+# A dive-analysis is the root object (sub alh-collection) that groups
+# dive-claim nodes (sub alh-note) and dive-citation-impact nodes (sub alh-note).
+# Each dive-claim can have multiple dive-evidence nodes (sub alh-note).
+
+# ---------- ATTRIBUTES ----------
+
+attribute dive-paper-doi, value string;
+attribute dive-paper-title, value string;
+attribute dive-paper-year, value integer;
+attribute dive-paper-type, value string;        # research | review | meta-analysis | preprint | book-chapter
+attribute dive-analysis-status, value string;   # in-progress | complete | scope-exhausted
+attribute dive-source-count, value integer;
+attribute dive-scope-note, value string;
+
+attribute dive-claim-type, value string;        # primary | secondary | peripheral
+attribute dive-claim-statement, value string;
+
+attribute dive-evidence-type, value string;     # experimental | observational | computational | review | theoretical | anecdotal
+attribute dive-experimental-design, value string;
+attribute dive-data-summary, value string;
+attribute dive-source-url, value string;
+
+attribute dive-impact-type, value string;       # supports | refutes | extends | nuances | uses | unrelated
+attribute dive-impact-summary, value string;
+
+# ---------- RELATIONS (defined before entities) ----------
+
+relation dive-analysis-has-claim,
+    relates analysis,
+    relates claim;
+
+relation dive-claim-has-evidence,
+    relates claim,
+    relates evidence;
+
+relation dive-evidence-cites-source,
+    relates evidence,
+    relates source;
+
+relation dive-analysis-cited-by,
+    relates focal-analysis,
+    relates citation-impact;
+
+# ---------- ENTITIES ----------
+
+entity dive-analysis sub alh-collection,
+    owns dive-paper-doi,
+    owns dive-paper-title,
+    owns dive-paper-year,
+    owns dive-paper-type,
+    owns dive-analysis-status,
+    owns dive-source-count,
+    owns dive-scope-note,
+    plays dive-analysis-has-claim:analysis,
+    plays dive-analysis-cited-by:focal-analysis;
+
+entity dive-claim sub alh-note,
+    owns dive-claim-type,
+    owns dive-claim-statement,
+    plays dive-analysis-has-claim:claim,
+    plays dive-claim-has-evidence:claim;
+
+entity dive-evidence sub alh-note,
+    owns dive-evidence-type,
+    owns dive-experimental-design,
+    owns dive-data-summary,
+    owns dive-paper-doi,
+    owns dive-paper-title,
+    owns dive-source-url,
+    plays dive-claim-has-evidence:evidence,
+    plays dive-evidence-cites-source:evidence;
+
+entity dive-citation-impact sub alh-note,
+    owns dive-impact-type,
+    owns dive-impact-summary,
+    owns dive-paper-doi,
+    owns dive-paper-title,
+    plays dive-analysis-cited-by:citation-impact;
+
+# ---------- ROLE BINDINGS ----------
+
+entity alh-artifact plays dive-evidence-cites-source:source;

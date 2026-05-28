@@ -32,6 +32,11 @@
     "color": "blue",
     "skill": "scientific-literature"
   },
+  "dive": {
+    "badge": "SKILL",
+    "color": "blue",
+    "skill": "single-paper-deep-dive"
+  },
   "trec": {
     "badge": "SKILL",
     "color": "blue",

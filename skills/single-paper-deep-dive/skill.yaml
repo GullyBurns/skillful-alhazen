@@ -1,0 +1,20 @@
+name: single-paper-deep-dive
+version: 0.1.0
+description: Deep analysis of a single research paper — extracts primary, secondary, and peripheral claims, traces evidence back to primary experimental studies, and maps citation impact from subsequent work.
+author: gullyburns
+license: MIT
+typedb_schema: schema.tql
+cli: single_paper_deep_dive.py
+dependencies:
+  - typedb-notebook
+  - web-search
+schema:
+  namespace: dive
+  depends_on: []
+tags:
+  - literature
+  - analysis
+  - claims
+  - evidence
+  - citation-impact
+  - research
